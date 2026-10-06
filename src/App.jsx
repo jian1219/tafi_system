@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import AccountantLogin from './Pages/Accountant/Accountant_login'
 import AdminLogin from './Pages/Admin_2/Admin_2_login'
 import BranchAdminLogin from './Pages/Branch_admin/Branch_admin_login'
+import BranchAdminDashboard from './Pages/Branch_admin/Branch_admin_dashboard'
 import logoImage from './images/Tafi logo transparent.png'
 import './App.css'
 
@@ -77,6 +78,7 @@ function App() {
         <Route path="/accountant-login" element={<AccountantLogin />} />
         <Route path="/admin-2-login" element={<AdminLogin />} />
         <Route path="/branch-admin-login" element={<BranchAdminLogin />} />
+        <Route path="/branch-admin-dashboard" element={<BranchAdminDashboard />} />
       </Routes>
     </BrowserRouter>
   )

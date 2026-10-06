@@ -1,14 +1,17 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import logoImage from '../../images/Tafi logo transparent.png'
 
 export default function BranchAdminLogin() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const navigate = useNavigate()
 
   const handleSubmit = (event) => {
     event.preventDefault()
-    console.log('Branch admin login attempt:', { username, password })
+    if (username.trim() && password.trim()) {
+      navigate('/branch-admin-dashboard')
+    }
   }
 
   return (
