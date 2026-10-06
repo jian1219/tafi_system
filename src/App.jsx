@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
+import { ArrowRight, Calculator, Crown, ShieldCheck, Store } from 'lucide-react'
 import AccountantLogin from './Pages/Accountant/Accountant_login'
-import AdminLogin from './Pages/Admin_2/Admin_2_login'
+import AdminLogin from './Pages/TAFI_Admin/TAFI_Admin_login'
 import BranchAdminLogin from './Pages/Branch_admin/Branch_admin_login'
 import BranchAdminDashboard from './Pages/Branch_admin/Branch_admin_dashboard'
+import SuperAdminLogin from './Pages/Super_Admin/Super_Admin'
+import SuperAdminDashboard from './Pages/Super_Admin/Super_Admin_Dashboard'
 import logoImage from './images/Tafi logo transparent.png'
 import './App.css'
 
@@ -11,17 +14,26 @@ const roles = [
   {
     name: 'Accountant',
     path: '/accountant-login',
+    icon: Calculator,
     description: 'Manage finance, invoices, and budget tracking.'
   },
   {
-    name: 'Admin',
-    path: '/admin-2-login',
+    name: 'TAFI Admin',
+    path: '/tafi-admin-login',
+    icon: ShieldCheck,
     description: 'Oversee system access, settings, and operations.'
   },
   {
     name: 'Branch Admin',
     path: '/branch-admin-login',
+    icon: Store,
     description: 'Coordinate branch activity and team performance.'
+  },
+  {
+    name: 'Super Admin',
+    path: '/super-admin-login',
+    icon: Crown,
+    description: 'Manage company-wide access and administration.'
   }
 ]
 
@@ -52,17 +64,24 @@ function Home() {
         <p className="role-title">Login as</p>
 
         <div className="role-list">
-          {roles.map((role) => (
-            <button
-              key={role.name}
-              type="button"
-              className={`role-card ${selectedRole === role.name ? 'selected' : ''}`}
-              onClick={() => handleSelectRole(role)}
-            >
-              <span className="role-name">{role.name}</span>
-              <span className="role-description">{role.description}</span>
-            </button>
-          ))}
+          {roles.map((role) => {
+            const RoleIcon = role.icon
+            return (
+              <button
+                key={role.name}
+                type="button"
+                className={`role-card ${selectedRole === role.name ? 'selected' : ''}`}
+                onClick={() => handleSelectRole(role)}
+              >
+                <span className="role-heading">
+                  <span className="role-icon"><RoleIcon size={20} aria-hidden="true" /></span>
+                  <span className="role-name">{role.name}</span>
+                  <ArrowRight className="role-arrow" size={18} aria-hidden="true" />
+                </span>
+                <span className="role-description">{role.description}</span>
+              </button>
+            )
+          })}
         </div>
 
       </div>
@@ -76,9 +95,11 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/accountant-login" element={<AccountantLogin />} />
-        <Route path="/admin-2-login" element={<AdminLogin />} />
+        <Route path="/tafi-admin-login" element={<AdminLogin />} />
         <Route path="/branch-admin-login" element={<BranchAdminLogin />} />
+        <Route path="/super-admin-login" element={<SuperAdminLogin />} />
         <Route path="/branch-admin-dashboard" element={<BranchAdminDashboard />} />
+        <Route path="/super-admin-dashboard" element={<SuperAdminDashboard />} />
       </Routes>
     </BrowserRouter>
   )

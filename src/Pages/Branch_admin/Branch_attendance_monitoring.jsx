@@ -29,7 +29,7 @@ export const monthRecords = [
   { no: 10, name: 'Singgolan Reymart Lahindao', id: 'EMP-010', position: 'Stock Associate', days: ['A','P','P','L','P','P','A','P','P','P','P','L','A','P','P','P','A','P','P','P','P','P','A','P','P','P','P','A','P','P','L'] }
 ]
 
-export default function BranchAttendanceMonitoring() {
+export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branch' }) {
   const [activeTab, setActiveTab] = useState('daily')
   const [attendanceDateKey] = useState(() => getLocalDateKey(new Date()))
   const [employees, setEmployees] = useState(() =>
@@ -132,7 +132,7 @@ export default function BranchAttendanceMonitoring() {
   return (
     <div className="attendance-monitoring-shell">
       <div className="attendance-header-strip">
-        <div className="branch-title">Bansasi Branch</div>
+        <div className="branch-title">{branchName}</div>
       </div>
 
       <div className="attendance-monitoring-bar">

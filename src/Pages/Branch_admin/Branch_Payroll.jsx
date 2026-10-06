@@ -22,7 +22,7 @@ const payrollWeeks = Array.from(
   })
 )
 
-export default function BranchPayroll() {
+export default function BranchPayroll({ branchName = 'Bansasi Branch' }) {
   const [selectedWeekIndex, setSelectedWeekIndex] = useState(0)
   const [employees] = useState(getBranchEmployees)
   const selectedWeek = payrollWeeks[selectedWeekIndex]
@@ -59,7 +59,7 @@ export default function BranchPayroll() {
     <section className="branch-payroll-shell">
       <header className="branch-payroll-header">
         <div>
-          <p className="employee-info-eyebrow">Bansasi Branch</p>
+          <p className="employee-info-eyebrow">{branchName}</p>
           <h3>Weekly Payroll</h3>
           <p className="employee-info-description">Weekly gross estimate based on recorded attendance and employee daily rates.</p>
         </div>

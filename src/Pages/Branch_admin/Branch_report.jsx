@@ -77,7 +77,7 @@ function PeriodControls({ periodType, onPeriodTypeChange, weekIndex, onWeekChang
 	)
 }
 
-export default function BranchReport() {
+export default function BranchReport({ branchName = 'Bansasi Branch' }) {
 	const [attendancePeriodType, setAttendancePeriodType] = useState('weekly')
 	const [attendanceWeekIndex, setAttendanceWeekIndex] = useState(0)
 	const [payrollPeriodType, setPayrollPeriodType] = useState('weekly')
@@ -167,7 +167,7 @@ export default function BranchReport() {
 	return (
 		<section className="branch-report-page">
 			<header className="branch-report-header">
-				<p className="employee-info-eyebrow">Bansasi Branch</p>
+				<p className="employee-info-eyebrow">{branchName}</p>
 				<h3>Branch Reports</h3>
 				<p className="employee-info-description">Generate attendance and payroll files separately.</p>
 			</header>

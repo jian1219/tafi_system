@@ -8,7 +8,7 @@ const formatCurrency = (amount) => amount.toLocaleString('en-PH', {
 	minimumFractionDigits: 2
 })
 
-export default function BranchAdminEmployee() {
+export default function BranchAdminEmployee({ branchName = 'Bansasi Branch' }) {
 	const [employees, setEmployees] = useState(getBranchEmployees)
 	const [searchTerm, setSearchTerm] = useState('')
 	const [positionFilter, setPositionFilter] = useState('All positions')
@@ -207,7 +207,7 @@ export default function BranchAdminEmployee() {
 		<section className="employee-info-shell">
 			<header className="employee-info-header">
 				<div>
-					<p className="employee-info-eyebrow">Bansasi Branch</p>
+					<p className="employee-info-eyebrow">{branchName}</p>
 					<h3>Employee Information</h3>
 					<p className="employee-info-description">Branch roster and today’s attendance status.</p>
 				</div>

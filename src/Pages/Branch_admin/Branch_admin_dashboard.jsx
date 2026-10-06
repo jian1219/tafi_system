@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import logoImage from '../../images/Tafi logo transparent.png'
 import BranchAdminEmployee from './Branch_admin_employee'
 import BranchAttendanceMonitoring from './Branch_attendance_monitoring'
@@ -14,9 +14,19 @@ const tabs = [
 ]
 
 export default function BranchAdminDashboard() {
+  const location = useLocation()
   const [activeTab, setActiveTab] = useState('Employee Info')
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [currentDateTime, setCurrentDateTime] = useState(() => new Date())
+  const [branchAdmin] = useState(() => {
+    if (location.state?.branchAdmin) return location.state.branchAdmin
+    try {
+      return JSON.parse(window.sessionStorage.getItem('tafi-branch-admin-session') || 'null')
+    } catch {
+      return null
+    }
+  })
+  const branchName = branchAdmin?.branch_name || 'Bansasi Branch'
 
   const ActiveComponent = tabs.find((tab) => tab.name === activeTab)?.component || BranchAdminEmployee
 
@@ -83,12 +93,15 @@ export default function BranchAdminDashboard() {
                 <span>{currentDateTime.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</span>
                 <strong>{currentDateTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</strong>
               </div>
-              <div className="user-chip">Branch Admin</div>
+              <div className="user-chip">
+                {branchAdmin?.admin_name || 'Branch Admin'}
+                {branchAdmin?.branch_name && <small>{branchAdmin.branch_name}</small>}
+              </div>
             </div>
           </div>
 
           <div className="tab-content">
-            <ActiveComponent />
+            <ActiveComponent branchName={branchName} />
           </div>
 
           <Link to="/" className="back-link" style={{ marginTop: '18px', display: 'inline-block' }}>

@@ -1,35 +1,24 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, LockKeyhole, Store, UserRound } from 'lucide-react'
-import { verifyBranchAdminCredentials } from '../../lib/supabase'
+import { Link } from 'react-router-dom'
+import { ArrowRight, LockKeyhole, ShieldCheck, UserRound } from 'lucide-react'
+import { signInWithEmailPassword } from '../../lib/supabase'
 import logoImage from '../../images/Tafi logo transparent.png'
 
-export default function BranchAdminLogin() {
+export default function AdminLogin() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loginMessage, setLoginMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const navigate = useNavigate()
 
   const handleSubmit = async (event) => {
     event.preventDefault()
     setLoginMessage('')
     setIsSubmitting(true)
-    const { profile, error } = await verifyBranchAdminCredentials(email, password)
+    const { error } = await signInWithEmailPassword(email, password)
     setIsSubmitting(false)
-
-    if (error) {
-      setLoginMessage(error.message)
-    } else if (!profile) {
-      setLoginMessage('Email or password is incorrect.')
-    } else {
-      try {
-        window.sessionStorage.setItem('tafi-branch-admin-session', JSON.stringify(profile))
-      } catch {
-        // The route state still carries the profile when session storage is unavailable.
-      }
-      navigate('/branch-admin-dashboard', { state: { branchAdmin: profile } })
-    }
+    setLoginMessage(error
+      ? error.message
+      : 'Signed in successfully. The TAFI Admin workspace is not configured yet.')
   }
 
   return (
@@ -38,27 +27,27 @@ export default function BranchAdminLogin() {
         <div className="brand-badge">
           <img src={logoImage} alt="TAFI logo" className="brand-logo" />
         </div>
-        <p className="eyebrow">Branch operations</p>
+        <p className="eyebrow">System administration</p>
         <h1>TAFI</h1>
         <p className="brand-copy">
-          Track branch performance, staff activity, and operational coordination.
+          Manage team permissions, platform settings, and core system operations.
         </p>
       </div>
 
       <div className="login-panel">
         <p className="role-tag admin-role-tag">
-          <Store size={16} aria-hidden="true" />
-          Branch Admin
+          <ShieldCheck size={16} aria-hidden="true" />
+          TAFI Admin
         </p>
         <h2>Login</h2>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="input-group">
-            <label htmlFor="branch-admin-email">Email</label>
+            <label htmlFor="admin-email">Email</label>
             <div className="login-input-wrap">
               <UserRound className="login-input-icon" size={18} aria-hidden="true" />
               <input
-                id="branch-admin-email"
+                id="admin-email"
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
@@ -70,11 +59,11 @@ export default function BranchAdminLogin() {
           </div>
 
           <div className="input-group">
-            <label htmlFor="branch-admin-password">Password</label>
+            <label htmlFor="admin-password">Password</label>
             <div className="login-input-wrap">
               <LockKeyhole className="login-input-icon" size={18} aria-hidden="true" />
               <input
-                id="branch-admin-password"
+                id="admin-password"
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -89,7 +78,11 @@ export default function BranchAdminLogin() {
             {isSubmitting ? 'Signing in...' : 'Login'}
             <ArrowRight size={18} aria-hidden="true" />
           </button>
-          {loginMessage && <p className="login-notice error" role="alert">{loginMessage}</p>}
+          {loginMessage && (
+            <p className={`login-notice ${loginMessage.startsWith('Signed in') ? 'success' : 'error'}`} role="status">
+              {loginMessage}
+            </p>
+          )}
         </form>
 
         <Link to="/" className="back-link">
