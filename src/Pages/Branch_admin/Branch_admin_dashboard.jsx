@@ -1,14 +1,24 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { LogOut } from 'lucide-react'
 import logoImage from '../../images/Tafi logo transparent.png'
 import BranchAdminEmployee from './Branch_admin_employee'
 import BranchAttendanceMonitoring from './Branch_attendance_monitoring'
 import BranchPayroll from './Branch_Payroll'
 import BranchReport from './Branch_report'
+import BranchMandatoryContributionEmployee from './Branch_Mandatory_contribution_employee'
+import BranchCashAdvance from './Branch_Cash_advance'
+import BranchOtherDeduction from './Branch_Other_deduction'
+import BranchOtherAdditionPay from './Branch_Other_Addition_pay'
+import { revokeBranchAdminSession } from '../../lib/supabase'
 
 const tabs = [
   { name: 'Employee Info', component: BranchAdminEmployee },
-  { name: 'Branch attendance monitoring', component: BranchAttendanceMonitoring },
+  { name: 'Attendance monitoring', component: BranchAttendanceMonitoring },
+  { name: 'Mandatory Contribution Employee', component: BranchMandatoryContributionEmployee },
+  { name: 'Cash Advance Pay', component: BranchCashAdvance },
+  { name: 'Others Deduction Pay', component: BranchOtherDeduction },
+  { name: 'Others Addition Pay', component: BranchOtherAdditionPay },
   { name: 'Branch payroll', component: BranchPayroll },
   { name: 'Branch reports', component: BranchReport }
 ]
@@ -29,6 +39,20 @@ export default function BranchAdminDashboard() {
   const branchName = branchAdmin?.branch_name || 'Bansasi Branch'
 
   const ActiveComponent = tabs.find((tab) => tab.name === activeTab)?.component || BranchAdminEmployee
+
+  const handleLogout = () => {
+    try {
+      window.sessionStorage.removeItem('tafi-branch-admin-session')
+    } catch (error) {
+      console.error('Unable to clear the Branch Admin session.', error)
+    }
+
+    if (branchAdmin?.session_token) {
+      revokeBranchAdminSession(branchAdmin.session_token).then(({ error }) => {
+        if (error) console.error('Unable to revoke the Branch Admin session.', error)
+      })
+    }
+  }
 
   useEffect(() => {
     const timerId = window.setInterval(() => setCurrentDateTime(new Date()), 1000)
@@ -55,18 +79,6 @@ export default function BranchAdminDashboard() {
 
           {!isSidebarCollapsed && (
             <>
-              <div className="sidebar-section">
-                <div className="sidebar-label">Overview</div>
-                <div className="sidebar-card">
-                  <strong>24</strong>
-                  Staff assigned
-                </div>
-                <div className="sidebar-card">
-                  <strong>96%</strong>
-                  Attendance rate
-                </div>
-              </div>
-
               <div className="sidebar-section">
                 <div className="sidebar-label">Quick actions</div>
                 {tabs.map((tab) => (
@@ -97,16 +109,16 @@ export default function BranchAdminDashboard() {
                 {branchAdmin?.admin_name || 'Branch Admin'}
                 {branchAdmin?.branch_name && <small>{branchAdmin.branch_name}</small>}
               </div>
+              <Link to="/" className="dashboard-signout" onClick={handleLogout}>
+                <LogOut size={17} aria-hidden="true" />
+                Logout
+              </Link>
             </div>
           </div>
 
           <div className="tab-content">
-            <ActiveComponent branchName={branchName} />
+            <ActiveComponent branchName={branchName} branchAdmin={branchAdmin} />
           </div>
-
-          <Link to="/" className="back-link" style={{ marginTop: '18px', display: 'inline-block' }}>
-            ← Return home
-          </Link>
         </main>
       </div>
     </div>

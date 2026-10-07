@@ -67,6 +67,14 @@ create table if not exists public.employee (
   position text not null,
   email text,
   phone text,
+  address text,
+  gender text,
+  birthday date,
+  sss_number text,
+  pagibig_number text,
+  philhealth_number text,
+  employment_classification text
+    check (employment_classification in ('Regular', 'Probationary', 'Trainee')),
   daily_rate numeric(12, 2) not null default 0 check (daily_rate >= 0),
   employment_status text not null default 'active'
     check (employment_status in ('active', 'inactive')),
@@ -263,7 +271,9 @@ begin
 end;
 $$;
 
-create or replace function public.branch_admin_login(p_email text, p_password text)
+drop function if exists public.branch_admin_login(text, text);
+
+create function public.branch_admin_login(p_email text, p_password text)
 returns table (
   admin_id uuid,
   admin_name text,

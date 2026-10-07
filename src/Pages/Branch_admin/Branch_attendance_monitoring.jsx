@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { listBranchAttendance, saveBranchAttendance } from '../../lib/supabase'
 import { getBranchEmployees } from './branchEmployees'
-import { getAttendanceForDate, getLocalDateKey, saveAttendanceForDate } from './branchAttendanceRecords'
+import { getLocalDateKey } from './branchAttendanceRecords'
 
 const attendanceOptions = [
   'Not marked',
@@ -16,50 +17,129 @@ const attendanceOptions = [
   'Day Off'
 ]
 
-export const monthRecords = [
-  { no: 1, name: 'Arban Ella Marie Layao', id: 'EMP-001', position: 'Cashier', days: ['P','P','P','A','L','P','P','P','A','P','P','P','L','P','P','P','A','P','P','P','P','P','A','P','P','P','P','L','P','P','P'] },
-  { no: 2, name: 'Guinombay Reynard Coguit', id: 'EMP-002', position: 'Sales Associate', days: ['P','L','P','P','A','P','P','P','P','L','P','A','P','P','P','P','P','A','P','P','P','P','P','L','A','P','P','P','P','P','A'] },
-  { no: 3, name: 'Mandang Susan Madrid', id: 'EMP-003', position: 'Inventory Clerk', days: ['P','P','P','A','P','P','L','P','A','P','P','P','P','L','P','A','P','P','P','P','A','P','P','P','P','L','P','P','A','P','P'] },
-  { no: 4, name: 'Orbita Erlyn Torres', id: 'EMP-004', position: 'Customer Service', days: ['A','P','P','P','P','A','P','L','P','P','P','A','P','P','P','L','P','P','P','A','P','P','P','P','A','P','P','P','P','L','P'] },
-  { no: 5, name: 'Osigan Regie Alabat', id: 'EMP-005', position: 'Warehouse Staff', days: ['P','P','A','P','L','P','P','P','A','P','P','P','P','A','P','P','P','L','P','P','A','P','P','P','P','P','A','P','P','L','P'] },
-  { no: 6, name: 'Polison James Darrel Boiser', id: 'EMP-006', position: 'Supervisor', days: ['P','P','P','P','L','A','P','P','P','P','A','P','P','P','P','L','P','A','P','P','P','P','P','A','L','P','P','P','P','P','A'] },
-  { no: 7, name: 'Sabate Anthony Campilan', id: 'EMP-007', position: 'Utility Staff', days: ['P','A','P','P','P','P','L','P','A','P','P','P','A','P','P','P','P','P','A','L','P','P','P','P','A','P','P','P','P','A','P'] },
-  { no: 8, name: 'Sabanal John Paul', id: 'EMP-008', position: 'Delivery Staff', days: ['P','L','P','A','P','P','P','A','P','P','P','A','P','P','L','P','P','P','A','P','P','P','P','L','P','A','P','P','P','P','A'] },
-  { no: 9, name: 'Satorre Kate Francis', id: 'EMP-009', position: 'Accounts Staff', days: ['P','P','P','P','A','P','P','P','A','P','P','P','L','A','P','P','P','P','P','A','P','P','L','P','P','A','P','P','P','P','P'] },
-  { no: 10, name: 'Singgolan Reymart Lahindao', id: 'EMP-010', position: 'Stock Associate', days: ['A','P','P','L','P','P','A','P','P','P','P','L','A','P','P','P','A','P','P','P','P','P','A','P','P','P','P','A','P','P','L'] }
-]
+const statusFromDatabase = {
+  not_marked: 'Not marked',
+  present: 'Present',
+  present_late: 'Present (Late)',
+  absent: 'Absent',
+  maternity_leave: 'Maternity Leave',
+  paternity_leave: 'Paternity Leave',
+  authorized_leave: 'Authorized Leave',
+  birthday_leave: 'Birthday Leave',
+  vl_with_pay: 'VL with Pay',
+  vl_without_pay: 'VL without Pay',
+  day_off: 'Day Off'
+}
 
-export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branch' }) {
+const statusToDatabase = Object.fromEntries(
+  Object.entries(statusFromDatabase).map(([databaseStatus, label]) => [label, databaseStatus])
+)
+
+const statusCodes = {
+  present: 'P',
+  present_late: 'L',
+  absent: 'A',
+  maternity_leave: 'V',
+  paternity_leave: 'V',
+  authorized_leave: 'V',
+  birthday_leave: 'V',
+  vl_with_pay: 'V',
+  vl_without_pay: 'V',
+  day_off: 'O'
+}
+
+export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branch', branchAdmin }) {
   const [activeTab, setActiveTab] = useState('daily')
   const [attendanceDateKey] = useState(() => getLocalDateKey(new Date()))
-  const [employees, setEmployees] = useState(() =>
-    getBranchEmployees().map(({ id, name, position, todayStatus, dailyRate }) => {
-      const savedRecord = getAttendanceForDate(attendanceDateKey)[id]
-      const initialStatus = savedRecord?.status ?? (todayStatus === 'Late' ? 'Present (Late)' : todayStatus)
-      return {
-        id,
-        name,
-        position,
-        dailyRate,
-        status: initialStatus,
-        lateMinutes: savedRecord?.lateMinutes ?? 0
+  const date = new Date(`${attendanceDateKey}T12:00:00`)
+  const monthStartDate = new Date(date.getFullYear(), date.getMonth(), 1)
+  const monthEndDate = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+  const monthStart = getLocalDateKey(monthStartDate)
+  const monthEnd = getLocalDateKey(monthEndDate)
+  const daysInMonth = monthEndDate.getDate()
+  const sessionToken = branchAdmin?.session_token
+  const [employees, setEmployees] = useState([])
+  const [attendanceRecords, setAttendanceRecords] = useState([])
+  const [isLoading, setIsLoading] = useState(Boolean(branchAdmin?.session_token))
+  const [saveMessage, setSaveMessage] = useState('')
+  const [saveError, setSaveError] = useState('')
+
+  useEffect(() => {
+    let isCurrent = true
+
+    const loadAttendanceData = async () => {
+      const [{ employees: loadedEmployees, error: employeeError }, { data, error: attendanceError }] = await Promise.all([
+        getBranchEmployees(sessionToken),
+        listBranchAttendance(sessionToken, monthStart, monthEnd)
+      ])
+      if (!isCurrent) return
+
+      const error = employeeError ?? attendanceError
+      if (error) {
+        setSaveError(error.message)
+        setIsLoading(false)
+        return
       }
-    })
-  )
+
+      const loadedRecords = data ?? []
+      const recordsForToday = Object.fromEntries(
+        loadedRecords
+          .filter((record) => record.attendance_date === attendanceDateKey)
+          .map((record) => [record.employee_code, record])
+      )
+      setEmployees(loadedEmployees.map((employee) => {
+        const record = recordsForToday[employee.id]
+        return {
+          ...employee,
+          status: statusFromDatabase[record?.status] ?? 'Not marked',
+          lateMinutes: record?.late_minutes ?? 0
+        }
+      }))
+      setAttendanceRecords(loadedRecords)
+      setSaveError('')
+      setIsLoading(false)
+    }
+
+    if (sessionToken) loadAttendanceData()
+
+    return () => {
+      isCurrent = false
+    }
+  }, [sessionToken, attendanceDateKey, monthStart, monthEnd])
+
+  const monthRecords = useMemo(() => employees.map((employee, index) => {
+    const recordsForEmployee = Object.fromEntries(
+      attendanceRecords
+        .filter((record) => record.employee_code === employee.id)
+        .map((record) => [Number(record.attendance_date.slice(-2)), record.status])
+    )
+    const days = Array.from({ length: daysInMonth }, (_, dayIndex) =>
+      statusCodes[recordsForEmployee[dayIndex + 1]] ?? ''
+    )
+    return { no: index + 1, id: employee.id, days }
+  }), [employees, attendanceRecords, daysInMonth])
 
   const totalPresent = employees.filter((employee) => ['Present', 'Present (Late)'].includes(employee.status)).length
   const totalLate = employees.filter((employee) => employee.status === 'Present (Late)').length
   const totalAbsent = employees.filter((employee) => employee.status === 'Absent').length
 
-  const weeklyRecords = useMemo(
-    () => [
-      { range: 'Week 1', present: 42, late: 6, absent: 9 },
-      { range: 'Week 2', present: 46, late: 4, absent: 7 },
-      { range: 'Week 3', present: 44, late: 5, absent: 8 },
-      { range: 'Week 4', present: 48, late: 3, absent: 6 }
-    ],
-    []
-  )
+  const weeklyRecords = useMemo(() => Array.from(
+    { length: Math.ceil(daysInMonth / 7) },
+    (_, weekIndex) => {
+      const firstDay = weekIndex * 7 + 1
+      const lastDay = Math.min(firstDay + 6, daysInMonth)
+      const weekAttendance = attendanceRecords.filter((record) => {
+        const day = Number(record.attendance_date.slice(-2))
+        return day >= firstDay && day <= lastDay
+      })
+      return {
+        range: `Week ${weekIndex + 1}`,
+        present: weekAttendance.filter((record) => record.status === 'present').length,
+        late: weekAttendance.filter((record) => record.status === 'present_late').length,
+        absent: weekAttendance.filter((record) => record.status === 'absent').length
+      }
+    }
+  ), [attendanceRecords, daysInMonth])
 
   const updateStatus = (employeeId, status) => {
     setEmployees((current) =>
@@ -90,10 +170,7 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
     minimumFractionDigits: 2
   })
 
-  const [saveMessage, setSaveMessage] = useState('')
-  const [saveError, setSaveError] = useState('')
-
-  const saveAttendance = () => {
+  const saveAttendance = async () => {
     const incompleteLateEntry = employees.find((employee) =>
       employee.status === 'Present (Late)' && (!Number.isInteger(employee.lateMinutes) || employee.lateMinutes < 1)
     )
@@ -104,30 +181,35 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
       return
     }
 
-    const records = Object.fromEntries(employees.map((employee) => [employee.id, {
-      status: employee.status,
-      lateMinutes: employee.status === 'Present (Late)' ? employee.lateMinutes : 0
-    }]))
-
-    if (!saveAttendanceForDate(attendanceDateKey, records)) {
-      setSaveError('Attendance could not be saved in this browser. Check available storage and try again.')
+    const records = employees.map((employee) => ({
+      employee_code: employee.id,
+      status: statusToDatabase[employee.status] ?? 'not_marked',
+      late_minutes: employee.status === 'Present (Late)' ? employee.lateMinutes : 0
+    }))
+    const { error } = await saveBranchAttendance(sessionToken, attendanceDateKey, records)
+    if (error) {
+      setSaveError(error.message)
       setSaveMessage('')
       return
     }
 
+    setAttendanceRecords((current) => [
+      ...current.filter((record) => record.attendance_date !== attendanceDateKey),
+      ...records.map((record) => ({ ...record, attendance_date: attendanceDateKey }))
+    ])
     setSaveError('')
     setSaveMessage('Attendance and late minutes saved.')
   }
 
   const summary = useMemo(() => {
-    const total = monthRecords.length
+    const total = employees.length
     const present = monthRecords.reduce((sum, employee) => sum + employee.days.filter((day) => day === 'P').length, 0)
     const late = monthRecords.reduce((sum, employee) => sum + employee.days.filter((day) => day === 'L').length, 0)
     const absent = monthRecords.reduce((sum, employee) => sum + employee.days.filter((day) => day === 'A').length, 0)
-    const rate = Math.round((present / (total * 31)) * 100)
+    const rate = total ? Math.round((present / (total * daysInMonth)) * 100) : 0
 
     return { present, late, absent, rate }
-  }, [])
+  }, [employees.length, monthRecords, daysInMonth])
 
   return (
     <div className="attendance-monitoring-shell">
@@ -138,6 +220,8 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
       <div className="attendance-monitoring-bar">
         <h3>Attendance Monitoring</h3>
       </div>
+      {!sessionToken && <p className="payroll-contribution-message error" role="alert">Your login session is missing. Sign out and sign in again after applying the Supabase SQL.</p>}
+      {isLoading && <p className="payroll-contribution-message" role="status">Loading employees and attendance…</p>}
 
       <div className="attendance-monitoring-tabs">
         <button
@@ -270,7 +354,9 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
                 {saveError && <span className="attendance-save-error" role="alert">{saveError}</span>}
                 {saveMessage && <span className="attendance-save-success" role="status">{saveMessage}</span>}
               </div>
-              <button type="button" className="save-button" onClick={saveAttendance}>Save attendance</button>
+              <button type="button" className="save-button" onClick={saveAttendance} disabled={isLoading || employees.length === 0}>
+                Save attendance
+              </button>
             </div>
           </div>
         </>
@@ -318,7 +404,7 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
           </div>
 
           <div className="monitoring-toolbar">
-            <div className="month-select">January</div>
+            <div className="month-select">{date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</div>
             <div className="summary-inline">
               <span>Present: <strong>{summary.present}</strong></span>
               <span>Late: <strong>{summary.late}</strong></span>
@@ -327,13 +413,13 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
             </div>
           </div>
 
-          <div className="attendance-grid-wrap">
+          <div className="attendance-grid-wrap" role="region" aria-label="Monthly attendance records" tabIndex="0">
             <table className="attendance-table">
               <thead>
                 <tr>
                   <th rowSpan="2">No.</th>
                   <th rowSpan="2">Employee ID</th>
-                  {Array.from({ length: 31 }, (_, index) => index + 1).map((day) => (
+                  {Array.from({ length: daysInMonth }, (_, index) => index + 1).map((day) => (
                     <th key={`day-${day}`}>{day}</th>
                   ))}
                   <th rowSpan="2">Total Present</th>
@@ -347,7 +433,7 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
                   const presentCount = employee.days.filter((value) => value === 'P').length
                   const lateCount = employee.days.filter((value) => value === 'L').length
                   const absentCount = employee.days.filter((value) => value === 'A').length
-                  const employeeRate = Math.round((presentCount / 31) * 100)
+                  const employeeRate = Math.round((presentCount / daysInMonth) * 100)
 
                   return (
                     <tr key={employee.id}>
@@ -355,7 +441,7 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
                       <td>{employee.id}</td>
                       {employee.days.map((value, index) => (
                         <td key={`${employee.id}-${index}`} className={`status-cell ${value.toLowerCase()}`}>
-                          {value === 'P' ? '✓' : value === 'L' ? '!' : value === 'A' ? 'A' : '•'}
+                          {value === 'P' ? '✓' : value === 'L' ? '!' : value === 'A' ? 'A' : value === 'V' ? 'V' : value === 'O' ? 'O' : ''}
                         </td>
                       ))}
                       <td>{presentCount}</td>
@@ -365,6 +451,9 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
                     </tr>
                   )
                 })}
+                {!isLoading && monthRecords.length === 0 && (
+                  <tr><td className="employee-empty-state" colSpan={daysInMonth + 6}>No employees have been added to this branch.</td></tr>
+                )}
               </tbody>
             </table>
           </div>

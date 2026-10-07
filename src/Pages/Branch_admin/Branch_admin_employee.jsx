@@ -1,6 +1,14 @@
-import { useMemo, useState } from 'react'
-import { getBranchEmployees, saveBranchEmployees } from './branchEmployees'
-import { monthRecords } from './Branch_attendance_monitoring'
+import { useEffect, useMemo, useState } from 'react'
+import {
+	createBranchEmployee,
+	updateBranchEmployeeDailyRate,
+	updateBranchEmployeeProfile
+} from '../../lib/supabase'
+import { getBranchEmployees } from './branchEmployees'
+import { getLocalDateKey } from './branchAttendanceRecords'
+
+const currentDate = new Date()
+const todayDateKey = getLocalDateKey(currentDate)
 
 const formatCurrency = (amount) => amount.toLocaleString('en-PH', {
 	style: 'currency',
@@ -8,8 +16,20 @@ const formatCurrency = (amount) => amount.toLocaleString('en-PH', {
 	minimumFractionDigits: 2
 })
 
-export default function BranchAdminEmployee({ branchName = 'Bansasi Branch' }) {
-	const [employees, setEmployees] = useState(getBranchEmployees)
+const getAge = (birthday) => {
+	if (!birthday) return '—'
+	const birthDate = new Date(`${birthday}T00:00:00`)
+	let age = currentDate.getFullYear() - birthDate.getFullYear()
+	const birthdayHasPassed = currentDate.getMonth() > birthDate.getMonth()
+		|| (currentDate.getMonth() === birthDate.getMonth() && currentDate.getDate() >= birthDate.getDate())
+	if (!birthdayHasPassed) age -= 1
+	return age
+}
+
+export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', branchAdmin }) {
+	const [employees, setEmployees] = useState([])
+	const [isLoading, setIsLoading] = useState(Boolean(branchAdmin?.session_token))
+	const [isSavingEmployee, setIsSavingEmployee] = useState(false)
 	const [searchTerm, setSearchTerm] = useState('')
 	const [positionFilter, setPositionFilter] = useState('All positions')
 	const [isAddFormOpen, setIsAddFormOpen] = useState(false)
@@ -19,15 +39,32 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch' }) {
 	const [selectedEmployeeId, setSelectedEmployeeId] = useState(null)
 	const [dailyRateInput, setDailyRateInput] = useState('')
 	const [rateError, setRateError] = useState('')
+	const [isSavingRate, setIsSavingRate] = useState(false)
+	const [profileForm, setProfileForm] = useState(null)
+	const [profileError, setProfileError] = useState('')
+	const [profileMessage, setProfileMessage] = useState('')
+	const [isSavingProfile, setIsSavingProfile] = useState(false)
+	const sessionToken = branchAdmin?.session_token
+
+	useEffect(() => {
+		let isCurrent = true
+
+		const loadEmployees = async () => {
+			const { employees: loadedEmployees, error } = await getBranchEmployees(sessionToken)
+			if (!isCurrent) return
+			if (error) setFormError(error.message)
+			else setEmployees(loadedEmployees)
+			setIsLoading(false)
+		}
+
+		if (sessionToken) loadEmployees()
+
+		return () => {
+			isCurrent = false
+		}
+	}, [sessionToken])
 
 	const selectedEmployee = employees.find((employee) => employee.id === selectedEmployeeId)
-	const selectedAttendance = monthRecords.find((record) => record.id === selectedEmployeeId)
-	const attendanceCounts = selectedAttendance?.days.reduce((counts, day) => {
-		if (day === 'P') counts.present += 1
-		if (day === 'L') counts.late += 1
-		if (day === 'A') counts.absent += 1
-		return counts
-	}, { present: 0, late: 0, absent: 0 })
 
 	const positions = [...new Set(employees.map((employee) => employee.position))]
 	const filteredEmployees = useMemo(() => {
@@ -42,32 +79,29 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch' }) {
 		})
 	}, [employees, searchTerm, positionFilter])
 
-	const addEmployee = (event) => {
+	const addEmployee = async (event) => {
 		event.preventDefault()
 		const name = newEmployeeName.trim()
 		const position = newEmployeePosition.trim()
 		if (!name || !position) return
 
-		const nextIdNumber = employees.reduce((highestId, employee) => {
-			const idNumber = Number(employee.id.match(/\d+$/)?.[0] || 0)
-			return Math.max(highestId, idNumber)
-		}, 0) + 1
-		const nextEmployees = [
-			...employees,
-			{
-				id: `EMP-${String(nextIdNumber).padStart(3, '0')}`,
-				name,
-				position,
-				todayStatus: 'Not marked'
-			}
-		]
-
-		if (!saveBranchEmployees(nextEmployees)) {
-			setFormError('Could not save this employee in this browser. Check available storage and try again.')
+		setIsSavingEmployee(true)
+		setFormError('')
+		const { error } = await createBranchEmployee(sessionToken, { name, position })
+		if (error) {
+			setFormError(error.message)
+			setIsSavingEmployee(false)
 			return
 		}
 
-		setEmployees(nextEmployees)
+		const { employees: refreshedEmployees, error: refreshError } = await getBranchEmployees(sessionToken)
+		setIsSavingEmployee(false)
+		if (refreshError) {
+			setFormError(`Employee was added, but the list could not be refreshed: ${refreshError.message}`)
+			return
+		}
+
+		setEmployees(refreshedEmployees)
 		setPositionFilter('All positions')
 		setSearchTerm('')
 		setNewEmployeeName('')
@@ -76,7 +110,7 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch' }) {
 		setIsAddFormOpen(false)
 	}
 
-	const saveDailyRate = (event) => {
+	const saveDailyRate = async (event) => {
 		event.preventDefault()
 		const dailyRate = Number(dailyRateInput)
 		if (dailyRateInput.trim() === '' || !Number.isFinite(dailyRate) || dailyRate < 0) {
@@ -84,22 +118,61 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch' }) {
 			return
 		}
 
-		const updatedEmployees = employees.map((employee) =>
-			employee.id === selectedEmployeeId ? { ...employee, dailyRate } : employee
-		)
-		if (!saveBranchEmployees(updatedEmployees)) {
-			setRateError('Could not save the daily rate in this browser. Check available storage and try again.')
+		setIsSavingRate(true)
+		const { error } = await updateBranchEmployeeDailyRate(sessionToken, selectedEmployeeId, dailyRate)
+		setIsSavingRate(false)
+		if (error) {
+			setRateError(error.message)
 			return
 		}
 
-		setEmployees(updatedEmployees)
+		setEmployees((current) => current.map((employee) =>
+			employee.id === selectedEmployeeId ? { ...employee, dailyRate } : employee
+		))
 		setRateError('')
 	}
 
+	const updateProfileField = (field, value) => {
+		setProfileForm((current) => ({ ...current, [field]: value }))
+		setProfileError('')
+		setProfileMessage('')
+	}
+
+	const saveEmployeeProfile = async (event) => {
+		event.preventDefault()
+		if (!profileForm || !selectedEmployeeId) return
+		if (profileForm.birthday && profileForm.birthday > todayDateKey) {
+			setProfileError('Birthday cannot be in the future.')
+			return
+		}
+
+		setIsSavingProfile(true)
+		setProfileError('')
+		setProfileMessage('')
+		const { error } = await updateBranchEmployeeProfile(sessionToken, selectedEmployeeId, profileForm)
+		setIsSavingProfile(false)
+		if (error) {
+			setProfileError(error.message)
+			return
+		}
+
+		setEmployees((current) => current.map((employee) =>
+			employee.id === selectedEmployeeId ? { ...employee, ...profileForm } : employee
+		))
+		setProfileMessage('Employee profile saved.')
+	}
+
 	if (selectedEmployee) {
-		const payableDays = attendanceCounts ? attendanceCounts.present + attendanceCounts.late : 0
 		const hasDailyRate = Number.isFinite(selectedEmployee.dailyRate)
-		const estimatedGross = hasDailyRate && attendanceCounts ? payableDays * selectedEmployee.dailyRate : null
+		const currentProfile = profileForm ?? {
+			address: selectedEmployee.address,
+			gender: selectedEmployee.gender,
+			birthday: selectedEmployee.birthday,
+			sssNumber: selectedEmployee.sssNumber,
+			pagibigNumber: selectedEmployee.pagibigNumber,
+			philhealthNumber: selectedEmployee.philhealthNumber,
+			employmentClassification: selectedEmployee.employmentClassification
+		}
 
 		return (
 			<section className="employee-info-shell">
@@ -123,21 +196,110 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch' }) {
 				<div className="employee-detail-summary">
 					<div className="employee-detail-stat">
 						<span>Present days</span>
-						<strong>{attendanceCounts?.present ?? '—'}</strong>
+						<strong>—</strong>
 					</div>
 					<div className="employee-detail-stat">
 						<span>Late days</span>
-						<strong>{attendanceCounts?.late ?? '—'}</strong>
+						<strong>—</strong>
 					</div>
 					<div className="employee-detail-stat">
 						<span>Absent days</span>
-						<strong>{attendanceCounts?.absent ?? '—'}</strong>
+						<strong>—</strong>
 					</div>
 					<div className="employee-detail-stat">
 						<span>Daily rate</span>
 						<strong>{hasDailyRate ? formatCurrency(selectedEmployee.dailyRate) : 'Not set'}</strong>
 					</div>
 				</div>
+
+				<section className="employee-detail-panel employee-personal-details">
+					<div className="employee-detail-panel-heading">
+						<div>
+							<h4>Personal and employment information</h4>
+							<p>Edit employee contact, identity, and government contribution details.</p>
+						</div>
+					</div>
+					<form className="employee-personal-form" onSubmit={saveEmployeeProfile}>
+						<label className="employee-personal-address">
+							<span>Address</span>
+							<textarea
+								rows="2"
+								value={currentProfile.address}
+								onChange={(event) => updateProfileField('address', event.target.value)}
+							/>
+						</label>
+						<label>
+							<span>Gender</span>
+							<select
+								value={currentProfile.gender}
+								onChange={(event) => updateProfileField('gender', event.target.value)}
+							>
+								<option value="">Not specified</option>
+								<option value="Female">Female</option>
+								<option value="Male">Male</option>
+								<option value="Other">Other</option>
+								<option value="Prefer not to say">Prefer not to say</option>
+							</select>
+						</label>
+						<label>
+							<span>Birthday</span>
+							<input
+								type="date"
+								max={todayDateKey}
+								value={currentProfile.birthday}
+								onChange={(event) => updateProfileField('birthday', event.target.value)}
+							/>
+						</label>
+						<div className="employee-personal-value">
+							<span>Age</span>
+							<strong>{getAge(currentProfile.birthday)}</strong>
+						</div>
+						<label>
+							<span>SSS number</span>
+							<input
+								value={currentProfile.sssNumber}
+								onChange={(event) => updateProfileField('sssNumber', event.target.value)}
+								autoComplete="off"
+							/>
+						</label>
+						<label>
+							<span>Pag-IBIG number</span>
+							<input
+								value={currentProfile.pagibigNumber}
+								onChange={(event) => updateProfileField('pagibigNumber', event.target.value)}
+								autoComplete="off"
+							/>
+						</label>
+						<label>
+							<span>PhilHealth number</span>
+							<input
+								value={currentProfile.philhealthNumber}
+								onChange={(event) => updateProfileField('philhealthNumber', event.target.value)}
+								autoComplete="off"
+							/>
+						</label>
+						<label>
+							<span>Employment status</span>
+							<select
+								value={currentProfile.employmentClassification}
+								onChange={(event) => updateProfileField('employmentClassification', event.target.value)}
+								required
+							>
+								<option value="">Select employment status</option>
+								<option value="Regular">Regular</option>
+								<option value="Probationary">Probationary</option>
+								<option value="Trainee">Trainee</option>
+							</select>
+						</label>
+						<div className="employee-personal-actions">
+							{profileError && <p className="add-employee-error" role="alert">{profileError}</p>}
+							{profileMessage && <p className="employee-personal-saved" role="status">{profileMessage}</p>}
+							<button type="submit" className="add-employee-submit" disabled={isSavingProfile}>
+								{isSavingProfile ? 'Saving…' : 'Save employee information'}
+							</button>
+						</div>
+					</form>
+				</section>
 
 				<div className="employee-detail-columns">
 					<section className="employee-detail-panel">
@@ -152,18 +314,7 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch' }) {
 								<span><i className="absent" /> Absent</span>
 							</div>
 						</div>
-						{selectedAttendance ? (
-							<div className="employee-attendance-days">
-								{selectedAttendance.days.map((day, index) => (
-									<div key={`${selectedEmployeeId}-${index}`} className={`employee-attendance-day ${day.toLowerCase()}`}>
-										<span>{index + 1}</span>
-										<strong>{day}</strong>
-									</div>
-								))}
-							</div>
-						) : (
-							<p className="employee-detail-empty">No monthly attendance record is available for this employee yet.</p>
-						)}
+						<p className="employee-detail-empty">Attendance history will appear here after attendance records are added.</p>
 					</section>
 
 					<section className="employee-detail-panel employee-payroll-panel">
@@ -187,15 +338,13 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch' }) {
 									onChange={(event) => setDailyRateInput(event.target.value)}
 									placeholder="0.00"
 								/>
-								<button type="submit" className="add-employee-submit">Save rate</button>
+								<button type="submit" className="add-employee-submit" disabled={isSavingRate}>
+									{isSavingRate ? 'Saving…' : 'Save rate'}
+								</button>
 							</div>
 							{rateError && <p className="add-employee-error" role="alert">{rateError}</p>}
 						</form>
-						<div className="employee-payroll-estimate">
-							<span>Estimated gross for this record</span>
-							<strong>{estimatedGross === null ? 'Set a rate to calculate' : formatCurrency(estimatedGross)}</strong>
-							<small>{attendanceCounts ? `${payableDays} present/late days × daily rate` : 'Attendance record required for an estimate'}</small>
-						</div>
+						<p className="employee-payroll-note">Weekly gross and final pay are calculated in the Branch Payroll tab from attendance, contributions, HDMF repayments, undertime, and cash advances.</p>
 						<p className="employee-payroll-note">Actual payroll payments are not linked to employee profiles yet.</p>
 					</section>
 				</div>
@@ -219,15 +368,19 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch' }) {
 					<button
 						type="button"
 						className="add-employee-button"
+						disabled={isSavingEmployee}
 						onClick={() => {
 							setIsAddFormOpen((isOpen) => !isOpen)
 							setFormError('')
 						}}
 					>
-						{isAddFormOpen ? 'Cancel' : 'Add employee'}
+						{isSavingEmployee ? 'Saving…' : isAddFormOpen ? 'Cancel' : 'Add employee'}
 					</button>
 				</div>
 			</header>
+			{isLoading && <p className="contribution-message" role="status">Loading employees from the database…</p>}
+			{!sessionToken && <p className="contribution-message error" role="alert">Your login session is missing. Sign out and sign in again after applying the Supabase SQL.</p>}
+			{!isLoading && formError && !isAddFormOpen && <p className="contribution-message error" role="alert">{formError}</p>}
 
 			{isAddFormOpen && (
 				<form className="add-employee-form" onSubmit={addEmployee}>
@@ -250,7 +403,9 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch' }) {
 							placeholder="Enter job position"
 						/>
 					</label>
-					<button type="submit" className="add-employee-submit">Save employee</button>
+					<button type="submit" className="add-employee-submit" disabled={isSavingEmployee}>
+						{isSavingEmployee ? 'Saving…' : 'Save employee'}
+					</button>
 					{formError && <p className="add-employee-error" role="alert">{formError}</p>}
 				</form>
 			)}
@@ -297,6 +452,17 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch' }) {
 												setSelectedEmployeeId(employee.id)
 												setDailyRateInput(employee.dailyRate == null ? '' : String(employee.dailyRate))
 												setRateError('')
+												setProfileForm({
+													address: employee.address,
+													gender: employee.gender,
+													birthday: employee.birthday,
+													sssNumber: employee.sssNumber,
+													pagibigNumber: employee.pagibigNumber,
+													philhealthNumber: employee.philhealthNumber,
+													employmentClassification: employee.employmentClassification
+												})
+												setProfileError('')
+												setProfileMessage('')
 											}}
 											aria-label={`View details for ${employee.name}`}
 										>
@@ -313,9 +479,11 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch' }) {
 								</td>
 							</tr>
 						))}
-						{filteredEmployees.length === 0 && (
+						{!isLoading && filteredEmployees.length === 0 && (
 							<tr>
-								<td className="employee-empty-state" colSpan="4">No employees match your search.</td>
+								<td className="employee-empty-state" colSpan="4">
+									{employees.length === 0 ? 'No employees yet. Add an employee to get started.' : 'No employees match your search.'}
+								</td>
 							</tr>
 						)}
 					</tbody>

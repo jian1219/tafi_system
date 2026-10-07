@@ -713,6 +713,7 @@ button {
 }
 
 .dashboard-main {
+  min-width: 0;
   padding: 30px;
 }
 
@@ -753,6 +754,24 @@ button {
   gap: 14px;
 }
 
+.dashboard-signout {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 13px;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  color: #334155;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.dashboard-signout:hover {
+  background: #f8fafc;
+}
+
 .dashboard-clock {
   display: grid;
   gap: 3px;
@@ -791,6 +810,7 @@ button {
 }
 
 .tab-content {
+  min-width: 0;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 18px;
@@ -805,6 +825,7 @@ button {
 }
 
 .employee-info-shell {
+  min-width: 0;
   overflow: hidden;
   background: #fff;
   border: 1px solid #d9dfe8;
@@ -962,7 +983,11 @@ button {
 }
 
 .employee-table-wrap {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .employee-info-table {
@@ -989,6 +1014,56 @@ button {
 .employee-info-table td {
   color: #334155;
   font-size: 0.88rem;
+}
+
+.contribution-table input {
+  width: 120px;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  color: #0f172a;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.contribution-table {
+  min-width: 950px;
+}
+
+.contribution-table form {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.contribution-save-button {
+  min-height: 38px;
+  padding: 8px 12px;
+}
+
+.contribution-save-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.contribution-saved {
+  color: #166534;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.contribution-message,
+.payroll-contribution-message {
+  margin: 0;
+  padding: 12px 24px;
+  color: #475569;
+  font-size: 0.84rem;
+}
+
+.contribution-message.error,
+.payroll-contribution-message.error {
+  color: #b91c1c;
 }
 
 .employee-directory-name {
@@ -1109,6 +1184,85 @@ button {
   grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
   gap: 16px;
   padding: 20px 24px;
+}
+
+.employee-personal-details {
+  margin: 20px 24px 0;
+}
+
+.employee-personal-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: end;
+  gap: 14px;
+}
+
+.employee-personal-form label {
+  display: grid;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.employee-personal-form input,
+.employee-personal-form select,
+.employee-personal-form textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.86rem;
+}
+
+.employee-personal-form textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+.employee-personal-address {
+  grid-column: span 2;
+}
+
+.employee-personal-value {
+  display: grid;
+  gap: 6px;
+  min-height: 40px;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.employee-personal-value strong {
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 0.86rem;
+}
+
+.employee-personal-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.employee-personal-actions .add-employee-error,
+.employee-personal-saved {
+  margin: 0 auto 0 0;
+  font-size: 0.8rem;
+}
+
+.employee-personal-saved {
+  color: #166534;
+  font-weight: 700;
 }
 
 .employee-detail-panel {
@@ -1675,13 +1829,17 @@ button {
 }
 
 .attendance-grid-wrap {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
   background: white;
 }
 
 .attendance-table {
   width: 100%;
-  min-width: 1100px;
+  min-width: 1500px;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -1726,6 +1884,7 @@ button {
 .status-cell.o { background: #dfe7ef; color: #0f172a; }
 
 .branch-payroll-shell {
+  min-width: 0;
   overflow: hidden;
   background: #fff;
   border: 1px solid #d9dfe8;
@@ -1769,7 +1928,7 @@ button {
 
 .payroll-summary-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
   padding: 18px 24px;
   border-bottom: 1px solid #e2e8f0;
@@ -1796,11 +1955,16 @@ button {
 }
 
 .weekly-payroll-table-wrap {
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .weekly-payroll-table {
   width: 100%;
+  min-width: 1500px;
   border-collapse: collapse;
   text-align: left;
 }
@@ -1871,6 +2035,414 @@ button {
   line-height: 1.5;
 }
 
+.branch-cash-advance-page {
+  padding: 2px 4px;
+}
+
+.branch-cash-advance-header {
+  padding: 18px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.branch-cash-advance-header h3 {
+  margin: 0 0 6px;
+  color: #0f172a;
+  font-size: 1.45rem;
+}
+
+.cash-advance-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.3fr) repeat(2, minmax(160px, 1fr)) auto;
+  align-items: end;
+  gap: 14px;
+  padding: 18px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.cash-advance-form label {
+  display: grid;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.cash-advance-form input,
+.cash-advance-form select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.cash-advance-form button {
+  min-height: 42px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #1d4ed8;
+  color: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.cash-advance-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cash-advance-message {
+  margin: 14px 0;
+  color: #475569;
+  font-size: 0.84rem;
+}
+
+.cash-advance-message.error {
+  color: #b91c1c;
+}
+
+.cash-advance-history-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 20px 0 12px;
+}
+
+.cash-advance-history-heading h4 {
+  margin: 0 0 5px;
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.cash-advance-history-heading p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.cash-advance-monitor-heading {
+  align-items: end;
+}
+
+.cash-advance-month-control {
+  display: grid;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.cash-advance-month-control input {
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+}
+
+.cash-advance-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cash-advance-table {
+  width: 100%;
+  min-width: 1260px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.cash-advance-table th,
+.cash-advance-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+  color: #334155;
+  font-size: 0.82rem;
+}
+
+.cash-advance-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.cash-advance-monitor-table th small {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: none;
+}
+
+.cash-advance-week-input {
+  width: 108px;
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  color: #0f172a;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.cash-advance-week-input:disabled {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.cash-advance-save-button {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: #1d4ed8;
+  color: #fff;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.cash-advance-save-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.cash-advance-status {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.cash-advance-status.paid {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.cash-advance-status.unpaid {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.cash-advance-month-note {
+  margin: 12px 0;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.cash-advance-table td:first-child strong,
+.cash-advance-table td:first-child span {
+  display: block;
+}
+
+.branch-other-deduction-page {
+  padding: 2px 4px;
+}
+
+.branch-other-deduction-header {
+  padding: 18px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.branch-other-deduction-header h3 {
+  margin: 0 0 6px;
+  color: #0f172a;
+  font-size: 1.45rem;
+}
+
+.other-deduction-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 16px 0 0;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.other-deduction-tabs button {
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: #475569;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.other-deduction-tabs button.active {
+  border-color: #cbd5e1;
+  background: #fff;
+  color: #1d4ed8;
+  box-shadow: 0 2px 0 #fff;
+  margin-bottom: -1px;
+}
+
+.other-deduction-panel {
+  padding: 18px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.other-deduction-panel h4,
+.other-deduction-history-heading h4 {
+  margin: 0 0 8px;
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.other-deduction-help,
+.other-deduction-balance {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.other-deduction-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  align-items: end;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.other-deduction-form label {
+  display: grid;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.other-deduction-form input,
+.other-deduction-form select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.other-deduction-form button {
+  min-height: 42px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #1d4ed8;
+  color: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.other-deduction-form button.other-deduction-full-payment {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #1d4ed8;
+}
+
+.other-deduction-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.other-deduction-balance {
+  margin-top: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.other-deduction-message {
+  margin: 14px 0;
+  color: #475569;
+  font-size: 0.84rem;
+}
+
+.other-deduction-message.error {
+  color: #b91c1c;
+}
+
+.other-deduction-history-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 20px 0 12px;
+}
+
+.other-deduction-history-heading h4 {
+  margin-bottom: 5px;
+}
+
+.other-deduction-history-heading p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.other-deduction-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.other-deduction-table {
+  width: 100%;
+  min-width: 780px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.other-deduction-table th,
+.other-deduction-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+  color: #334155;
+  font-size: 0.82rem;
+}
+
+.other-deduction-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.other-deduction-table td:first-child strong,
+.other-deduction-table td:first-child span {
+  display: block;
+}
+
+.report-history-table.report-payroll-snapshot-table {
+  min-width: 1200px;
+}
+
 .branch-report-page {
   padding: 2px 4px;
 }
@@ -1908,6 +2480,151 @@ button {
   margin: 0;
   color: #64748b;
   font-size: 0.82rem;
+}
+
+.report-history-message {
+  margin: 14px 0 0;
+  color: #475569;
+  font-size: 0.84rem;
+}
+
+.report-history-message.error {
+  color: #b91c1c;
+}
+
+.report-history-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.report-history-week {
+  overflow: hidden;
+  border: 1px solid #dbe4f0;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.report-history-week-toggle {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 15px 17px;
+  border: 0;
+  background: #fff;
+  color: #0f172a;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.report-history-week-toggle:hover,
+.report-history-week-toggle[aria-expanded="true"] {
+  background: #f8fafc;
+}
+
+.report-history-week-toggle > span:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.report-history-week-toggle strong {
+  font-size: 0.9rem;
+}
+
+.report-history-week-toggle small {
+  color: #64748b;
+  font-size: 0.76rem;
+}
+
+.report-history-week-toggle > span:last-child {
+  color: #1d4ed8;
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.report-history-details {
+  border-top: 1px solid #e2e8f0;
+}
+
+.report-weekly-payroll-snapshot {
+  padding: 18px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fbfdff;
+}
+
+.report-weekly-payroll-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.report-weekly-payroll-heading h5 {
+  margin: 0 0 5px;
+  color: #0f172a;
+  font-size: 0.92rem;
+}
+
+.report-weekly-payroll-heading p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.report-weekly-payroll-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 14px 0;
+  color: #475569;
+  font-size: 0.8rem;
+}
+
+.report-weekly-payroll-totals strong {
+  color: #0f172a;
+}
+
+.report-history-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.report-history-table {
+  width: 100%;
+  min-width: 850px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.report-history-table th,
+.report-history-table td {
+  padding: 11px 13px;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+  font-size: 0.8rem;
+}
+
+.report-history-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.report-history-table td {
+  color: #334155;
+}
+
+.report-payroll-snapshot-table {
+  min-width: 1200px;
 }
 
 .report-download-button {
@@ -2033,6 +2750,10 @@ button {
     gap: 10px;
   }
 
+  .dashboard-header-meta {
+    flex-wrap: wrap;
+  }
+
   .super-admin-dashboard {
     padding: 18px;
   }
@@ -2080,6 +2801,10 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .cash-advance-form {
+    grid-template-columns: 1fr;
+  }
+
   .employee-profile-header {
     align-items: flex-start;
     flex-direction: column;
@@ -2092,6 +2817,14 @@ button {
   .employee-detail-columns {
     grid-template-columns: 1fr;
     padding: 16px;
+  }
+
+  .employee-personal-details {
+    margin: 16px;
+  }
+
+  .employee-personal-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .employee-detail-panel-heading {
