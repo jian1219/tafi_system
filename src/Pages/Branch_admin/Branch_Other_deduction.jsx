@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   createBranchHdmfLoan,
   createBranchHdmfPayment,
+  createBranchOtherDeduction,
   listBranchHdmfLoans,
   listBranchHdmfPayments,
+  listBranchOtherDeductions,
   listBranchUndertimeDeductions,
   saveBranchUndertimeDeduction
 } from '../../lib/supabase'
@@ -42,6 +44,7 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
   const [loans, setLoans] = useState([])
   const [payments, setPayments] = useState([])
   const [undertimeDeductions, setUndertimeDeductions] = useState([])
+  const [otherDeductions, setOtherDeductions] = useState([])
   const [employeeCode, setEmployeeCode] = useState('')
   const [loanAmount, setLoanAmount] = useState('')
   const [selectedLoanId, setSelectedLoanId] = useState('')
@@ -50,6 +53,10 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
   const [undertimeEmployeeCode, setUndertimeEmployeeCode] = useState('')
   const [undertimeWeekIndex, setUndertimeWeekIndex] = useState(0)
   const [undertimeAmount, setUndertimeAmount] = useState('')
+  const [otherEmployeeCode, setOtherEmployeeCode] = useState('')
+  const [otherWeekIndex, setOtherWeekIndex] = useState(0)
+  const [otherDescription, setOtherDescription] = useState('')
+  const [otherAmount, setOtherAmount] = useState('')
   const [activeTab, setActiveTab] = useState('hdmf')
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
@@ -64,12 +71,18 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
       { employees: loadedEmployees, error: employeeError },
       { data: loadedLoans, error: loanError },
       { data: loadedPayments, error: paymentError },
-      { data: loadedUndertime, error: undertimeError }
+      { data: loadedUndertime, error: undertimeError },
+      { data: loadedOtherDeductions, error: otherDeductionsError }
     ] = await Promise.all([
       getBranchEmployees(sessionToken),
       listBranchHdmfLoans(sessionToken),
       listBranchHdmfPayments(sessionToken),
       listBranchUndertimeDeductions(
+        sessionToken,
+        getLocalDateKey(monthStart),
+        getLocalDateKey(new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0))
+      ),
+      listBranchOtherDeductions(
         sessionToken,
         getLocalDateKey(monthStart),
         getLocalDateKey(new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0))
@@ -81,7 +94,8 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
       loans: loadedLoans ?? [],
       payments: loadedPayments ?? [],
       undertimeDeductions: loadedUndertime ?? [],
-      error: employeeError ?? loanError ?? paymentError ?? undertimeError
+      otherDeductions: loadedOtherDeductions ?? [],
+      error: employeeError ?? loanError ?? paymentError ?? undertimeError ?? otherDeductionsError
     }
   }, [sessionToken])
 
@@ -107,8 +121,10 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
       setLoans(result.loans)
       setPayments(result.payments)
       setUndertimeDeductions(result.undertimeDeductions)
+      setOtherDeductions(result.otherDeductions)
       setEmployeeCode((current) => current || result.employees[0]?.id || '')
       setUndertimeEmployeeCode((current) => current || result.employees[0]?.id || '')
+      setOtherEmployeeCode((current) => current || result.employees[0]?.id || '')
       setSelectedLoanId((current) => current || result.loans.find((loan) => Number(loan.balance) > 0)?.id || '')
       setError('')
       setStatus('ready')
@@ -135,6 +151,7 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
     setLoans(result.loans)
     setPayments(result.payments)
     setUndertimeDeductions(result.undertimeDeductions)
+    setOtherDeductions(result.otherDeductions)
     setSelectedLoanId((current) => {
       if (result.loans.some((loan) => loan.id === current && Number(loan.balance) > 0)) return current
       return result.loans.find((loan) => Number(loan.balance) > 0)?.id || ''
@@ -238,6 +255,41 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
     setIsSaving(false)
   }
 
+  const handleSaveOtherDeduction = async (event) => {
+    event.preventDefault()
+    setError('')
+    setMessage('')
+
+    const amount = Number(otherAmount)
+    const week = payrollWeeks[otherWeekIndex]
+    if (!sessionToken || !otherEmployeeCode || !week
+      || !otherDescription.trim() || otherDescription.trim().length > 200
+      || otherAmount.trim() === '' || !Number.isFinite(amount) || amount <= 0) {
+      setError('Choose an employee and payroll week, enter a description of up to 200 characters, and enter an amount greater than zero.')
+      return
+    }
+
+    setIsSaving(true)
+    const { error: saveError } = await createBranchOtherDeduction(sessionToken, {
+      employeeCode: otherEmployeeCode,
+      periodStart: week.startDate,
+      periodEnd: week.endDate,
+      description: otherDescription.trim(),
+      amount
+    })
+    if (saveError) {
+      setError(saveError.message)
+      setIsSaving(false)
+      return
+    }
+
+    setOtherDescription('')
+    setOtherAmount('')
+    setStatus('loading')
+    await refreshData('Other deduction saved and included in payroll for the selected week.')
+    setIsSaving(false)
+  }
+
   return (
     <section className="branch-other-deduction-page">
       <header className="branch-other-deduction-header">
@@ -268,6 +320,15 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
           onClick={() => setActiveTab('undertime')}
         >
           Undertime Deduction
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'others'}
+          className={activeTab === 'others' ? 'active' : ''}
+          onClick={() => setActiveTab('others')}
+        >
+          Others
         </button>
       </div>
 
@@ -427,7 +488,7 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
         </table>
       </div>
         </>
-      ) : (
+      ) : activeTab === 'undertime' ? (
         <>
           <section className="other-deduction-panel">
             <h4>Enter weekly undertime deduction</h4>
@@ -501,6 +562,94 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
                 ))}
                 {status === 'ready' && undertimeDeductions.length === 0 && (
                   <tr><td className="employee-empty-state" colSpan="4">No undertime deductions have been entered this month.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : (
+        <>
+          <section className="other-deduction-panel">
+            <h4>Record an employee deduction</h4>
+            <p className="other-deduction-help">
+              Add a description and amount for the selected employee and payroll week. Each saved entry appears in payroll under Others.
+            </p>
+            <form className="other-deduction-form" onSubmit={handleSaveOtherDeduction}>
+              <label>
+                <span>Employee</span>
+                <select
+                  value={otherEmployeeCode}
+                  onChange={(event) => setOtherEmployeeCode(event.target.value)}
+                  required
+                  disabled={status !== 'ready' || employees.length === 0}
+                >
+                  {employees.length === 0 && <option value="">No employees available</option>}
+                  {employees.map((employee) => (
+                    <option key={employee.id} value={employee.id}>{employee.name} · {employee.id}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Payroll week</span>
+                <select
+                  value={otherWeekIndex}
+                  onChange={(event) => setOtherWeekIndex(Number(event.target.value))}
+                >
+                  {payrollWeeks.map((week) => (
+                    <option key={week.index} value={week.index}>{week.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Description</span>
+                <input
+                  type="text"
+                  maxLength="200"
+                  value={otherDescription}
+                  onChange={(event) => setOtherDescription(event.target.value)}
+                  placeholder="e.g. Uniform deduction"
+                  required
+                />
+              </label>
+              <label>
+                <span>Deduction amount (PHP)</span>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={otherAmount}
+                  onChange={(event) => setOtherAmount(event.target.value)}
+                  required
+                />
+              </label>
+              <button type="submit" disabled={isSaving || status !== 'ready' || employees.length === 0}>
+                {isSaving ? 'Saving…' : 'Save deduction'}
+              </button>
+            </form>
+          </section>
+          <div className="other-deduction-history-heading">
+            <div>
+              <h4>Other deductions this month</h4>
+              <p>Each entry is included in the employee’s total deduction for its selected payroll week.</p>
+            </div>
+          </div>
+          <div className="other-deduction-table-wrap" role="region" aria-label="Other deduction history" tabIndex="0">
+            <table className="other-deduction-table">
+              <thead>
+                <tr><th>Employee</th><th>Payroll week</th><th>Description</th><th>Deduction</th><th>Recorded</th></tr>
+              </thead>
+              <tbody>
+                {otherDeductions.map((deduction) => (
+                  <tr key={deduction.id}>
+                    <td><strong>{deduction.employee_name}</strong><span>{deduction.employee_code}</span></td>
+                    <td>{formatDate(deduction.period_start)}–{formatDate(deduction.period_end)}</td>
+                    <td>{deduction.description}</td>
+                    <td>{formatCurrency(deduction.amount)}</td>
+                    <td>{formatDate(deduction.created_at.slice(0, 10))}</td>
+                  </tr>
+                ))}
+                {status === 'ready' && otherDeductions.length === 0 && (
+                  <tr><td className="employee-empty-state" colSpan="5">No other deductions have been entered this month.</td></tr>
                 )}
               </tbody>
             </table>

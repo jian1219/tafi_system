@@ -10,6 +10,7 @@ import BranchMandatoryContributionEmployee from './Branch_Mandatory_contribution
 import BranchCashAdvance from './Branch_Cash_advance'
 import BranchOtherDeduction from './Branch_Other_deduction'
 import BranchOtherAdditionPay from './Branch_Other_Addition_pay'
+import BranchEmployeeLeaveCredits from './Branch_employee_leave_credits'
 import { revokeBranchAdminSession } from '../../lib/supabase'
 
 const tabs = [
@@ -17,6 +18,7 @@ const tabs = [
   { name: 'Attendance monitoring', component: BranchAttendanceMonitoring },
   { name: 'Mandatory Contribution Employee', component: BranchMandatoryContributionEmployee },
   { name: 'Cash Advance Pay', component: BranchCashAdvance },
+  { name: 'Employee Leave Credits', component: BranchEmployeeLeaveCredits },
   { name: 'Others Deduction Pay', component: BranchOtherDeduction },
   { name: 'Others Addition Pay', component: BranchOtherAdditionPay },
   { name: 'Branch payroll', component: BranchPayroll },

@@ -218,6 +218,69 @@ export async function listBranchEmployees(sessionToken) {
   }
 }
 
+export async function listBranchEmployeeLeaveCredits(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_list_employee_leave_credits', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load employee leave credits.')
+    }
+  }
+}
+
+export async function listBranchEmployeeLeaveRequests(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_list_employee_leave_requests', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load employee leave requests.')
+    }
+  }
+}
+
+export async function createBranchEmployeeLeaveRequest(sessionToken, request) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_create_employee_leave_request', {
+      p_session_token: sessionToken,
+      p_employee_code: request.employeeCode,
+      p_start_date: request.startDate,
+      p_end_date: request.endDate,
+      p_credit_days: request.creditDays,
+      p_reason: request.reason
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to submit the employee leave request.')
+    }
+  }
+}
+
+export async function updateBranchEmployeeLeaveRequestStatus(sessionToken, requestId, status) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_update_employee_leave_request_status', {
+      p_session_token: sessionToken,
+      p_request_id: requestId,
+      p_status: status
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the employee leave request.')
+    }
+  }
+}
+
 export async function createBranchEmployee(sessionToken, employee) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -259,6 +322,7 @@ export async function updateBranchEmployeeProfile(sessionToken, employeeCode, pr
       p_address: profile.address,
       p_gender: profile.gender || null,
       p_birthday: profile.birthday || null,
+      p_hire_date: profile.hireDate || null,
       p_sss_number: profile.sssNumber,
       p_pagibig_number: profile.pagibigNumber,
       p_philhealth_number: profile.philhealthNumber,
@@ -485,6 +549,57 @@ export async function saveBranchUndertimeDeduction(sessionToken, deduction) {
   }
 }
 
+export async function listBranchOtherDeductions(sessionToken, periodStart, periodEnd) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const deductions = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('branch_admin_list_other_deductions', {
+        p_session_token: sessionToken,
+        p_period_start: periodStart,
+        p_period_end: periodEnd,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      deductions.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: deductions, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load other deductions.')
+    }
+  }
+}
+
+export async function createBranchOtherDeduction(sessionToken, deduction) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_create_other_deduction', {
+      p_session_token: sessionToken,
+      p_employee_code: deduction.employeeCode,
+      p_period_start: deduction.periodStart,
+      p_period_end: deduction.periodEnd,
+      p_description: deduction.description,
+      p_amount: deduction.amount
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the other deduction.')
+    }
+  }
+}
+
 export async function listBranchPayrollAdditions(sessionToken, periodStart, periodEnd) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -532,6 +647,92 @@ export async function saveBranchPayrollAddition(sessionToken, addition) {
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to save the payroll addition.')
+    }
+  }
+}
+
+export async function listBranchOvertimeHours(sessionToken, periodStart, periodEnd) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_list_overtime_hours', {
+      p_session_token: sessionToken,
+      p_period_start: periodStart,
+      p_period_end: periodEnd
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load daily overtime hours.')
+    }
+  }
+}
+
+export async function saveBranchOvertimeHours(sessionToken, overtime) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_save_overtime_hours', {
+      p_session_token: sessionToken,
+      p_employee_code: overtime.employeeCode,
+      p_period_start: overtime.periodStart,
+      p_period_end: overtime.periodEnd,
+      p_daily_hours: overtime.dailyHours
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save daily overtime hours.')
+    }
+  }
+}
+
+export async function listBranchHolidayPay(sessionToken, periodStart, periodEnd) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_list_holiday_pay', {
+      p_session_token: sessionToken,
+      p_period_start: periodStart,
+      p_period_end: periodEnd
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load holiday pay entries.')
+    }
+  }
+}
+
+export async function listBranchHolidayPayRules(sessionToken, periodStart, periodEnd) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_list_holiday_pay_rules', {
+      p_session_token: sessionToken,
+      p_period_start: periodStart,
+      p_period_end: periodEnd
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load holiday pay rules.')
+    }
+  }
+}
+
+export async function saveBranchHolidayPay(sessionToken, holidayPay) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_save_holiday_pay', {
+      p_session_token: sessionToken,
+      p_period_start: holidayPay.periodStart,
+      p_period_end: holidayPay.periodEnd,
+      p_holiday_date: holidayPay.holidayDate,
+      p_addition_type: holidayPay.additionType,
+      p_percentage: holidayPay.percentage,
+      p_eligible_classifications: holidayPay.eligibleClassifications
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save holiday pay.')
     }
   }
 }

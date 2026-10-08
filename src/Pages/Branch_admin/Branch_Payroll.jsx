@@ -4,6 +4,7 @@ import {
   listBranchCashAdvancePayments,
   listBranchEmployeeContributions,
   listBranchHdmfPayments,
+  listBranchOtherDeductions,
   listBranchUndertimeDeductions,
   listBranchPayrollAdditions
 } from '../../lib/supabase'
@@ -38,6 +39,7 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
   const [cashAdvances, setCashAdvances] = useState({})
   const [hdmfPayments, setHdmfPayments] = useState({})
   const [undertimeDeductions, setUndertimeDeductions] = useState({})
+  const [otherDeductions, setOtherDeductions] = useState({})
   const [payrollAdditions, setPayrollAdditions] = useState({})
   const [contributionStatus, setContributionStatus] = useState('loading')
   const [contributionError, setContributionError] = useState('')
@@ -71,6 +73,7 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
         { data: loadedCashAdvancePayments, error: cashAdvanceError },
         { data: loadedHdmfPayments, error: hdmfPaymentError },
         { data: loadedUndertimeDeductions, error: undertimeError },
+        { data: loadedOtherDeductions, error: otherDeductionsError },
         { data: loadedPayrollAdditions, error: additionsError }
       ] = await Promise.all([
         getBranchEmployees(sessionToken),
@@ -79,12 +82,13 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
         listBranchCashAdvancePayments(sessionToken, selectedStartDate, selectedEndDate),
         listBranchHdmfPayments(sessionToken, selectedStartDate, selectedEndDate),
         listBranchUndertimeDeductions(sessionToken, selectedStartDate, selectedEndDate),
+        listBranchOtherDeductions(sessionToken, selectedStartDate, selectedEndDate),
         listBranchPayrollAdditions(sessionToken, selectedStartDate, selectedEndDate)
       ])
       if (!isCurrent) return
 
       const error = employeeError ?? contributionLoadError ?? attendanceError ?? cashAdvanceError
-        ?? hdmfPaymentError ?? undertimeError ?? additionsError
+        ?? hdmfPaymentError ?? undertimeError ?? otherDeductionsError ?? additionsError
       if (error) {
         setContributionError(error.message)
         setContributionStatus('error')
@@ -116,6 +120,15 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
           record.employee_code,
           Number(record.amount)
         ])
+      ))
+      setOtherDeductions(Object.fromEntries(
+        (loadedOtherDeductions ?? []).reduce((totals, record) => {
+          totals.set(
+            record.employee_code,
+            (totals.get(record.employee_code) ?? 0) + Number(record.amount)
+          )
+          return totals
+        }, new Map())
       ))
       setPayrollAdditions(Object.fromEntries(
         (loadedPayrollAdditions ?? []).reduce((totals, addition) => {
@@ -186,8 +199,9 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
       ? 0
       : Math.round((dailyRate / 8 / 60 * lateMinutes) * 100) / 100
     const undertimeDeduction = undertimeDeductions[employee.id] ?? 0
+    const otherDeduction = otherDeductions[employee.id] ?? 0
     const totalDeductions = sss + philhealth + pagibig + cashAdvanceDeduction
-      + hdmfLoanDeduction + lateDeduction + undertimeDeduction
+      + hdmfLoanDeduction + lateDeduction + undertimeDeduction + otherDeduction
     const salaryCredit = basicSalary === null
       ? null
       : basicSalary + totalAdditions
@@ -210,6 +224,7 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
       hdmfLoanDeduction,
       lateDeduction,
       undertimeDeduction,
+      otherDeduction,
       totalDeductions,
       ...additions,
       totalAdditions,
@@ -217,7 +232,7 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
         ? salaryCredit - totalDeductions
         : null
     }
-  }), [employees, attendanceRecords, selectedStartDate, selectedEndDate, contributions, cashAdvances, hdmfPayments, undertimeDeductions, payrollAdditions, contributionStatus])
+  }), [employees, attendanceRecords, selectedStartDate, selectedEndDate, contributions, cashAdvances, hdmfPayments, undertimeDeductions, otherDeductions, payrollAdditions, contributionStatus])
 
   const estimatedTotal = payrollRows.reduce((total, employee) =>
     total + (employee.salaryCredit ?? 0), 0)
@@ -318,6 +333,7 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
               <th>CA</th>
               <th>Late</th>
               <th>Und</th>
+              <th>Others</th>
               <th>Total deduction</th>
               <th>Final net pay</th>
               <th>Record status</th>
@@ -350,6 +366,7 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
                 <td>{formatCurrency(employee.cashAdvanceDeduction)}</td>
                 <td>{formatCurrency(employee.lateDeduction)}</td>
                 <td>{formatCurrency(employee.undertimeDeduction)}</td>
+                <td>{formatCurrency(employee.otherDeduction)}</td>
                 <td>{employee.hasContributions ? formatCurrency(employee.totalDeductions) : '—'}</td>
                 <td className="weekly-payroll-amount">
                   {employee.weeklyNet === null ? '—' : formatCurrency(employee.weeklyNet)}
@@ -368,14 +385,14 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
               </tr>
             ))}
             {payrollRows.length === 0 && (
-              <tr><td className="employee-empty-state" colSpan="23">No branch employees have been added.</td></tr>
+              <tr><td className="employee-empty-state" colSpan="24">No branch employees have been added.</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       <p className="payroll-calculation-note">
-        Monthly rate is daily rate × 26. Working days include attendance marked Present or Present (Late); basic salary is daily rate × working days. Salary credit adds regular holiday, overtime, and special non-working holiday pay. Late deduction is daily rate ÷ 8 ÷ 60 × recorded late minutes; Und is the separately entered weekly undertime deduction. Total deduction includes SSS, PhilHealth, Pag-IBIG, HDMF loan, cash advance (CA), late, and Und. Final net pay is salary credit minus total deduction.
+        Monthly rate is daily rate × 26. Working days include attendance marked Present or Present (Late); basic salary is daily rate × working days. Salary credit adds regular holiday, overtime, and special non-working holiday pay. Late deduction is daily rate ÷ 8 ÷ 60 × recorded late minutes; Und is the separately entered weekly undertime deduction. Others includes employee-specific deductions entered with a description. Total deduction includes SSS, PhilHealth, Pag-IBIG, HDMF loan, cash advance (CA), late, Und, and Others. Final net pay is salary credit minus total deduction.
       </p>
     </section>
   )

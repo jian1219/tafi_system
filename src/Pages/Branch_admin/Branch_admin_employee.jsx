@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
 	createBranchEmployee,
+	listBranchAttendanceHistory,
 	updateBranchEmployeeDailyRate,
 	updateBranchEmployeeProfile
 } from '../../lib/supabase'
@@ -9,6 +10,27 @@ import { getLocalDateKey } from './branchAttendanceRecords'
 
 const currentDate = new Date()
 const todayDateKey = getLocalDateKey(currentDate)
+const currentMonthKey = todayDateKey.slice(0, 7)
+
+const attendanceStatusDetails = {
+	present: { label: 'Present', className: 'p' },
+	present_late: { label: 'Late', className: 'l' },
+	absent: { label: 'Absent', className: 'a' },
+	maternity_leave: { label: 'Leave', className: 'v' },
+	paternity_leave: { label: 'Leave', className: 'v' },
+	authorized_leave: { label: 'Leave', className: 'v' },
+	birthday_leave: { label: 'Leave', className: 'v' },
+	vl_with_pay: { label: 'Leave', className: 'v' },
+	vl_without_pay: { label: 'Leave', className: 'v' },
+	day_off: { label: 'Day off', className: 'o' },
+	not_marked: { label: 'Not marked', className: '' }
+}
+
+const formatMonth = (monthKey) => {
+	if (!monthKey) return ''
+	return new Intl.DateTimeFormat('en-PH', { month: 'long', year: 'numeric' })
+		.format(new Date(`${monthKey}-01T12:00:00`))
+}
 
 const formatCurrency = (amount) => amount.toLocaleString('en-PH', {
 	style: 'currency',
@@ -26,9 +48,52 @@ const getAge = (birthday) => {
 	return age
 }
 
+const getEmployeeProfile = (employee) => ({
+	address: employee.address,
+	gender: employee.gender,
+	birthday: employee.birthday,
+	hireDate: employee.hireDate ?? '',
+	sssNumber: employee.sssNumber,
+	pagibigNumber: employee.pagibigNumber,
+	philhealthNumber: employee.philhealthNumber,
+	employmentClassification: employee.employmentClassification
+})
+
+const formatBirthday = (birthday) => {
+	if (!birthday) return 'Not provided'
+	return new Intl.DateTimeFormat('en-PH', {
+		year: 'numeric',
+		month: 'long',
+		day: 'numeric'
+	}).format(new Date(`${birthday}T00:00:00`))
+}
+
+const calculateEarnedCredit = (employeeId, attendanceHistory) => {
+	const presentDatesByMonth = new Map()
+
+	attendanceHistory.forEach((record) => {
+		if (
+			record.employee_code !== employeeId
+			|| !['present', 'present_late'].includes(record.status)
+			|| typeof record.attendance_date !== 'string'
+		) return
+
+		const date = record.attendance_date
+		const month = date.slice(0, 7)
+		if (!presentDatesByMonth.has(month)) presentDatesByMonth.set(month, new Set())
+		presentDatesByMonth.get(month).add(date)
+	})
+
+	const qualifyingMonths = [...presentDatesByMonth.entries()].filter(([month, dates]) =>
+		dates.size >= (month.endsWith('-02') ? 24 : 26)
+	).length
+	return qualifyingMonths * 1.25
+}
+
 export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', branchAdmin }) {
 	const [employees, setEmployees] = useState([])
 	const [isLoading, setIsLoading] = useState(Boolean(branchAdmin?.session_token))
+	const [attendanceHistoryState, setAttendanceHistoryState] = useState(null)
 	const [isSavingEmployee, setIsSavingEmployee] = useState(false)
 	const [searchTerm, setSearchTerm] = useState('')
 	const [positionFilter, setPositionFilter] = useState('All positions')
@@ -37,10 +102,12 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 	const [newEmployeePosition, setNewEmployeePosition] = useState('')
 	const [formError, setFormError] = useState('')
 	const [selectedEmployeeId, setSelectedEmployeeId] = useState(null)
+	const [attendanceMonth, setAttendanceMonth] = useState(currentMonthKey)
 	const [dailyRateInput, setDailyRateInput] = useState('')
 	const [rateError, setRateError] = useState('')
 	const [isSavingRate, setIsSavingRate] = useState(false)
 	const [profileForm, setProfileForm] = useState(null)
+	const [isEditingProfile, setIsEditingProfile] = useState(false)
 	const [profileError, setProfileError] = useState('')
 	const [profileMessage, setProfileMessage] = useState('')
 	const [isSavingProfile, setIsSavingProfile] = useState(false)
@@ -63,6 +130,35 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 			isCurrent = false
 		}
 	}, [sessionToken])
+
+	useEffect(() => {
+		let isCurrent = true
+
+		const loadAttendanceHistory = async () => {
+			const { data, error } = await listBranchAttendanceHistory(sessionToken)
+			if (!isCurrent) return
+			setAttendanceHistoryState({
+				sessionToken,
+				employeeId: selectedEmployeeId,
+				records: data ?? [],
+				error: error?.message ?? ''
+			})
+		}
+
+		if (sessionToken) loadAttendanceHistory()
+
+		return () => {
+			isCurrent = false
+		}
+	}, [sessionToken, selectedEmployeeId])
+
+	const hasCurrentAttendanceHistory = attendanceHistoryState?.sessionToken === sessionToken
+		&& attendanceHistoryState?.employeeId === selectedEmployeeId
+	const attendanceHistory = hasCurrentAttendanceHistory ? attendanceHistoryState.records : []
+	const isLoadingAttendanceHistory = Boolean(sessionToken && !hasCurrentAttendanceHistory)
+	const attendanceHistoryError = !sessionToken
+		? 'Your login session is missing.'
+		: hasCurrentAttendanceHistory ? attendanceHistoryState.error : ''
 
 	const selectedEmployee = employees.find((employee) => employee.id === selectedEmployeeId)
 
@@ -145,6 +241,10 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 			setProfileError('Birthday cannot be in the future.')
 			return
 		}
+		if (profileForm.hireDate && profileForm.hireDate > todayDateKey) {
+			setProfileError('Date hired cannot be in the future.')
+			return
+		}
 
 		setIsSavingProfile(true)
 		setProfileError('')
@@ -159,19 +259,32 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 		setEmployees((current) => current.map((employee) =>
 			employee.id === selectedEmployeeId ? { ...employee, ...profileForm } : employee
 		))
+		setIsEditingProfile(false)
 		setProfileMessage('Employee profile saved.')
 	}
 
 	if (selectedEmployee) {
 		const hasDailyRate = Number.isFinite(selectedEmployee.dailyRate)
-		const currentProfile = profileForm ?? {
-			address: selectedEmployee.address,
-			gender: selectedEmployee.gender,
-			birthday: selectedEmployee.birthday,
-			sssNumber: selectedEmployee.sssNumber,
-			pagibigNumber: selectedEmployee.pagibigNumber,
-			philhealthNumber: selectedEmployee.philhealthNumber,
-			employmentClassification: selectedEmployee.employmentClassification
+		const currentProfile = profileForm ?? getEmployeeProfile(selectedEmployee)
+		const earnedCredit = selectedEmployee.employmentClassification === 'Regular'
+			? calculateEarnedCredit(selectedEmployee.id, attendanceHistory)
+			: null
+		const recordsByDate = new Map(
+			attendanceHistory
+				.filter((record) =>
+					record.employee_code === selectedEmployee.id
+					&& record.attendance_date?.startsWith(`${attendanceMonth}-`)
+				)
+				.map((record) => [record.attendance_date, record.status])
+		)
+		const [attendanceYear, attendanceMonthNumber] = attendanceMonth.split('-').map(Number)
+		const attendanceDaysInMonth = new Date(attendanceYear, attendanceMonthNumber, 0).getDate()
+		const firstWeekday = new Date(attendanceYear, attendanceMonthNumber - 1, 1).getDay()
+		const monthlyAttendance = {
+			present: [...recordsByDate.values()].filter((status) => status === 'present').length,
+			late: [...recordsByDate.values()].filter((status) => status === 'present_late').length,
+			absent: [...recordsByDate.values()].filter((status) => status === 'absent').length,
+			leave: [...recordsByDate.values()].filter((status) => attendanceStatusDetails[status]?.className === 'v').length
 		}
 
 		return (
@@ -213,92 +326,190 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 				</div>
 
 				<section className="employee-detail-panel employee-personal-details">
-					<div className="employee-detail-panel-heading">
+					<div className="employee-detail-panel-heading employee-personal-heading">
 						<div>
 							<h4>Personal and employment information</h4>
-							<p>Edit employee contact, identity, and government contribution details.</p>
+							<p>Personal details, identity, and government contribution information.</p>
 						</div>
-					</div>
-					<form className="employee-personal-form" onSubmit={saveEmployeeProfile}>
-						<label className="employee-personal-address">
-							<span>Address</span>
-							<textarea
-								rows="2"
-								value={currentProfile.address}
-								onChange={(event) => updateProfileField('address', event.target.value)}
-							/>
-						</label>
-						<label>
-							<span>Gender</span>
-							<select
-								value={currentProfile.gender}
-								onChange={(event) => updateProfileField('gender', event.target.value)}
+						{!isEditingProfile && (
+							<button
+								type="button"
+								className="add-employee-button"
+								onClick={() => {
+									setProfileForm(getEmployeeProfile(selectedEmployee))
+									setProfileError('')
+									setProfileMessage('')
+									setIsEditingProfile(true)
+								}}
 							>
-								<option value="">Not specified</option>
-								<option value="Female">Female</option>
-								<option value="Male">Male</option>
-								<option value="Other">Other</option>
-								<option value="Prefer not to say">Prefer not to say</option>
-							</select>
-						</label>
-						<label>
-							<span>Birthday</span>
-							<input
-								type="date"
-								max={todayDateKey}
-								value={currentProfile.birthday}
-								onChange={(event) => updateProfileField('birthday', event.target.value)}
-							/>
-						</label>
-						<div className="employee-personal-value">
-							<span>Age</span>
-							<strong>{getAge(currentProfile.birthday)}</strong>
-						</div>
-						<label>
-							<span>SSS number</span>
-							<input
-								value={currentProfile.sssNumber}
-								onChange={(event) => updateProfileField('sssNumber', event.target.value)}
-								autoComplete="off"
-							/>
-						</label>
-						<label>
-							<span>Pag-IBIG number</span>
-							<input
-								value={currentProfile.pagibigNumber}
-								onChange={(event) => updateProfileField('pagibigNumber', event.target.value)}
-								autoComplete="off"
-							/>
-						</label>
-						<label>
-							<span>PhilHealth number</span>
-							<input
-								value={currentProfile.philhealthNumber}
-								onChange={(event) => updateProfileField('philhealthNumber', event.target.value)}
-								autoComplete="off"
-							/>
-						</label>
-						<label>
-							<span>Employment status</span>
-							<select
-								value={currentProfile.employmentClassification}
-								onChange={(event) => updateProfileField('employmentClassification', event.target.value)}
-								required
-							>
-								<option value="">Select employment status</option>
-								<option value="Regular">Regular</option>
-								<option value="Probationary">Probationary</option>
-								<option value="Trainee">Trainee</option>
-							</select>
-						</label>
-						<div className="employee-personal-actions">
-							{profileError && <p className="add-employee-error" role="alert">{profileError}</p>}
-							{profileMessage && <p className="employee-personal-saved" role="status">{profileMessage}</p>}
-							<button type="submit" className="add-employee-submit" disabled={isSavingProfile}>
-								{isSavingProfile ? 'Saving…' : 'Save employee information'}
+								Edit information
 							</button>
-						</div>
-					</form>
+						)}
+					</div>
+					{isEditingProfile ? (
+						<form className="employee-personal-form" onSubmit={saveEmployeeProfile}>
+							<label className="employee-personal-address">
+								<span>Address</span>
+								<textarea
+									rows="2"
+									value={currentProfile.address}
+									onChange={(event) => updateProfileField('address', event.target.value)}
+								/>
+							</label>
+							<label>
+								<span>Gender</span>
+								<select
+									value={currentProfile.gender}
+									onChange={(event) => updateProfileField('gender', event.target.value)}
+								>
+									<option value="">Not specified</option>
+									<option value="Female">Female</option>
+									<option value="Male">Male</option>
+									<option value="Other">Other</option>
+									<option value="Prefer not to say">Prefer not to say</option>
+								</select>
+							</label>
+							<label>
+								<span>Birthday</span>
+								<input
+									type="date"
+									max={todayDateKey}
+									value={currentProfile.birthday}
+									onChange={(event) => updateProfileField('birthday', event.target.value)}
+								/>
+							</label>
+							<label>
+								<span>Date hired</span>
+								<input
+									type="date"
+									max={todayDateKey}
+									value={currentProfile.hireDate}
+									onChange={(event) => updateProfileField('hireDate', event.target.value)}
+								/>
+							</label>
+							<div className="employee-personal-value">
+								<span>Age</span>
+								<strong>{getAge(currentProfile.birthday)}</strong>
+							</div>
+							<label>
+								<span>SSS number</span>
+								<input
+									value={currentProfile.sssNumber}
+									onChange={(event) => updateProfileField('sssNumber', event.target.value)}
+									autoComplete="off"
+								/>
+							</label>
+							<label>
+								<span>Pag-IBIG number</span>
+								<input
+									value={currentProfile.pagibigNumber}
+									onChange={(event) => updateProfileField('pagibigNumber', event.target.value)}
+									autoComplete="off"
+								/>
+							</label>
+							<label>
+								<span>PhilHealth number</span>
+								<input
+									value={currentProfile.philhealthNumber}
+									onChange={(event) => updateProfileField('philhealthNumber', event.target.value)}
+									autoComplete="off"
+								/>
+							</label>
+							<label>
+								<span>Employment status</span>
+								<select
+									value={currentProfile.employmentClassification}
+									onChange={(event) => updateProfileField('employmentClassification', event.target.value)}
+									required
+								>
+									<option value="">Select employment status</option>
+									<option value="Regular">Regular</option>
+									<option value="Probationary">Probationary</option>
+									<option value="Trainee">Trainee</option>
+								</select>
+							</label>
+							<div className="employee-personal-actions">
+								{profileError && <p className="add-employee-error" role="alert">{profileError}</p>}
+								<button
+									type="button"
+									className="employee-profile-cancel"
+									disabled={isSavingProfile}
+									onClick={() => {
+										setProfileForm(getEmployeeProfile(selectedEmployee))
+										setProfileError('')
+										setIsEditingProfile(false)
+									}}
+								>
+									Cancel
+								</button>
+								<button type="submit" className="add-employee-submit" disabled={isSavingProfile}>
+									{isSavingProfile ? 'Saving…' : 'Save employee information'}
+								</button>
+							</div>
+						</form>
+					) : (
+						<>
+							<dl className="employee-profile-fields">
+								<div className="employee-profile-field employee-profile-address">
+									<dt>Address</dt>
+									<dd>{currentProfile.address || 'Not provided'}</dd>
+								</div>
+								<div className="employee-profile-field">
+									<dt>Gender</dt>
+									<dd>{currentProfile.gender || 'Not specified'}</dd>
+								</div>
+								<div className="employee-profile-field">
+									<dt>Birthday</dt>
+									<dd>{formatBirthday(currentProfile.birthday)}</dd>
+								</div>
+								<div className="employee-profile-field">
+									<dt>Date hired</dt>
+									<dd>{formatBirthday(currentProfile.hireDate)}</dd>
+								</div>
+								<div className="employee-profile-field">
+									<dt>Age</dt>
+									<dd>{getAge(currentProfile.birthday)}</dd>
+								</div>
+								<div className="employee-profile-field">
+									<dt>SSS number</dt>
+									<dd>{currentProfile.sssNumber || 'Not provided'}</dd>
+								</div>
+								<div className="employee-profile-field">
+									<dt>Pag-IBIG number</dt>
+									<dd>{currentProfile.pagibigNumber || 'Not provided'}</dd>
+								</div>
+								<div className="employee-profile-field">
+									<dt>PhilHealth number</dt>
+									<dd>{currentProfile.philhealthNumber || 'Not provided'}</dd>
+								</div>
+								<div className="employee-profile-field">
+									<dt>Employment status</dt>
+									<dd>{currentProfile.employmentClassification || 'Not specified'}</dd>
+								</div>
+								{selectedEmployee.employmentClassification === 'Regular' && (
+									<div className="employee-profile-field employee-earned-credit">
+										<dt>Earned credit</dt>
+										<dd>
+											{isLoadingAttendanceHistory
+												? 'Loading…'
+												: attendanceHistoryError
+													? 'Unavailable'
+													: `${earnedCredit.toFixed(2)} days`}
+										</dd>
+										{attendanceHistoryError && (
+											<p className="employee-earned-credit-error" role="alert">
+												Could not load earned credit: {attendanceHistoryError}
+											</p>
+										)}
+										{!isLoadingAttendanceHistory && !attendanceHistoryError && (
+											<p>Earn 1.25 days with 26 present days in a month, or 24 in February.</p>
+										)}
+									</div>
+								)}
+							</dl>
+							{profileMessage && <p className="employee-personal-saved" role="status">{profileMessage}</p>}
+						</>
+					)}
 				</section>
 
 				<div className="employee-detail-columns">
@@ -306,15 +517,72 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 						<div className="employee-detail-panel-heading">
 							<div>
 								<h4>Attendance record</h4>
-								<p>Monthly day-by-day record</p>
+								<p>{formatMonth(attendanceMonth)} · Monthly day-by-day record</p>
 							</div>
-							<div className="employee-attendance-legend">
-								<span><i className="present" /> Present</span>
-								<span><i className="late" /> Late</span>
-								<span><i className="absent" /> Absent</span>
-							</div>
+							<label className="employee-attendance-month-filter">
+								<span>Month</span>
+								<input
+									type="month"
+									value={attendanceMonth}
+									onChange={(event) => setAttendanceMonth(event.target.value || currentMonthKey)}
+								/>
+							</label>
 						</div>
-						<p className="employee-detail-empty">Attendance history will appear here after attendance records are added.</p>
+						<div className="employee-attendance-legend">
+							<span><i className="present" /> Present</span>
+							<span><i className="late" /> Present (Late)</span>
+							<span><i className="absent" /> Absent</span>
+							<span><i className="leave" /> Leave</span>
+							<span><i className="day-off" /> Day off</span>
+						</div>
+						{isLoadingAttendanceHistory ? (
+							<p className="employee-detail-empty" role="status">Loading attendance records…</p>
+						) : attendanceHistoryError ? (
+							<p className="employee-detail-empty error" role="alert">
+								Could not load attendance records: {attendanceHistoryError}
+							</p>
+						) : (
+							<>
+								<div className="employee-attendance-summary">
+									<span>Present <strong>{monthlyAttendance.present}</strong></span>
+									<span>Late <strong>{monthlyAttendance.late}</strong></span>
+									<span>Absent <strong>{monthlyAttendance.absent}</strong></span>
+									<span>Leave <strong>{monthlyAttendance.leave}</strong></span>
+								</div>
+								{recordsByDate.size === 0 ? (
+									<p className="employee-detail-empty">No attendance records for {formatMonth(attendanceMonth)}.</p>
+								) : (
+									<div className="employee-attendance-calendar" aria-label={`${formatMonth(attendanceMonth)} attendance calendar`}>
+										{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+											<span className="employee-attendance-weekday" key={day}>{day}</span>
+										))}
+										{Array.from({ length: firstWeekday }, (_, index) => (
+											<span className="employee-attendance-calendar-spacer" key={`spacer-${index}`} />
+										))}
+										{Array.from({ length: attendanceDaysInMonth }, (_, index) => {
+											const day = index + 1
+											const dateKey = `${attendanceMonth}-${String(day).padStart(2, '0')}`
+											const status = recordsByDate.get(dateKey)
+											const statusDetail = attendanceStatusDetails[status] ?? null
+											const className = statusDetail?.className
+												? ` ${statusDetail.className}`
+												: status ? '' : ' no-record'
+
+											return (
+												<div
+													className={`employee-attendance-day${className}`}
+													key={dateKey}
+													title={`${dateKey}: ${statusDetail?.label ?? (status ? 'Not marked' : 'No record')}`}
+												>
+													<strong>{day}</strong>
+													<span>{statusDetail?.label ?? (status ? 'Not marked' : '—')}</span>
+												</div>
+											)
+										})}
+									</div>
+								)}
+							</>
+						)}
 					</section>
 
 					<section className="employee-detail-panel employee-payroll-panel">
@@ -452,15 +720,8 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 												setSelectedEmployeeId(employee.id)
 												setDailyRateInput(employee.dailyRate == null ? '' : String(employee.dailyRate))
 												setRateError('')
-												setProfileForm({
-													address: employee.address,
-													gender: employee.gender,
-													birthday: employee.birthday,
-													sssNumber: employee.sssNumber,
-													pagibigNumber: employee.pagibigNumber,
-													philhealthNumber: employee.philhealthNumber,
-													employmentClassification: employee.employmentClassification
-												})
+												setProfileForm(getEmployeeProfile(employee))
+												setIsEditingProfile(false)
 												setProfileError('')
 												setProfileMessage('')
 											}}

@@ -1190,6 +1190,78 @@ button {
   margin: 20px 24px 0;
 }
 
+.employee-personal-heading {
+  align-items: center;
+}
+
+.employee-profile-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.employee-profile-field {
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #f8fafc;
+}
+
+.employee-profile-field dt {
+  margin-bottom: 6px;
+  color: #64748b;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.employee-profile-field dd {
+  margin: 0;
+  color: #0f172a;
+  font-size: 0.88rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.employee-profile-field > p {
+  margin: 7px 0 0;
+  color: #64748b;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.employee-profile-field > p.employee-earned-credit-error {
+  color: #b91c1c;
+}
+
+.employee-profile-address {
+  grid-column: 1 / -1;
+}
+
+.employee-profile-cancel {
+  min-height: 42px;
+  padding: 10px 15px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: white;
+  color: #334155;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.employee-profile-cancel:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.employee-profile-cancel:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .employee-personal-form {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1316,6 +1388,57 @@ button {
 .employee-attendance-legend i.present { background: #86efac; }
 .employee-attendance-legend i.late { background: #fdba74; }
 .employee-attendance-legend i.absent { background: #fca5a5; }
+.employee-attendance-legend i.leave { background: #a5b4fc; }
+.employee-attendance-legend i.day-off { background: #cbd5e1; }
+
+.employee-attendance-month-filter {
+  display: grid;
+  gap: 4px;
+  color: #475569;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.employee-attendance-month-filter input {
+  min-height: 36px;
+  padding: 5px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+}
+
+.employee-attendance-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 12px 0;
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.employee-attendance-summary strong {
+  color: #0f172a;
+}
+
+.employee-attendance-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.employee-attendance-weekday {
+  padding: 5px 2px;
+  color: #64748b;
+  font-size: 0.68rem;
+  font-weight: 750;
+  text-align: center;
+}
+
+.employee-attendance-calendar-spacer {
+  min-height: 42px;
+}
 
 .employee-attendance-days {
   display: grid;
@@ -1324,13 +1447,17 @@ button {
 }
 
 .employee-attendance-day {
+  min-width: 0;
+  min-height: 48px;
   display: grid;
   justify-items: center;
+  align-content: center;
   gap: 4px;
-  padding: 7px 3px;
+  padding: 5px 2px;
   border-radius: 6px;
   color: #475569;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
+  text-align: center;
 }
 
 .employee-attendance-day strong {
@@ -1341,6 +1468,9 @@ button {
 .employee-attendance-day.p { background: #dcfce7; }
 .employee-attendance-day.l { background: #ffedd5; }
 .employee-attendance-day.a { background: #fee2e2; }
+.employee-attendance-day.v { background: #e0e7ff; }
+.employee-attendance-day.o { background: #f1f5f9; }
+.employee-attendance-day.no-record { background: #f8fafc; }
 
 .employee-detail-empty {
   margin: 0;
@@ -1348,6 +1478,10 @@ button {
   color: #64748b;
   font-size: 0.86rem;
   text-align: center;
+}
+
+.employee-detail-empty.error {
+  color: #b91c1c;
 }
 
 .daily-rate-form {
@@ -1574,34 +1708,69 @@ button {
 
 .weekly-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
   padding: 18px;
   background: #f8fafc;
 }
 
 .weekly-card {
+  display: grid;
+  justify-items: start;
+  gap: 7px;
+  width: 100%;
+  min-height: 104px;
+  padding: 16px 18px;
   background: white;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 18px;
+  border-radius: 12px;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.weekly-card:hover {
+  border-color: #93c5fd;
+}
+
+.weekly-card.selected {
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.12);
+}
+
+.weekly-card:focus-visible {
+  outline: 3px solid rgba(29, 78, 216, 0.35);
+  outline-offset: 2px;
 }
 
 .week-label {
-  font-size: 0.9rem;
-  font-weight: 800;
   color: #0f172a;
-  margin-bottom: 12px;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.week-date-range {
+  color: #1d4ed8;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.week-card-prompt {
+  color: #64748b;
+  font-size: 0.72rem;
 }
 
 .week-stat-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
+  width: 100%;
+  padding: 7px 0;
   border-bottom: 1px solid #e2e8f0;
   color: #475569;
+  font-size: 0.8rem;
 }
 
 .week-stat-row:last-child {
@@ -1637,6 +1806,309 @@ button {
 .late-card { background: #fff7ed; }
 .absent-card { background: #f8fafc; }
 
+.leave-credits-shell {
+  width: 100%;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #d9dfe8;
+  border-radius: 18px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+}
+
+.leave-credits-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.leave-credits-eyebrow {
+  margin: 0 0 6px;
+  color: #1d4ed8;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.leave-credits-header h3 {
+  margin: 0 0 6px;
+  color: #0f172a;
+  font-size: 1.45rem;
+}
+
+.leave-credits-header p:last-child {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.leave-credits-policy {
+  display: grid;
+  gap: 5px;
+  max-width: 330px;
+  padding: 12px 15px;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 0.8rem;
+}
+
+.leave-credit-tabs {
+  padding-top: 12px;
+}
+
+.leave-credits-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  padding: 20px 24px 0;
+}
+
+.leave-credits-summary > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.leave-credits-summary span,
+.leave-request-balance span {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.leave-credits-summary strong,
+.leave-request-balance strong {
+  color: #0f172a;
+  font-size: 1.15rem;
+}
+
+.leave-credit-tools {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+}
+
+.leave-credit-tools label,
+.leave-request-fields label {
+  display: grid;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.leave-credit-tools label {
+  width: min(440px, 100%);
+}
+
+.leave-credit-tools input,
+.leave-request-fields input,
+.leave-request-fields select,
+.leave-request-fields textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.leave-request-fields textarea {
+  resize: vertical;
+}
+
+.leave-credit-tools > p,
+.leave-credit-hint {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.leave-credit-table td small,
+.leave-requests-table td small {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.leave-credit-table td:nth-child(n + 6) {
+  font-variant-numeric: tabular-nums;
+}
+
+.leave-employment-status,
+.leave-request-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 750;
+  text-transform: capitalize;
+}
+
+.leave-employment-status.active,
+.leave-employment-status.regular,
+.leave-request-status.approved {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.leave-employment-status.inactive,
+.leave-employment-status.unspecified,
+.leave-request-status.rejected {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.leave-employment-status.probationary {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.leave-employment-status.trainee {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.leave-request-status.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.leave-credit-empty {
+  padding: 28px !important;
+  color: #64748b !important;
+  text-align: center;
+}
+
+.leave-request-content {
+  display: grid;
+  gap: 20px;
+  padding: 20px 24px 24px;
+}
+
+.leave-request-form,
+.leave-requests-list {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.leave-request-form-heading,
+.leave-requests-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.leave-request-form-heading h4,
+.leave-requests-heading h4 {
+  margin: 0 0 5px;
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.leave-request-form-heading p,
+.leave-requests-heading p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.leave-request-balance {
+  display: grid;
+  gap: 3px;
+  min-width: 150px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: #eff6ff;
+}
+
+.leave-request-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.leave-request-reason {
+  grid-column: 1 / -1;
+}
+
+.leave-request-form > .add-employee-submit:disabled,
+.leave-request-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.leave-requests-table td {
+  vertical-align: top;
+  white-space: normal;
+}
+
+.leave-request-reason-cell {
+  min-width: 160px;
+  max-width: 280px;
+  overflow-wrap: anywhere;
+}
+
+.leave-request-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.leave-request-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 7px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.leave-request-actions button:first-child {
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.leave-request-actions button:last-child {
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.leave-credits-feedback {
+  margin: 0;
+  padding: 10px 24px 0;
+  color: #166534;
+  font-size: 0.84rem;
+}
+
 .submit-panel {
   padding: 20px 18px 26px;
 }
@@ -1653,6 +2125,24 @@ button {
   margin: 0;
   font-size: 1.2rem;
   color: #0f172a;
+}
+
+.attendance-date-control {
+  display: grid;
+  gap: 4px;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.attendance-date-control input {
+  min-height: 38px;
+  padding: 6px 9px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font: inherit;
 }
 
 .date-badge {
@@ -1844,6 +2334,25 @@ button {
   table-layout: fixed;
 }
 
+.weekly-attendance-table {
+  min-width: 1180px;
+}
+
+.monthly-attendance-table {
+  min-width: 1830px;
+}
+
+.attendance-col-number { width: 48px; }
+.attendance-col-name { width: 180px; }
+.attendance-col-id { width: 120px; }
+.attendance-col-day { width: 36px; }
+.attendance-col-total { width: 100px; }
+.attendance-col-rate { width: 64px; }
+
+.weekly-attendance-table .attendance-col-day {
+  width: 72px;
+}
+
 .attendance-table th,
 .attendance-table td {
   border: 1px solid #4b5563;
@@ -1860,14 +2369,45 @@ button {
   color: #0f172a;
 }
 
+.weekly-attendance-table thead th span,
+.weekly-attendance-table thead th strong {
+  display: block;
+}
+
+.weekly-attendance-table thead th span {
+  margin-bottom: 3px;
+  color: #64748b;
+  font-size: 0.62rem;
+}
+
+.weekly-attendance-table thead th strong {
+  color: #0f172a;
+  font-size: 0.7rem;
+}
+
+.attendance-table th {
+  overflow-wrap: anywhere;
+}
+
 .attendance-table tbody td {
   background: #ffffff;
 }
 
 .attendance-table tbody td:first-child,
-.attendance-table tbody td:nth-child(2) {
+.attendance-table tbody td:nth-child(2),
+.attendance-table tbody td:nth-child(3) {
   background: #f6f8fa;
   font-weight: 700;
+}
+
+.attendance-table tbody td.attendance-employee-name {
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.monthly-attendance-table tbody td:nth-child(3),
+.weekly-attendance-table tbody td:nth-child(3) {
+  overflow-wrap: anywhere;
 }
 
 .status-cell {
@@ -2271,12 +2811,19 @@ button {
 
 .other-deduction-tabs {
   display: flex;
+  flex-wrap: nowrap;
   gap: 8px;
   padding: 16px 0 0;
+  overflow-x: auto;
+  overflow-y: hidden;
   border-bottom: 1px solid #cbd5e1;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
 }
 
 .other-deduction-tabs button {
+  flex: 0 0 auto;
   padding: 10px 16px;
   border: 1px solid transparent;
   border-bottom: 0;
@@ -2369,6 +2916,135 @@ button {
   cursor: not-allowed;
 }
 
+.overtime-hours-entry {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px;
+}
+
+.overtime-hours-day {
+  display: grid;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.overtime-hours-day input {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.overtime-hours-day.unavailable {
+  color: #94a3b8;
+}
+
+.overtime-hours-total {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 7px 16px;
+  padding: 10px 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #475569;
+  font-size: 0.8rem;
+}
+
+.overtime-hours-total strong {
+  color: #1e3a8a;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.overtime-hours-total small {
+  grid-column: 1 / -1;
+  color: #64748b;
+}
+
+.holiday-pay-summary {
+  display: grid;
+  grid-template-columns: auto minmax(160px, 1fr);
+  align-items: center;
+  gap: 7px 12px;
+  padding: 12px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #475569;
+  font-size: 0.8rem;
+}
+
+.holiday-pay-actions {
+  display: grid;
+  grid-column: 1 / -1;
+  justify-items: start;
+  gap: 10px;
+}
+
+.holiday-pay-actions .holiday-pay-summary {
+  justify-self: start;
+}
+
+.holiday-pay-summary strong {
+  color: #1e3a8a;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.holiday-pay-eligibility {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.holiday-pay-eligibility legend {
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.holiday-pay-eligibility-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+}
+
+.holiday-pay-eligibility-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.holiday-pay-eligibility-options input {
+  width: 16px;
+  min-height: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #1d4ed8;
+}
+
+.overtime-hours-entry > button {
+  justify-self: start;
+}
+
 .other-deduction-balance {
   margin-top: 12px;
   font-variant-numeric: tabular-nums;
@@ -2437,6 +3113,15 @@ button {
 .other-deduction-table td:first-child strong,
 .other-deduction-table td:first-child span {
   display: block;
+}
+
+.other-deduction-table td.overtime-history-days {
+  white-space: normal;
+}
+
+.overtime-history-days span {
+  display: block;
+  margin: 2px 0;
 }
 
 .report-history-table.report-payroll-snapshot-table {
@@ -2692,8 +3377,50 @@ button {
 }
 
 @media (max-width: 800px) {
+  .overtime-hours-entry {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .leave-credits-header,
+  .leave-credit-tools,
+  .leave-request-form-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .leave-credits-policy,
+  .leave-credit-tools label {
+    max-width: none;
+    width: 100%;
+  }
+
+  .leave-credits-summary {
+    grid-template-columns: 1fr;
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .leave-request-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .leave-request-content {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
   .daily-summary-grid {
     grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+
+  .submit-panel-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .attendance-date-control,
+  .attendance-date-control input {
+    width: 100%;
   }
 
   .attendance-row {
@@ -2710,6 +3437,30 @@ button {
     width: 100%;
   }
 }
+
+@media (max-width: 520px) {
+  .overtime-hours-entry {
+    grid-template-columns: 1fr;
+  }
+
+  .holiday-pay-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .leave-request-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .leave-request-reason {
+    grid-column: auto;
+  }
+
+  .leave-request-form,
+  .leave-requests-list {
+    padding: 14px;
+  }
+}
+
 @media (max-width: 800px) {
   .home-page,
   .login-page {
@@ -2824,6 +3575,10 @@ button {
   }
 
   .employee-personal-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .employee-profile-fields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

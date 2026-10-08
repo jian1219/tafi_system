@@ -26,6 +26,7 @@ export async function getBranchEmployees(sessionToken) {
       address: employee.address ?? '',
       gender: employee.gender ?? '',
       birthday: employee.birthday ?? '',
+      hireDate: employee.hire_date ?? '',
       sssNumber: employee.sss_number ?? '',
       pagibigNumber: employee.pagibig_number ?? '',
       philhealthNumber: employee.philhealth_number ?? '',

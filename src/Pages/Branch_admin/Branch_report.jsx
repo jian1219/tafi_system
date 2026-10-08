@@ -5,6 +5,7 @@ import {
   listBranchCashAdvancePayments,
   listBranchEmployeeContributions,
   listBranchHdmfPayments,
+  listBranchOtherDeductions,
   listBranchUndertimeDeductions,
   listBranchPayrollAdditions,
   listBranchWeeklyPayrollSnapshots,
@@ -240,7 +241,7 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
     }
 
     setPayrollSnapshots(data ?? [])
-    setPayrollSnapshotMessage('Weekly payroll snapshot saved. Attendance, rates, payroll additions, mandatory contributions, HDMF repayments, undertime, and cash advance deductions are now preserved.')
+    setPayrollSnapshotMessage('Weekly payroll snapshot saved. Attendance, rates, payroll additions, mandatory contributions, HDMF repayments, undertime, other deductions, and cash advance deductions are now preserved.')
   }
 
   const loadPeriodData = async (period) => {
@@ -255,6 +256,7 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
       { data: cashAdvancePayments, error: cashAdvanceError },
       { data: hdmfPayments, error: hdmfPaymentError },
       { data: undertimeDeductions, error: undertimeError },
+      { data: otherDeductions, error: otherDeductionsError },
       { data: payrollAdditions, error: additionsError }
     ] = await Promise.all([
       getBranchEmployees(branchAdmin.session_token),
@@ -263,10 +265,11 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
       listBranchCashAdvancePayments(branchAdmin.session_token, period.startDate, period.endDate),
       listBranchHdmfPayments(branchAdmin.session_token, period.startDate, period.endDate),
       listBranchUndertimeDeductions(branchAdmin.session_token, period.startDate, period.endDate),
+      listBranchOtherDeductions(branchAdmin.session_token, period.startDate, period.endDate),
       listBranchPayrollAdditions(branchAdmin.session_token, period.startDate, period.endDate)
     ])
     const error = employeeError ?? attendanceError ?? contributionError ?? cashAdvanceError
-      ?? hdmfPaymentError ?? undertimeError ?? additionsError
+      ?? hdmfPaymentError ?? undertimeError ?? otherDeductionsError ?? additionsError
     if (error) throw error
 
     return {
@@ -276,6 +279,7 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
       cashAdvancePayments: cashAdvancePayments ?? [],
       hdmfPayments: hdmfPayments ?? [],
       undertimeDeductions: undertimeDeductions ?? [],
+      otherDeductions: otherDeductions ?? [],
       payrollAdditions: payrollAdditions ?? []
     }
   }
@@ -332,7 +336,7 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
     setPayrollMessage('')
     try {
       const period = getPeriod(payrollPeriodType, payrollWeekIndex)
-      const { employees, attendance, contributions, cashAdvancePayments, hdmfPayments, undertimeDeductions, payrollAdditions } = await loadPeriodData(period)
+      const { employees, attendance, contributions, cashAdvancePayments, hdmfPayments, undertimeDeductions, otherDeductions, payrollAdditions } = await loadPeriodData(period)
       const attendanceByEmployee = new Map()
       for (const record of attendance) {
         const records = attendanceByEmployee.get(record.employee_code) ?? []
@@ -360,6 +364,14 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
           Number(deduction.amount)
         ])
       )
+      const otherDeductionByEmployeeAndWeek = new Map()
+      for (const deduction of otherDeductions) {
+        const key = `${deduction.employee_code}:${deduction.period_start}`
+        otherDeductionByEmployeeAndWeek.set(
+          key,
+          (otherDeductionByEmployeeAndWeek.get(key) ?? 0) + Number(deduction.amount)
+        )
+      }
       const payrollAdditionsByEmployee = new Map()
       for (const addition of payrollAdditions) {
         const totals = payrollAdditionsByEmployee.get(addition.employee_code) ?? {
@@ -379,7 +391,7 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
         'Basic Salary (PHP)', 'Regular Holiday (PHP)', 'Overtime (PHP)',
         'Special Non-working Holiday (PHP)', 'Salary Credit (PHP)', 'SSS (PHP)',
         'PhilHealth (PHP)', 'Pag-IBIG (PHP)', 'HDMF Loan (PHP)', 'CA (PHP)',
-        'Late (PHP)', 'Und (PHP)', 'Total Deduction (PHP)', 'Final Net Pay (PHP)',
+        'Late (PHP)', 'Und (PHP)', 'Others (PHP)', 'Total Deduction (PHP)', 'Final Net Pay (PHP)',
         'Record Status'
       ]]
       let estimatedNetTotal = 0
@@ -416,6 +428,7 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
           ? 0
           : Math.round((dailyRate / 8 / 60 * lateMinutes) * 100) / 100
         let undertimeDeduction = 0
+        let otherDeduction = 0
         for (let weekStartDay = period.startDay; weekStartDay <= period.endDay; weekStartDay += 7) {
           const weekStart = getLocalDateKey(new Date(
             monthStart.getFullYear(),
@@ -426,11 +439,12 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
           if (undertimeDeductionByEmployeeAndWeek.has(manualKey)) {
             undertimeDeduction += undertimeDeductionByEmployeeAndWeek.get(manualKey)
           }
+          otherDeduction += otherDeductionByEmployeeAndWeek.get(manualKey) ?? 0
         }
         const deductionTotal = sss === null
           ? null
           : sss + philhealth + pagibig + hdmfLoanDeduction + cashAdvanceDeduction
-            + lateDeduction + undertimeDeduction
+            + lateDeduction + undertimeDeduction + otherDeduction
         const salaryCredit = basicSalary === null ? null : basicSalary + totalAdditions
         const net = salaryCredit !== null && deductionTotal !== null
           ? salaryCredit - deductionTotal
@@ -462,6 +476,7 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
           cashAdvanceDeduction,
           lateDeduction,
           undertimeDeduction,
+          otherDeduction,
           deductionTotal ?? '',
           net ?? '',
           basicSalary === null ? 'Needs rate or attendance' : !contribution ? 'Needs contributions' : 'Estimated'
@@ -470,7 +485,7 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
 
       rows.push([])
       rows.push(['Estimated net total for calculated employees', calculatedEmployees ? estimatedNetTotal.toFixed(2) : 'Awaiting complete data'])
-      rows.push(['Calculation', 'Monthly rate = daily rate × 26. Working days include Present and Present (Late); basic salary = daily rate × working days. Salary credit = basic salary + Regular Holiday + Overtime + Special Non-working Holiday. Late = daily rate ÷ 8 ÷ 60 × recorded late minutes. Total deduction = SSS + PhilHealth + Pag-IBIG + HDMF loan + CA + Late + Und. Final net pay = Salary credit − Total deduction.'])
+      rows.push(['Calculation', 'Monthly rate = daily rate × 26. Working days include Present and Present (Late); basic salary = daily rate × working days. Salary credit = basic salary + Regular Holiday + Overtime + Special Non-working Holiday. Late = daily rate ÷ 8 ÷ 60 × recorded late minutes. Others are employee-specific deductions entered with a description. Total deduction = SSS + PhilHealth + Pag-IBIG + HDMF loan + CA + Late + Und + Others. Final net pay = Salary credit − Total deduction.'])
 
       const description = periodDescription(payrollPeriodType, payrollWeekIndex)
       const suffix = payrollPeriodType === 'weekly' ? `week-${payrollWeekIndex + 1}` : 'monthly'
@@ -590,6 +605,7 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
                                     <th>Cash advance deduction</th>
                                     <th>HDMF loan deduction</th>
                                     <th>Undertime deduction</th>
+                                    <th>Others</th>
                                     <th>Final net pay</th>
                                   </tr>
                                 </thead>
@@ -611,6 +627,7 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
                                       <td>{formatCurrency(employee.cash_advance_deduction ?? 0)}</td>
                                       <td>{formatCurrency(employee.hdmf_loan_deduction ?? 0)}</td>
                                       <td>{formatCurrency(employee.undertime_deduction ?? 0)}</td>
+                                      <td>{formatCurrency(employee.other_deduction ?? 0)}</td>
                                       <td>{formatCurrency(employee.net_pay)}</td>
                                     </tr>
                                   ))}
