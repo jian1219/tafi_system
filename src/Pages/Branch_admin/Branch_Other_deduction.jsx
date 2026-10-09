@@ -7,7 +7,7 @@ import {
   listBranchHdmfPayments,
   listBranchOtherDeductions,
   listBranchUndertimeDeductions,
-  saveBranchUndertimeDeduction
+  saveBranchUndertimeMinutes
 } from '../../lib/supabase'
 import { getBranchEmployees } from './branchEmployees'
 import { getLocalDateKey } from './branchAttendanceRecords'
@@ -51,8 +51,8 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
   const [weekIndex, setWeekIndex] = useState(0)
   const [paymentAmount, setPaymentAmount] = useState('')
   const [undertimeEmployeeCode, setUndertimeEmployeeCode] = useState('')
-  const [undertimeWeekIndex, setUndertimeWeekIndex] = useState(0)
-  const [undertimeAmount, setUndertimeAmount] = useState('')
+  const [undertimeDate, setUndertimeDate] = useState(getLocalDateKey(today))
+  const [undertimeMinutes, setUndertimeMinutes] = useState('')
   const [otherEmployeeCode, setOtherEmployeeCode] = useState('')
   const [otherWeekIndex, setOtherWeekIndex] = useState(0)
   const [otherDescription, setOtherDescription] = useState('')
@@ -138,6 +138,15 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
 
   const selectedLoan = loans.find((loan) => loan.id === selectedLoanId)
   const openLoans = loans.filter((loan) => Number(loan.balance) > 0)
+  const selectedUndertimeEmployee = employees.find((employee) => employee.id === undertimeEmployeeCode)
+  const undertimeMinutesValue = Number(undertimeMinutes)
+  const calculatedUndertimeDeduction = selectedUndertimeEmployee
+    && Number.isFinite(selectedUndertimeEmployee.dailyRate)
+    && selectedUndertimeEmployee.dailyRate > 0
+    && Number.isSafeInteger(undertimeMinutesValue)
+    && undertimeMinutesValue > 0
+    ? Math.round((selectedUndertimeEmployee.dailyRate / 8 / 60 * undertimeMinutesValue) * 100) / 100
+    : null
 
   const refreshData = async (successMessage) => {
     const result = await fetchData()
@@ -228,20 +237,23 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
     setError('')
     setMessage('')
 
-    const amount = Number(undertimeAmount)
-    const week = payrollWeeks[undertimeWeekIndex]
-    if (!sessionToken || !undertimeEmployeeCode || !week
-      || undertimeAmount.trim() === '' || !Number.isFinite(amount) || amount < 0) {
-      setError('Choose an employee and payroll week, then enter a valid undertime amount of zero or more.')
+    const minutes = Number(undertimeMinutes)
+    if (!sessionToken || !undertimeEmployeeCode || !undertimeDate
+      || undertimeMinutes.trim() === '' || !Number.isSafeInteger(minutes)
+      || minutes <= 0 || minutes > 2147483647) {
+      setError('Choose an employee and undertime date, then enter a whole number of minutes greater than zero.')
+      return
+    }
+    if (!Number.isFinite(selectedUndertimeEmployee?.dailyRate) || selectedUndertimeEmployee.dailyRate <= 0) {
+      setError('The selected employee must have a valid daily rate before undertime can be calculated.')
       return
     }
 
     setIsSaving(true)
-    const { error: saveError } = await saveBranchUndertimeDeduction(sessionToken, {
+    const { error: saveError } = await saveBranchUndertimeMinutes(sessionToken, {
       employeeCode: undertimeEmployeeCode,
-      periodStart: week.startDate,
-      periodEnd: week.endDate,
-      amount
+      undertimeDate,
+      minutes
     })
     if (saveError) {
       setError(saveError.message)
@@ -249,9 +261,9 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
       return
     }
 
-    setUndertimeAmount('')
+    setUndertimeMinutes('')
     setStatus('loading')
-    await refreshData('Undertime deduction saved and included in payroll for the selected week.')
+    await refreshData('Undertime minutes saved and calculated deduction included in payroll.')
     setIsSaving(false)
   }
 
@@ -491,12 +503,9 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
       ) : activeTab === 'undertime' ? (
         <>
           <section className="other-deduction-panel">
-            <h4>Enter weekly undertime deduction</h4>
+            <h4>Record employee undertime</h4>
             <p className="other-deduction-help">
-              Enter the agreed amount for the selected week. A saved amount replaces the automatic late-minute calculation for that employee and week.
-            </p>
-            <p className="other-deduction-help">
-              Automatic formula: daily rate ÷ 8 ÷ 60 × minutes late.
+              Enter the date and minutes of undertime. The deduction is calculated as daily rate ÷ 8 ÷ 60 × undertime minutes.
             </p>
             <form className="other-deduction-form" onSubmit={handleSaveUndertime}>
               <label>
@@ -514,27 +523,31 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
                 </select>
               </label>
               <label>
-                <span>Payroll week</span>
-                <select
-                  value={undertimeWeekIndex}
-                  onChange={(event) => setUndertimeWeekIndex(Number(event.target.value))}
-                >
-                  {payrollWeeks.map((week) => (
-                    <option key={week.index} value={week.index}>{week.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>Undertime deduction (PHP)</span>
+                <span>Undertime date</span>
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={undertimeAmount}
-                  onChange={(event) => setUndertimeAmount(event.target.value)}
+                  type="date"
+                  value={undertimeDate}
+                  onChange={(event) => setUndertimeDate(event.target.value)}
                   required
                 />
               </label>
+              <label>
+                <span>Undertime minutes</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="2147483647"
+                  step="1"
+                  value={undertimeMinutes}
+                  onChange={(event) => setUndertimeMinutes(event.target.value)}
+                  required
+                />
+              </label>
+              {calculatedUndertimeDeduction !== null && (
+                <p className="other-deduction-help">
+                  Calculated deduction: {formatCurrency(calculatedUndertimeDeduction)}
+                </p>
+              )}
               <button type="submit" disabled={isSaving || status !== 'ready' || employees.length === 0}>
                 {isSaving ? 'Saving…' : 'Save undertime'}
               </button>
@@ -543,25 +556,26 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
           <div className="other-deduction-history-heading">
             <div>
               <h4>Undertime deduction history</h4>
-              <p>{monthName} · Manual entries override the automatic late-minute calculation in the same payroll week.</p>
+              <p>{monthName} · Each entry records undertime minutes on its specific date.</p>
             </div>
           </div>
           <div className="other-deduction-table-wrap" role="region" aria-label="Undertime deduction history" tabIndex="0">
             <table className="other-deduction-table">
               <thead>
-                <tr><th>Employee</th><th>Payroll week</th><th>Deduction</th><th>Last updated</th></tr>
+                <tr><th>Employee</th><th>Undertime date</th><th>Minutes</th><th>Deduction</th><th>Last updated</th></tr>
               </thead>
               <tbody>
                 {undertimeDeductions.map((deduction) => (
                   <tr key={deduction.id}>
                     <td><strong>{deduction.employee_name}</strong><span>{deduction.employee_code}</span></td>
-                    <td>{formatDate(deduction.period_start)}–{formatDate(deduction.period_end)}</td>
+                    <td>{formatDate(deduction.period_start)}</td>
+                    <td>{deduction.undertime_minutes ?? '—'}</td>
                     <td>{formatCurrency(deduction.amount)}</td>
                     <td>{formatDate(deduction.updated_at.slice(0, 10))}</td>
                   </tr>
                 ))}
                 {status === 'ready' && undertimeDeductions.length === 0 && (
-                  <tr><td className="employee-empty-state" colSpan="4">No undertime deductions have been entered this month.</td></tr>
+                  <tr><td className="employee-empty-state" colSpan="5">No undertime deductions have been entered this month.</td></tr>
                 )}
               </tbody>
             </table>

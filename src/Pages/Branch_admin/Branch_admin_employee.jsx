@@ -53,6 +53,7 @@ const getEmployeeProfile = (employee) => ({
 	gender: employee.gender,
 	birthday: employee.birthday,
 	hireDate: employee.hireDate ?? '',
+	tinNumber: employee.tinNumber,
 	sssNumber: employee.sssNumber,
 	pagibigNumber: employee.pagibigNumber,
 	philhealthNumber: employee.philhealthNumber,
@@ -392,6 +393,14 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 								<strong>{getAge(currentProfile.birthday)}</strong>
 							</div>
 							<label>
+								<span>TIN</span>
+								<input
+									value={currentProfile.tinNumber}
+									onChange={(event) => updateProfileField('tinNumber', event.target.value)}
+									autoComplete="off"
+								/>
+							</label>
+							<label>
 								<span>SSS number</span>
 								<input
 									value={currentProfile.sssNumber}
@@ -469,6 +478,10 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 								<div className="employee-profile-field">
 									<dt>Age</dt>
 									<dd>{getAge(currentProfile.birthday)}</dd>
+								</div>
+								<div className="employee-profile-field">
+									<dt>TIN</dt>
+									<dd>{currentProfile.tinNumber || 'Not provided'}</dd>
 								</div>
 								<div className="employee-profile-field">
 									<dt>SSS number</dt>

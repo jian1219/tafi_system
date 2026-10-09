@@ -70,6 +70,7 @@ create table if not exists public.employee (
   address text,
   gender text,
   birthday date,
+  tin_number text,
   sss_number text,
   pagibig_number text,
   philhealth_number text,

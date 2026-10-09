@@ -241,11 +241,11 @@ begin
     coalesce(contribution.pagibig, 0),
     coalesce(cash_advance.weekly_deduction, 0),
     coalesce(hdmf_payment.amount, 0),
-    coalesce(undertime.amount, round(sum(case
+    coalesce(undertime.amount, 0) + round(sum(case
       when attendance.status = 'present_late'
         then attendance.daily_rate_snapshot / 8 / 60 * attendance.late_minutes
       else 0
-    end), 2)),
+    end), 2),
     coalesce(other_deductions.amount, 0),
     coalesce(additions.holiday_regular_pay, 0),
     coalesce(additions.overtime_pay, 0),
@@ -263,11 +263,12 @@ begin
       - coalesce(contribution.pagibig, 0)
       - coalesce(cash_advance.weekly_deduction, 0)
       - coalesce(hdmf_payment.amount, 0)
-      - coalesce(undertime.amount, round(sum(case
+      - coalesce(undertime.amount, 0)
+      - round(sum(case
         when attendance.status = 'present_late'
           then attendance.daily_rate_snapshot / 8 / 60 * attendance.late_minutes
         else 0
-      end), 2))
+      end), 2)
       - coalesce(other_deductions.amount, 0),
       2
     )
@@ -292,11 +293,14 @@ begin
       and payment.period_start = p_period_start
       and payment.period_end = p_period_end
   ) as hdmf_payment on true
-  left join public.branch_employee_undertime_deduction as undertime
-    on undertime.branch_id = v_branch_id
-    and undertime.employee_code = employee.employee_code
-    and undertime.period_start = p_period_start
-    and undertime.period_end = p_period_end
+  left join lateral (
+    select sum(deduction.amount) as amount
+    from public.branch_employee_undertime_deduction as deduction
+    where deduction.branch_id = v_branch_id
+      and deduction.employee_code = employee.employee_code
+      and deduction.period_start >= p_period_start
+      and deduction.period_end <= p_period_end
+  ) as undertime on true
   left join lateral (
     select sum(deduction.amount) as amount
     from public.branch_employee_other_deduction as deduction

@@ -116,10 +116,13 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
         }, new Map())
       ))
       setUndertimeDeductions(Object.fromEntries(
-        (loadedUndertimeDeductions ?? []).map((record) => [
-          record.employee_code,
-          Number(record.amount)
-        ])
+        (loadedUndertimeDeductions ?? []).reduce((totals, record) => {
+          totals.set(
+            record.employee_code,
+            (totals.get(record.employee_code) ?? 0) + Number(record.amount)
+          )
+          return totals
+        }, new Map())
       ))
       setOtherDeductions(Object.fromEntries(
         (loadedOtherDeductions ?? []).reduce((totals, record) => {

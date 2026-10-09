@@ -10,6 +10,8 @@ import SuperAdminDashboard from './Pages/Super_Admin/Super_Admin_Dashboard'
 import logoImage from './images/Tafi logo transparent.png'
 import './App.css'
 
+import Pause from './Pages/Pause'
+
 const roles = [
   {
     name: 'Accountant',
@@ -93,7 +95,7 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<Pause />} />
         <Route path="/accountant-login" element={<AccountantLogin />} />
         <Route path="/tafi-admin-login" element={<AdminLogin />} />
         <Route path="/branch-admin-login" element={<BranchAdminLogin />} />

@@ -18,6 +18,7 @@ revoke all on table public.branch_admin_session from public, anon, authenticated
 alter table public.employee add column if not exists address text;
 alter table public.employee add column if not exists gender text;
 alter table public.employee add column if not exists birthday date;
+alter table public.employee add column if not exists tin_number text;
 alter table public.employee add column if not exists sss_number text;
 alter table public.employee add column if not exists pagibig_number text;
 alter table public.employee add column if not exists philhealth_number text;
@@ -181,6 +182,7 @@ create table if not exists public.branch_employee_undertime_deduction (
   period_start date not null,
   period_end date not null,
   amount numeric(12, 2) not null check (amount >= 0),
+  undertime_minutes integer,
   created_by_branch_admin_id uuid not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -198,6 +200,9 @@ create table if not exists public.branch_employee_undertime_deduction (
 
 create index if not exists branch_employee_undertime_deduction_period_idx
   on public.branch_employee_undertime_deduction (branch_id, period_start, employee_code);
+
+alter table public.branch_employee_undertime_deduction
+  add column if not exists undertime_minutes integer;
 
 create table if not exists public.branch_employee_payroll_addition (
   id uuid primary key default gen_random_uuid(),
@@ -359,6 +364,7 @@ returns table (
   address text,
   gender text,
   birthday date,
+  tin_number text,
   sss_number text,
   pagibig_number text,
   philhealth_number text,
@@ -384,7 +390,7 @@ begin
   return query
   select employee.employee_code, employee.name, employee.position, employee.daily_rate,
     coalesce(attendance.status, 'not_marked'), employee.address, employee.gender,
-    employee.birthday, employee.sss_number, employee.pagibig_number,
+    employee.birthday, employee.tin_number, employee.sss_number, employee.pagibig_number,
     employee.philhealth_number, employee.employment_classification
   from public.employee as employee
   left join public.employee_attendance as attendance
@@ -396,12 +402,15 @@ begin
 end;
 $$;
 
+drop function if exists public.branch_admin_update_employee_profile(uuid, text, text, text, date, text, text, text, text);
+
 create or replace function public.branch_admin_update_employee_profile(
   p_session_token uuid,
   p_employee_code text,
   p_address text,
   p_gender text,
   p_birthday date,
+  p_tin_number text,
   p_sss_number text,
   p_pagibig_number text,
   p_philhealth_number text,
@@ -438,6 +447,7 @@ begin
   set address = nullif(trim(p_address), ''),
     gender = p_gender,
     birthday = p_birthday,
+    tin_number = nullif(trim(p_tin_number), ''),
     sss_number = nullif(trim(p_sss_number), ''),
     pagibig_number = nullif(trim(p_pagibig_number), ''),
     philhealth_number = nullif(trim(p_philhealth_number), ''),
@@ -1218,7 +1228,9 @@ begin
 end;
 $$;
 
-create or replace function public.branch_admin_list_undertime_deductions(
+drop function if exists public.branch_admin_list_undertime_deductions(uuid, date, date, integer, integer);
+
+create function public.branch_admin_list_undertime_deductions(
   p_session_token uuid,
   p_period_start date,
   p_period_end date,
@@ -1231,6 +1243,7 @@ returns table (
   employee_name text,
   period_start date,
   period_end date,
+  undertime_minutes integer,
   amount numeric,
   updated_at timestamptz
 )
@@ -1260,7 +1273,8 @@ begin
 
   return query
   select deduction.id, deduction.employee_code, employee.name,
-    deduction.period_start, deduction.period_end, deduction.amount, deduction.updated_at
+    deduction.period_start, deduction.period_end, deduction.undertime_minutes,
+    deduction.amount, deduction.updated_at
   from public.branch_employee_undertime_deduction as deduction
   join public.employee as employee
     on employee.branch_id = deduction.branch_id
@@ -1271,6 +1285,72 @@ begin
   order by deduction.period_start, employee.name, deduction.employee_code
   offset p_offset
   limit p_limit;
+end;
+$$;
+
+create or replace function public.branch_admin_save_undertime_minutes(
+  p_session_token uuid,
+  p_employee_code text,
+  p_undertime_date date,
+  p_minutes integer
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_admin_id uuid;
+  v_branch_id uuid;
+  v_daily_rate numeric;
+  v_amount numeric;
+begin
+  select ba.id, ba.branch_id into v_admin_id, v_branch_id
+  from public.branch_admin_session as admin_session
+  join public.branch_admin as ba on ba.id = admin_session.branch_admin_id
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now();
+
+  if not found then
+    raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
+  end if;
+  if nullif(trim(p_employee_code), '') is null
+    or p_undertime_date is null
+    or p_minutes is null or p_minutes < 1 then
+    raise exception 'Enter an employee, undertime date, and positive whole number of minutes';
+  end if;
+
+  select employee.daily_rate into v_daily_rate
+  from public.employee as employee
+  where employee.branch_id = v_branch_id
+    and employee.employee_code = trim(p_employee_code)
+    and employee.employment_status = 'active';
+
+  if not found then
+    raise exception 'Active employee was not found in this branch';
+  end if;
+  if v_daily_rate is null or v_daily_rate <= 0 then
+    raise exception 'The employee must have a valid daily rate before undertime can be calculated';
+  end if;
+
+  v_amount := round(v_daily_rate / 8 / 60 * p_minutes, 2);
+
+  insert into public.branch_employee_undertime_deduction (
+    branch_id, employee_code, period_start, period_end,
+    amount, undertime_minutes, created_by_branch_admin_id
+  )
+  values (
+    v_branch_id, trim(p_employee_code), p_undertime_date, p_undertime_date,
+    v_amount, p_minutes, v_admin_id
+  )
+  on conflict (branch_id, employee_code, period_start) do update
+  set period_end = excluded.period_end,
+    amount = excluded.amount,
+    undertime_minutes = excluded.undertime_minutes,
+    created_by_branch_admin_id = excluded.created_by_branch_admin_id,
+    updated_at = now();
+
+  return true;
 end;
 $$;
 
@@ -1521,11 +1601,11 @@ begin
     coalesce(contribution.pagibig, 0),
     coalesce(cash_advance.weekly_deduction, 0),
     coalesce(hdmf_payment.amount, 0),
-    coalesce(undertime.amount, round(sum(case
+    coalesce(undertime.amount, 0) + round(sum(case
       when attendance.status = 'present_late'
         then attendance.daily_rate_snapshot / 8 / 60 * attendance.late_minutes
       else 0
-    end), 2)),
+    end), 2),
     coalesce(additions.holiday_regular_pay, 0),
     coalesce(additions.overtime_pay, 0),
     coalesce(additions.special_nonworking_holiday_pay, 0),
@@ -1542,11 +1622,12 @@ begin
       - coalesce(contribution.pagibig, 0)
       - coalesce(cash_advance.weekly_deduction, 0)
       - coalesce(hdmf_payment.amount, 0)
-      - coalesce(undertime.amount, round(sum(case
+      - coalesce(undertime.amount, 0)
+      - round(sum(case
         when attendance.status = 'present_late'
           then attendance.daily_rate_snapshot / 8 / 60 * attendance.late_minutes
         else 0
-      end), 2)),
+      end), 2),
       2
     )
   from public.employee_attendance as attendance
@@ -1570,11 +1651,14 @@ begin
       and payment.period_start = p_period_start
       and payment.period_end = p_period_end
   ) as hdmf_payment on true
-  left join public.branch_employee_undertime_deduction as undertime
-    on undertime.branch_id = v_branch_id
-    and undertime.employee_code = employee.employee_code
-    and undertime.period_start = p_period_start
-    and undertime.period_end = p_period_end
+  left join lateral (
+    select sum(deduction.amount) as amount
+    from public.branch_employee_undertime_deduction as deduction
+    where deduction.branch_id = v_branch_id
+      and deduction.employee_code = employee.employee_code
+      and deduction.period_start >= p_period_start
+      and deduction.period_end <= p_period_end
+  ) as undertime on true
   left join lateral (
     select
       sum(addition.amount) filter (where addition.addition_type = 'holiday_regular_pay') as holiday_regular_pay,
@@ -1868,7 +1952,7 @@ $$;
 revoke all on function public.branch_admin_login(text, text) from public;
 revoke all on function public.branch_admin_list_employees(uuid) from public;
 revoke all on function public.branch_admin_create_employee(uuid, text, text) from public;
-revoke all on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, text, text, text, text) from public;
+revoke all on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, text, text, text, text, text) from public;
 revoke all on function public.branch_admin_update_employee_daily_rate(uuid, text, numeric) from public;
 revoke all on function public.branch_admin_create_cash_advance(uuid, text, date, date, numeric, numeric) from public;
 revoke all on function public.branch_admin_list_cash_advances(uuid, integer, integer, date, date) from public;
@@ -1882,6 +1966,7 @@ revoke all on function public.branch_admin_create_hdmf_payment(uuid, uuid, date,
 revoke all on function public.branch_admin_list_hdmf_payments(uuid, date, date) from public;
 revoke all on function public.branch_admin_list_undertime_deductions(uuid, date, date, integer, integer) from public;
 revoke all on function public.branch_admin_save_undertime_deduction(uuid, text, date, date, numeric) from public;
+revoke all on function public.branch_admin_save_undertime_minutes(uuid, text, date, integer) from public;
 revoke all on function public.branch_admin_list_payroll_additions(uuid, date, date, integer, integer) from public;
 revoke all on function public.branch_admin_save_payroll_addition(uuid, text, date, date, text, numeric) from public;
 revoke all on function public.branch_admin_list_attendance(uuid, date, date) from public;
@@ -1896,7 +1981,7 @@ revoke all on function public.branch_admin_logout(uuid) from public;
 grant execute on function public.branch_admin_login(text, text) to anon, authenticated;
 grant execute on function public.branch_admin_list_employees(uuid) to anon, authenticated;
 grant execute on function public.branch_admin_create_employee(uuid, text, text) to anon, authenticated;
-grant execute on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, text, text, text, text) to anon, authenticated;
+grant execute on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, text, text, text, text, text) to anon, authenticated;
 grant execute on function public.branch_admin_update_employee_daily_rate(uuid, text, numeric) to anon, authenticated;
 grant execute on function public.branch_admin_create_cash_advance(uuid, text, date, date, numeric, numeric) to anon, authenticated;
 grant execute on function public.branch_admin_list_cash_advances(uuid, integer, integer, date, date) to anon, authenticated;
@@ -1910,6 +1995,7 @@ grant execute on function public.branch_admin_create_hdmf_payment(uuid, uuid, da
 grant execute on function public.branch_admin_list_hdmf_payments(uuid, date, date) to anon, authenticated;
 grant execute on function public.branch_admin_list_undertime_deductions(uuid, date, date, integer, integer) to anon, authenticated;
 grant execute on function public.branch_admin_save_undertime_deduction(uuid, text, date, date, numeric) to anon, authenticated;
+grant execute on function public.branch_admin_save_undertime_minutes(uuid, text, date, integer) to anon, authenticated;
 grant execute on function public.branch_admin_list_payroll_additions(uuid, date, date, integer, integer) to anon, authenticated;
 grant execute on function public.branch_admin_save_payroll_addition(uuid, text, date, date, text, numeric) to anon, authenticated;
 grant execute on function public.branch_admin_list_attendance(uuid, date, date) to anon, authenticated;

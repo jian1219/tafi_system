@@ -358,12 +358,13 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
           (hdmfDeductionByEmployee.get(payment.employee_code) ?? 0) + Number(payment.amount)
         )
       }
-      const undertimeDeductionByEmployeeAndWeek = new Map(
-        undertimeDeductions.map((deduction) => [
-          `${deduction.employee_code}:${deduction.period_start}`,
-          Number(deduction.amount)
-        ])
-      )
+      const undertimeDeductionByEmployee = new Map()
+      for (const deduction of undertimeDeductions) {
+        undertimeDeductionByEmployee.set(
+          deduction.employee_code,
+          (undertimeDeductionByEmployee.get(deduction.employee_code) ?? 0) + Number(deduction.amount)
+        )
+      }
       const otherDeductionByEmployeeAndWeek = new Map()
       for (const deduction of otherDeductions) {
         const key = `${deduction.employee_code}:${deduction.period_start}`
@@ -427,7 +428,7 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
         const lateDeduction = dailyRate === null
           ? 0
           : Math.round((dailyRate / 8 / 60 * lateMinutes) * 100) / 100
-        let undertimeDeduction = 0
+        const undertimeDeduction = undertimeDeductionByEmployee.get(employee.id) ?? 0
         let otherDeduction = 0
         for (let weekStartDay = period.startDay; weekStartDay <= period.endDay; weekStartDay += 7) {
           const weekStart = getLocalDateKey(new Date(
@@ -436,9 +437,6 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
             weekStartDay
           ))
           const manualKey = `${employee.id}:${weekStart}`
-          if (undertimeDeductionByEmployeeAndWeek.has(manualKey)) {
-            undertimeDeduction += undertimeDeductionByEmployeeAndWeek.get(manualKey)
-          }
           otherDeduction += otherDeductionByEmployeeAndWeek.get(manualKey) ?? 0
         }
         const deductionTotal = sss === null

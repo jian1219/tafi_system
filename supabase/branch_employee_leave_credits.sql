@@ -320,6 +320,7 @@ returns table (
   address text,
   gender text,
   birthday date,
+  tin_number text,
   sss_number text,
   pagibig_number text,
   philhealth_number text,
@@ -346,7 +347,7 @@ begin
   return query
   select employee.employee_code, employee.name, employee.position, employee.daily_rate,
     coalesce(attendance.status, 'not_marked'), employee.address, employee.gender,
-    employee.birthday, employee.sss_number, employee.pagibig_number,
+    employee.birthday, employee.tin_number, employee.sss_number, employee.pagibig_number,
     employee.philhealth_number, employee.employment_classification, employee.hire_date
   from public.employee as employee
   left join public.employee_attendance as attendance
@@ -360,6 +361,7 @@ $$;
 
 drop function if exists public.branch_admin_update_employee_profile(uuid, text, text, text, date, text, text, text, text);
 drop function if exists public.branch_admin_update_employee_profile(uuid, text, text, text, date, date, text, text, text, text);
+drop function if exists public.branch_admin_update_employee_profile(uuid, text, text, text, date, date, text, text, text, text, text);
 
 create function public.branch_admin_update_employee_profile(
   p_session_token uuid,
@@ -368,6 +370,7 @@ create function public.branch_admin_update_employee_profile(
   p_gender text,
   p_birthday date,
   p_hire_date date,
+  p_tin_number text,
   p_sss_number text,
   p_pagibig_number text,
   p_philhealth_number text,
@@ -406,6 +409,7 @@ begin
     gender = p_gender,
     birthday = p_birthday,
     hire_date = p_hire_date,
+    tin_number = nullif(trim(p_tin_number), ''),
     sss_number = nullif(trim(p_sss_number), ''),
     pagibig_number = nullif(trim(p_pagibig_number), ''),
     philhealth_number = nullif(trim(p_philhealth_number), ''),
@@ -428,12 +432,12 @@ revoke all on function public.branch_admin_list_employee_leave_requests(uuid) fr
 revoke all on function public.branch_admin_create_employee_leave_request(uuid, text, date, date, numeric, text) from public;
 revoke all on function public.branch_admin_update_employee_leave_request_status(uuid, uuid, text) from public;
 revoke all on function public.branch_admin_list_employees(uuid) from public;
-revoke all on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, date, text, text, text, text) from public;
+revoke all on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, date, text, text, text, text, text) from public;
 grant execute on function public.branch_admin_list_employee_leave_credits(uuid) to anon, authenticated;
 grant execute on function public.branch_admin_list_employee_leave_requests(uuid) to anon, authenticated;
 grant execute on function public.branch_admin_create_employee_leave_request(uuid, text, date, date, numeric, text) to anon, authenticated;
 grant execute on function public.branch_admin_update_employee_leave_request_status(uuid, uuid, text) to anon, authenticated;
 grant execute on function public.branch_admin_list_employees(uuid) to anon, authenticated;
-grant execute on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, date, text, text, text, text) to anon, authenticated;
+grant execute on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, date, text, text, text, text, text) to anon, authenticated;
 
 commit;

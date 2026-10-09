@@ -323,6 +323,7 @@ export async function updateBranchEmployeeProfile(sessionToken, employeeCode, pr
       p_gender: profile.gender || null,
       p_birthday: profile.birthday || null,
       p_hire_date: profile.hireDate || null,
+      p_tin_number: profile.tinNumber,
       p_sss_number: profile.sssNumber,
       p_pagibig_number: profile.pagibigNumber,
       p_philhealth_number: profile.philhealthNumber,
@@ -531,20 +532,19 @@ export async function listBranchUndertimeDeductions(sessionToken, periodStart, p
   }
 }
 
-export async function saveBranchUndertimeDeduction(sessionToken, deduction) {
+export async function saveBranchUndertimeMinutes(sessionToken, undertime) {
   try {
     const supabaseClient = await getSupabaseClient()
-    return await supabaseClient.rpc('branch_admin_save_undertime_deduction', {
+    return await supabaseClient.rpc('branch_admin_save_undertime_minutes', {
       p_session_token: sessionToken,
-      p_employee_code: deduction.employeeCode,
-      p_period_start: deduction.periodStart,
-      p_period_end: deduction.periodEnd,
-      p_amount: deduction.amount
+      p_employee_code: undertime.employeeCode,
+      p_undertime_date: undertime.undertimeDate,
+      p_minutes: undertime.minutes
     })
   } catch (error) {
     return {
       data: null,
-      error: error instanceof Error ? error : new Error('Unable to save the undertime deduction.')
+      error: error instanceof Error ? error : new Error('Unable to save undertime minutes.')
     }
   }
 }
