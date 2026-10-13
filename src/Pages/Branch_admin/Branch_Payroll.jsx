@@ -17,21 +17,11 @@ const formatCurrency = (amount) => amount.toLocaleString('en-PH', {
   minimumFractionDigits: 2
 })
 
-const currentDate = new Date()
-const payrollMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
-const attendanceMonthLength = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate()
-const payrollMonthLabel = currentDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
-
-const payrollWeeks = Array.from(
-  { length: Math.max(1, Math.ceil(attendanceMonthLength / 7)) },
-  (_, index) => ({
-    index,
-    startDay: index * 7 + 1,
-    endDay: Math.min((index + 1) * 7, attendanceMonthLength)
-  })
-)
-
 export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdmin }) {
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  })
   const [selectedWeekIndex, setSelectedWeekIndex] = useState(0)
   const [employees, setEmployees] = useState([])
   const [attendanceRecords, setAttendanceRecords] = useState([])
@@ -43,6 +33,27 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
   const [payrollAdditions, setPayrollAdditions] = useState({})
   const [contributionStatus, setContributionStatus] = useState('loading')
   const [contributionError, setContributionError] = useState('')
+  const payrollMonthStart = useMemo(() => {
+    const [year, month] = selectedMonth.split('-').map(Number)
+    return new Date(year, month - 1, 1)
+  }, [selectedMonth])
+  const attendanceMonthLength = new Date(
+    payrollMonthStart.getFullYear(),
+    payrollMonthStart.getMonth() + 1,
+    0
+  ).getDate()
+  const payrollMonthLabel = payrollMonthStart.toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric'
+  })
+  const payrollWeeks = useMemo(() => Array.from(
+    { length: Math.max(1, Math.ceil(attendanceMonthLength / 7)) },
+    (_, index) => ({
+      index,
+      startDay: index * 7 + 1,
+      endDay: Math.min((index + 1) * 7, attendanceMonthLength)
+    })
+  ), [attendanceMonthLength])
   const selectedWeek = payrollWeeks[selectedWeekIndex] ?? payrollWeeks[0]
   const sessionToken = branchAdmin?.session_token
   const selectedStartDate = getLocalDateKey(new Date(
@@ -174,12 +185,13 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
     const presentDays = employeeRecords.filter(
       (record) => record.status === 'present' || record.status === 'present_late'
     ).length
-    const absentDays = employeeRecords.filter((record) => record.status === 'absent').length
+    const leaveWithPayDays = employeeRecords.filter((record) => record.status === 'vl_with_pay').length
+    const paidDays = presentDays + leaveWithPayDays
     const hasAttendance = employeeRecords.some((record) => record.status !== 'not_marked')
     const dailyRate = Number.isFinite(employee.dailyRate) ? employee.dailyRate : null
     const monthlyRate = dailyRate === null ? null : dailyRate * 26
     const basicSalary = hasAttendance && dailyRate !== null
-      ? presentDays * dailyRate
+      ? paidDays * dailyRate
       : null
     const contribution = contributions[employee.id]
     const sss = contribution?.sss ?? 0
@@ -213,8 +225,8 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
       ...employee,
       hasAttendance,
       presentDays,
-      absentDays,
-      totalDays: hasAttendance ? presentDays + absentDays : null,
+      leaveWithPayDays,
+      totalDays: hasAttendance ? paidDays : null,
       dailyRate,
       monthlyRate,
       basicSalary,
@@ -258,19 +270,33 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
           <h3>Weekly Payroll</h3>
           <p className="employee-info-description">Payroll shows monthly rate, attendance-based basic salary, additional earnings, deductions, and estimated final net pay for the selected week.</p>
         </div>
-        <label className="payroll-period-control">
-          <span>Payroll week</span>
-          <select
-            value={selectedWeekIndex}
-            onChange={(event) => setSelectedWeekIndex(Number(event.target.value))}
-          >
-            {payrollWeeks.map((week) => (
-              <option key={week.index} value={week.index}>
-                Week {week.index + 1} · {payrollMonthLabel.split(' ')[0]} {week.startDay}–{week.endDay}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="payroll-period-controls">
+          <label className="payroll-period-control">
+            <span>Payroll month</span>
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(event) => {
+                if (!event.target.value) return
+                setSelectedMonth(event.target.value)
+                setSelectedWeekIndex(0)
+              }}
+            />
+          </label>
+          <label className="payroll-period-control">
+            <span>Payroll week</span>
+            <select
+              value={selectedWeekIndex}
+              onChange={(event) => setSelectedWeekIndex(Number(event.target.value))}
+            >
+              {payrollWeeks.map((week) => (
+                <option key={week.index} value={week.index}>
+                  Week {week.index + 1} · {payrollMonthLabel.split(' ')[0]} {week.startDay}–{week.endDay}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </header>
 
       <div className="payroll-summary-grid">
@@ -321,8 +347,8 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
               <th>Employment status</th>
               <th>Monthly rate</th>
               <th>Daily rate</th>
-              <th>Working days (present)</th>
-              <th>Absent</th>
+              <th>Present days</th>
+              <th>Leave with Pay</th>
               <th>Total number of days</th>
               <th>Basic salary</th>
               <th>Regular holiday</th>
@@ -351,7 +377,7 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
                 <td>{employee.monthlyRate === null ? 'Not set' : formatCurrency(employee.monthlyRate)}</td>
                 <td>{employee.dailyRate === null ? 'Not set' : formatCurrency(employee.dailyRate)}</td>
                 <td>{employee.hasAttendance ? employee.presentDays : '—'}</td>
-                <td>{employee.hasAttendance ? employee.absentDays : '—'}</td>
+                <td>{employee.hasAttendance ? employee.leaveWithPayDays : '—'}</td>
                 <td>{employee.totalDays ?? '—'}</td>
                 <td className="weekly-payroll-amount">
                   {employee.basicSalary === null ? '—' : formatCurrency(employee.basicSalary)}
@@ -395,7 +421,7 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
       </div>
 
       <p className="payroll-calculation-note">
-        Monthly rate is daily rate × 26. Working days include attendance marked Present or Present (Late); basic salary is daily rate × working days. Salary credit adds regular holiday, overtime, and special non-working holiday pay. Late deduction is daily rate ÷ 8 ÷ 60 × recorded late minutes; Und is the separately entered weekly undertime deduction. Others includes employee-specific deductions entered with a description. Total deduction includes SSS, PhilHealth, Pag-IBIG, HDMF loan, cash advance (CA), late, Und, and Others. Final net pay is salary credit minus total deduction.
+        Monthly rate is daily rate × 26. Total paid days include attendance marked Present, Present (Late), or Leave with Pay; basic salary is daily rate × total paid days. Salary credit adds regular holiday, overtime, and special non-working holiday pay. Late deduction is daily rate ÷ 8 ÷ 60 × recorded late minutes; Und is the separately entered weekly undertime deduction. Others includes employee-specific deductions entered with a description. Total deduction includes SSS, PhilHealth, Pag-IBIG, HDMF loan, cash advance (CA), late, Und, and Others. Final net pay is salary credit minus total deduction.
       </p>
     </section>
   )

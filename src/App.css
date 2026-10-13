@@ -909,7 +909,7 @@ button {
 
 .add-employee-form {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(160px, 0.8fr) auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
   align-items: end;
   gap: 14px;
   padding: 18px 24px;
@@ -1240,6 +1240,69 @@ button {
   grid-column: 1 / -1;
 }
 
+.employee-employment-history-form {
+  display: grid;
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: 100%;
+  max-width: 900px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #dbe4f0;
+  border-radius: 9px;
+  background: #f8fafc;
+}
+
+.employee-employment-history-form h5,
+.employee-employment-history h5 {
+  margin: 0 0 5px;
+  color: #0f172a;
+  font-size: 0.86rem;
+}
+
+.employee-employment-history-form > div:first-child {
+  grid-column: 1 / -1;
+}
+
+.employee-employment-history-form p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.employee-employment-history {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #dbe4f0;
+  border-radius: 9px;
+  background: #f8fafc;
+}
+
+.employee-employment-history > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.employee-employment-history > div > div {
+  display: grid;
+  gap: 5px;
+}
+
+.employee-employment-history span {
+  color: #64748b;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.employee-employment-history strong {
+  color: #0f172a;
+  font-size: 0.86rem;
+}
+
 .employee-profile-cancel {
   min-height: 42px;
   padding: 10px 15px;
@@ -1386,7 +1449,7 @@ button {
 }
 
 .employee-attendance-legend i.present { background: #86efac; }
-.employee-attendance-legend i.late { background: #fdba74; }
+.employee-attendance-legend i.late { background: #86efac; }
 .employee-attendance-legend i.absent { background: #fca5a5; }
 .employee-attendance-legend i.leave { background: #a5b4fc; }
 .employee-attendance-legend i.day-off { background: #cbd5e1; }
@@ -1466,7 +1529,7 @@ button {
 }
 
 .employee-attendance-day.p { background: #dcfce7; }
-.employee-attendance-day.l { background: #ffedd5; }
+.employee-attendance-day.l { background: #dcfce7; }
 .employee-attendance-day.a { background: #fee2e2; }
 .employee-attendance-day.v { background: #e0e7ff; }
 .employee-attendance-day.o { background: #f1f5f9; }
@@ -1693,7 +1756,7 @@ button {
 }
 
 .legend-box.present { background: #9ee6a8; }
-.legend-box.late { background: #ff7a7a; }
+.legend-box.late { background: #9ee6a8; }
 .legend-box.absent { background: #edf2f7; }
 .legend-box.leave { background: #c7d2fe; }
 
@@ -2305,6 +2368,26 @@ button {
   border-radius: 8px;
 }
 
+.attendance-month-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid #c4dfe9;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.attendance-month-select input {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
 .summary-inline {
   display: flex;
   flex-wrap: wrap;
@@ -2339,7 +2422,7 @@ button {
 }
 
 .monthly-attendance-table {
-  min-width: 1830px;
+  min-width: 2650px;
 }
 
 .attendance-col-number { width: 48px; }
@@ -2348,6 +2431,7 @@ button {
 .attendance-col-day { width: 36px; }
 .attendance-col-total { width: 100px; }
 .attendance-col-rate { width: 64px; }
+.attendance-col-remarks { width: 180px; }
 
 .weekly-attendance-table .attendance-col-day {
   width: 72px;
@@ -2418,7 +2502,7 @@ button {
 }
 
 .status-cell.p { background: #a9f3b5; color: #14532d; }
-.status-cell.l { background: #ff7a7a; color: #ffffff; }
+.status-cell.l { background: #a9f3b5; color: #14532d; }
 .status-cell.a { background: #eef2f7; color: #1f2937; }
 .status-cell.v { background: #8bd7ff; color: #0f172a; }
 .status-cell.o { background: #dfe7ef; color: #0f172a; }
@@ -2446,6 +2530,11 @@ button {
   font-size: 1.45rem;
 }
 
+.payroll-period-controls {
+  display: flex;
+  gap: 12px;
+}
+
 .payroll-period-control {
   display: grid;
   gap: 6px;
@@ -2455,7 +2544,8 @@ button {
   font-weight: 700;
 }
 
-.payroll-period-control select {
+.payroll-period-control select,
+.payroll-period-control input[type="month"] {
   min-height: 42px;
   padding: 8px 12px;
   border: 1px solid #cbd5e1;
@@ -3078,6 +3168,25 @@ button {
   font-size: 0.8rem;
 }
 
+.other-deduction-month-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.other-deduction-month-filter input {
+  min-height: 38px;
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+}
+
 .other-deduction-table-wrap {
   width: 100%;
   max-width: 100%;
@@ -3345,7 +3454,8 @@ button {
   font-weight: 700;
 }
 
-.report-controls select {
+.report-controls select,
+.report-controls input[type="month"] {
   min-height: 40px;
   padding: 8px 11px;
   border: 1px solid #cbd5e1;
@@ -3578,6 +3688,10 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .employee-employment-history-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .employee-profile-fields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3593,6 +3707,10 @@ button {
 
   .payroll-period-control {
     min-width: 0;
+  }
+
+  .payroll-period-controls {
+    flex-wrap: wrap;
   }
 
   .payroll-summary-grid {
@@ -3616,5 +3734,368 @@ button {
 
   .report-controls label {
     min-width: 0;
+  }
+}
+
+.tafi-admin-layout {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
+  background: #f1f5f9;
+}
+
+.tafi-admin-sidebar {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px;
+  color: #f8fafc;
+  background: #0f172a;
+}
+
+.tafi-admin-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 8px 28px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.tafi-admin-sidebar-brand img {
+  width: 46px;
+  height: 46px;
+  object-fit: contain;
+}
+
+.tafi-admin-sidebar-brand div,
+.tafi-admin-sidebar-footer {
+  display: grid;
+  gap: 5px;
+}
+
+.tafi-admin-sidebar-brand strong {
+  font-size: 1rem;
+}
+
+.tafi-admin-sidebar-brand span,
+.tafi-admin-sidebar-footer > span {
+  color: #cbd5e1;
+  font-size: 0.8rem;
+}
+
+.tafi-admin-nav-label {
+  margin: 26px 10px 10px;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tafi-admin-nav {
+  display: grid;
+  gap: 6px;
+}
+
+.tafi-admin-nav-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 0;
+  border-radius: 9px;
+  color: #cbd5e1;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tafi-admin-nav-item:hover,
+.tafi-admin-nav-item.active {
+  color: white;
+  background: #1e40af;
+}
+
+.tafi-admin-sidebar-footer {
+  margin-top: auto;
+  padding: 18px 8px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.tafi-admin-signout {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 0;
+  color: #e2e8f0;
+  text-decoration: none;
+}
+
+.tafi-admin-signout:hover {
+  color: white;
+}
+
+.tafi-admin-main {
+  min-width: 0;
+  padding: 32px;
+}
+
+.tafi-admin-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 26px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #dbe3ec;
+}
+
+.tafi-admin-page-header .eyebrow {
+  margin-bottom: 6px;
+  color: #64748b;
+}
+
+.tafi-admin-page-header h1 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.7rem;
+}
+
+.tafi-admin-account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.tafi-admin-content {
+  min-height: 240px;
+}
+
+.tafi-admin-section {
+  padding: 26px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: white;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+}
+
+.tafi-admin-section h2 {
+  margin: 0 0 8px;
+  color: #0f172a;
+}
+
+.tafi-admin-section p {
+  margin: 0;
+  color: #64748b;
+}
+
+@media (max-width: 720px) {
+  .tafi-admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .tafi-admin-sidebar {
+    min-height: auto;
+    padding: 16px;
+  }
+
+  .tafi-admin-sidebar-brand {
+    padding-bottom: 14px;
+  }
+
+  .tafi-admin-nav-label {
+    margin-top: 16px;
+  }
+
+  .tafi-admin-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tafi-admin-nav-item {
+    align-items: flex-start;
+    font-size: 0.85rem;
+  }
+
+  .tafi-admin-sidebar-footer {
+    margin-top: 16px;
+  }
+
+  .tafi-admin-main {
+    padding: 20px 16px;
+  }
+
+  .tafi-admin-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .tafi-admin-account {
+    overflow-wrap: anywhere;
+  }
+}
+
+.tafi-employee-view {
+  display: grid;
+  grid-template-columns: minmax(220px, 270px) minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+}
+
+.tafi-branch-panel,
+.tafi-employee-results {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: white;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+}
+
+.tafi-employee-section-heading {
+  margin-bottom: 16px;
+}
+
+.tafi-employee-section-heading h2 {
+  margin: 0 0 5px;
+  color: #0f172a;
+  font-size: 1.1rem;
+}
+
+.tafi-employee-section-heading p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+.tafi-branch-list {
+  display: grid;
+  gap: 6px;
+}
+
+.tafi-branch-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #334155;
+  background: #f8fafc;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tafi-branch-option:hover {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.tafi-branch-option.active {
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+  background: #eff6ff;
+  font-weight: 700;
+}
+
+.tafi-branch-count {
+  min-width: 25px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: #475569;
+  background: #e2e8f0;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.tafi-employee-results > .tafi-employee-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.tafi-employee-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.tafi-employee-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #334155;
+  font-size: 0.88rem;
+  text-align: left;
+}
+
+.tafi-employee-table th,
+.tafi-employee-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.tafi-employee-table th {
+  color: #64748b;
+  background: #f8fafc;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tafi-employee-name-button {
+  padding: 0;
+  border: 0;
+  color: #1d4ed8;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tafi-employee-name-button:hover {
+  text-decoration: underline;
+}
+
+.tafi-employee-status {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 750;
+  text-transform: capitalize;
+}
+
+.tafi-employee-status.active {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.tafi-employee-status.inactive {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.tafi-employee-empty,
+.tafi-employee-error {
+  margin: 0;
+  padding: 14px;
+  border-radius: 8px;
+  color: #64748b;
+  background: #f8fafc;
+}
+
+.tafi-employee-error {
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
+@media (max-width: 900px) {
+  .tafi-employee-view {
+    grid-template-columns: 1fr;
   }
 }

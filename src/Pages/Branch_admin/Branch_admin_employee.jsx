@@ -6,7 +6,7 @@ import {
 	updateBranchEmployeeProfile
 } from '../../lib/supabase'
 import { getBranchEmployees } from './branchEmployees'
-import { getLocalDateKey } from './branchAttendanceRecords'
+import { getAttendanceRemark, getLocalDateKey, hasEarnedMonthlyCredit } from './branchAttendanceRecords'
 
 const currentDate = new Date()
 const todayDateKey = getLocalDateKey(currentDate)
@@ -20,7 +20,7 @@ const attendanceStatusDetails = {
 	paternity_leave: { label: 'Leave', className: 'v' },
 	authorized_leave: { label: 'Leave', className: 'v' },
 	birthday_leave: { label: 'Leave', className: 'v' },
-	vl_with_pay: { label: 'Leave', className: 'v' },
+	vl_with_pay: { label: 'Leave with Pay', className: 'v' },
 	vl_without_pay: { label: 'Leave', className: 'v' },
 	day_off: { label: 'Day off', className: 'o' },
 	not_marked: { label: 'Not marked', className: '' }
@@ -53,6 +53,8 @@ const getEmployeeProfile = (employee) => ({
 	gender: employee.gender,
 	birthday: employee.birthday,
 	hireDate: employee.hireDate ?? '',
+	probationaryDate: employee.probationaryDate ?? '',
+	regularDate: employee.regularDate ?? '',
 	tinNumber: employee.tinNumber,
 	sssNumber: employee.sssNumber,
 	pagibigNumber: employee.pagibigNumber,
@@ -86,7 +88,7 @@ const calculateEarnedCredit = (employeeId, attendanceHistory) => {
 	})
 
 	const qualifyingMonths = [...presentDatesByMonth.entries()].filter(([month, dates]) =>
-		dates.size >= (month.endsWith('-02') ? 24 : 26)
+		hasEarnedMonthlyCredit(dates.size, month)
 	).length
 	return qualifyingMonths * 1.25
 }
@@ -101,6 +103,7 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 	const [isAddFormOpen, setIsAddFormOpen] = useState(false)
 	const [newEmployeeName, setNewEmployeeName] = useState('')
 	const [newEmployeePosition, setNewEmployeePosition] = useState('')
+	const [newEmployeeCode, setNewEmployeeCode] = useState('')
 	const [formError, setFormError] = useState('')
 	const [selectedEmployeeId, setSelectedEmployeeId] = useState(null)
 	const [attendanceMonth, setAttendanceMonth] = useState(currentMonthKey)
@@ -180,11 +183,12 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 		event.preventDefault()
 		const name = newEmployeeName.trim()
 		const position = newEmployeePosition.trim()
-		if (!name || !position) return
+		const employeeCode = newEmployeeCode.trim()
+		if (!name || !position || !employeeCode) return
 
 		setIsSavingEmployee(true)
 		setFormError('')
-		const { error } = await createBranchEmployee(sessionToken, { name, position })
+		const { error } = await createBranchEmployee(sessionToken, { employeeCode, name, position })
 		if (error) {
 			setFormError(error.message)
 			setIsSavingEmployee(false)
@@ -203,6 +207,7 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 		setSearchTerm('')
 		setNewEmployeeName('')
 		setNewEmployeePosition('')
+		setNewEmployeeCode('')
 		setFormError('')
 		setIsAddFormOpen(false)
 	}
@@ -246,6 +251,25 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 			setProfileError('Date hired cannot be in the future.')
 			return
 		}
+		if (profileForm.probationaryDate && profileForm.probationaryDate > todayDateKey) {
+			setProfileError('Probationary start date cannot be in the future.')
+			return
+		}
+		if (profileForm.regularDate && profileForm.regularDate > todayDateKey) {
+			setProfileError('Regular start date cannot be in the future.')
+			return
+		}
+		if (profileForm.hireDate && profileForm.probationaryDate
+			&& profileForm.probationaryDate < profileForm.hireDate) {
+			setProfileError('Probationary start date cannot be before the trainee hire date.')
+			return
+		}
+		const previousStageDate = profileForm.probationaryDate || profileForm.hireDate
+		if (previousStageDate && profileForm.regularDate
+			&& profileForm.regularDate < previousStageDate) {
+			setProfileError('Regular start date cannot be before the probationary or hire date.')
+			return
+		}
 
 		setIsSavingProfile(true)
 		setProfileError('')
@@ -276,17 +300,20 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 					record.employee_code === selectedEmployee.id
 					&& record.attendance_date?.startsWith(`${attendanceMonth}-`)
 				)
-				.map((record) => [record.attendance_date, record.status])
+				.map((record) => [record.attendance_date, record])
 		)
 		const [attendanceYear, attendanceMonthNumber] = attendanceMonth.split('-').map(Number)
 		const attendanceDaysInMonth = new Date(attendanceYear, attendanceMonthNumber, 0).getDate()
 		const firstWeekday = new Date(attendanceYear, attendanceMonthNumber - 1, 1).getDay()
+		const monthlyStatuses = [...recordsByDate.values()].map((record) => record.status)
 		const monthlyAttendance = {
-			present: [...recordsByDate.values()].filter((status) => status === 'present').length,
-			late: [...recordsByDate.values()].filter((status) => status === 'present_late').length,
-			absent: [...recordsByDate.values()].filter((status) => status === 'absent').length,
-			leave: [...recordsByDate.values()].filter((status) => attendanceStatusDetails[status]?.className === 'v').length
+			present: monthlyStatuses.filter((status) => status === 'present' || status === 'present_late').length,
+			late: monthlyStatuses.filter((status) => status === 'present_late').length,
+			absent: monthlyStatuses.filter((status) => status === 'absent').length,
+			leave: monthlyStatuses.filter((status) => attendanceStatusDetails[status]?.className === 'v').length
 		}
+		const attendanceRate = Math.round((monthlyAttendance.present / attendanceDaysInMonth) * 100)
+		const attendanceRemark = getAttendanceRemark(attendanceRate)
 
 		return (
 			<section className="employee-info-shell">
@@ -379,15 +406,6 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 									onChange={(event) => updateProfileField('birthday', event.target.value)}
 								/>
 							</label>
-							<label>
-								<span>Date hired</span>
-								<input
-									type="date"
-									max={todayDateKey}
-									value={currentProfile.hireDate}
-									onChange={(event) => updateProfileField('hireDate', event.target.value)}
-								/>
-							</label>
 							<div className="employee-personal-value">
 								<span>Age</span>
 								<strong>{getAge(currentProfile.birthday)}</strong>
@@ -437,6 +455,41 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 									<option value="Trainee">Trainee</option>
 								</select>
 							</label>
+							<div className="employee-employment-history-form">
+								<div>
+									<h5>Employment record</h5>
+									<p>Enter the effective date for each employment stage.</p>
+								</div>
+								<label>
+									<span>Trainee / date hired</span>
+									<input
+										type="date"
+										max={todayDateKey}
+										value={currentProfile.hireDate}
+										onChange={(event) => updateProfileField('hireDate', event.target.value)}
+									/>
+								</label>
+								<label>
+									<span>Probationary start date</span>
+									<input
+										type="date"
+										max={todayDateKey}
+										min={currentProfile.hireDate || undefined}
+										value={currentProfile.probationaryDate}
+										onChange={(event) => updateProfileField('probationaryDate', event.target.value)}
+									/>
+								</label>
+								<label>
+									<span>Regular start date</span>
+									<input
+										type="date"
+										max={todayDateKey}
+										min={currentProfile.probationaryDate || currentProfile.hireDate || undefined}
+										value={currentProfile.regularDate}
+										onChange={(event) => updateProfileField('regularDate', event.target.value)}
+									/>
+								</label>
+							</div>
 							<div className="employee-personal-actions">
 								{profileError && <p className="add-employee-error" role="alert">{profileError}</p>}
 								<button
@@ -472,7 +525,7 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 									<dd>{formatBirthday(currentProfile.birthday)}</dd>
 								</div>
 								<div className="employee-profile-field">
-									<dt>Date hired</dt>
+									<dt>Trainee / date hired</dt>
 									<dd>{formatBirthday(currentProfile.hireDate)}</dd>
 								</div>
 								<div className="employee-profile-field">
@@ -520,6 +573,23 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 									</div>
 								)}
 							</dl>
+							<div className="employee-employment-history">
+								<h5>Employment record</h5>
+								<div>
+									<div>
+										<span>Trainee / date hired</span>
+										<strong>{formatBirthday(currentProfile.hireDate)}</strong>
+									</div>
+									<div>
+										<span>Probationary</span>
+										<strong>{formatBirthday(currentProfile.probationaryDate)}</strong>
+									</div>
+									<div>
+										<span>Regular</span>
+										<strong>{formatBirthday(currentProfile.regularDate)}</strong>
+									</div>
+								</div>
+							</div>
 							{profileMessage && <p className="employee-personal-saved" role="status">{profileMessage}</p>}
 						</>
 					)}
@@ -557,10 +627,12 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 						) : (
 							<>
 								<div className="employee-attendance-summary">
-									<span>Present <strong>{monthlyAttendance.present}</strong></span>
+									<span>Total present <strong>{monthlyAttendance.present}</strong></span>
 									<span>Late <strong>{monthlyAttendance.late}</strong></span>
 									<span>Absent <strong>{monthlyAttendance.absent}</strong></span>
 									<span>Leave <strong>{monthlyAttendance.leave}</strong></span>
+									<span>Attendance rate <strong>{attendanceRate}%</strong></span>
+									<span>Remarks <strong>{attendanceRemark}</strong></span>
 								</div>
 								{recordsByDate.size === 0 ? (
 									<p className="employee-detail-empty">No attendance records for {formatMonth(attendanceMonth)}.</p>
@@ -575,20 +647,26 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 										{Array.from({ length: attendanceDaysInMonth }, (_, index) => {
 											const day = index + 1
 											const dateKey = `${attendanceMonth}-${String(day).padStart(2, '0')}`
-											const status = recordsByDate.get(dateKey)
+											const record = recordsByDate.get(dateKey)
+											const status = record?.status
 											const statusDetail = attendanceStatusDetails[status] ?? null
 											const className = statusDetail?.className
 												? ` ${statusDetail.className}`
 												: status ? '' : ' no-record'
+											const lateMinutes = status === 'present_late'
+												? Number(record.late_minutes) || 0
+												: null
 
 											return (
 												<div
 													className={`employee-attendance-day${className}`}
 													key={dateKey}
-													title={`${dateKey}: ${statusDetail?.label ?? (status ? 'Not marked' : 'No record')}`}
+													title={`${dateKey}: ${statusDetail?.label ?? (status ? 'Not marked' : 'No record')}${lateMinutes === null ? '' : `, ${lateMinutes} minutes late`}`}
 												>
 													<strong>{day}</strong>
-													<span>{statusDetail?.label ?? (status ? 'Not marked' : '—')}</span>
+													<span>{lateMinutes === null
+														? statusDetail?.label ?? (status ? 'Not marked' : '—')
+														: `${lateMinutes} min late`}</span>
 												</div>
 											)
 										})}
@@ -682,6 +760,15 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 							value={newEmployeePosition}
 							onChange={(event) => setNewEmployeePosition(event.target.value)}
 							placeholder="Enter job position"
+						/>
+					</label>
+					<label>
+						<span>Employee code</span>
+						<input
+							required
+							value={newEmployeeCode}
+							onChange={(event) => setNewEmployeeCode(event.target.value)}
+							placeholder="Enter employee code"
 						/>
 					</label>
 					<button type="submit" className="add-employee-submit" disabled={isSavingEmployee}>

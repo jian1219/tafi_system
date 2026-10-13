@@ -9,7 +9,7 @@ const statusLabels = {
   paternity_leave: 'Paternity Leave',
   authorized_leave: 'Authorized Leave',
   birthday_leave: 'Birthday Leave',
-  vl_with_pay: 'VL with Pay',
+  vl_with_pay: 'Leave with Pay',
   vl_without_pay: 'VL without Pay',
   day_off: 'Day Off'
 }
@@ -27,6 +27,8 @@ export async function getBranchEmployees(sessionToken) {
       gender: employee.gender ?? '',
       birthday: employee.birthday ?? '',
       hireDate: employee.hire_date ?? '',
+      probationaryDate: employee.probationary_start_date ?? '',
+      regularDate: employee.regular_start_date ?? '',
       tinNumber: employee.tin_number ?? '',
       sssNumber: employee.sss_number ?? '',
       pagibigNumber: employee.pagibig_number ?? '',

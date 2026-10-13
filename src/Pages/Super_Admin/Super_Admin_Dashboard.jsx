@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Building2, Crown, LogOut, Plus, ShieldCheck } from 'lucide-react'
-import { createBranchWithAdmin, listSuperAdminBranches } from '../../lib/supabase'
+import { createBranchWithAdmin, createTafiAdmin, listSuperAdminBranches, listTafiAdmins } from '../../lib/supabase'
 import logoImage from '../../images/Tafi logo transparent.png'
 
 export default function SuperAdminDashboard() {
@@ -18,17 +18,23 @@ export default function SuperAdminDashboard() {
 	const [adminName, setAdminName] = useState('')
 	const [adminEmail, setAdminEmail] = useState('')
 	const [adminPassword, setAdminPassword] = useState('')
+	const [tafiAdmins, setTafiAdmins] = useState([])
+	const [tafiAdminName, setTafiAdminName] = useState('')
+	const [tafiAdminEmail, setTafiAdminEmail] = useState('')
+	const [tafiAdminPassword, setTafiAdminPassword] = useState('')
 
 	const loadBranches = async (event) => {
 		event.preventDefault()
 		setIsLoading(true)
 		setNotice('')
 		const { data, error } = await listSuperAdminBranches(superAdminEmail, superAdminPassword)
+		const { data: adminData } = error ? { data: null } : await listTafiAdmins(superAdminEmail, superAdminPassword)
 		setIsLoading(false)
 
 		if (error) {
 			setIsAuthorized(false)
 			setBranches([])
+			setTafiAdmins([])
 			setNotice(error.message)
 			setNoticeType('error')
 			return
@@ -36,6 +42,7 @@ export default function SuperAdminDashboard() {
 
 		setIsAuthorized(true)
 		setBranches(data ?? [])
+		setTafiAdmins(adminData ?? [])
 		setNotice('Super Admin verified. Branch management is unlocked for this page session.')
 		setNoticeType('success')
 	}
@@ -72,6 +79,35 @@ export default function SuperAdminDashboard() {
 		setNotice(refreshError
 			? 'Branch and Branch Admin were created. Reload the branch list to view them.'
 			: 'Branch and Branch Admin created successfully.')
+		setNoticeType('success')
+	}
+
+	const addTafiAdmin = async (event) => {
+		event.preventDefault()
+		setIsLoading(true)
+		setNotice('')
+		const { error } = await createTafiAdmin({
+			superAdminEmail,
+			superAdminPassword,
+			adminName: tafiAdminName,
+			adminEmail: tafiAdminEmail,
+			adminPassword: tafiAdminPassword
+		})
+
+		if (error) {
+			setIsLoading(false)
+			setNotice(error.message)
+			setNoticeType('error')
+			return
+		}
+
+		const { data, error: refreshError } = await listTafiAdmins(superAdminEmail, superAdminPassword)
+		setIsLoading(false)
+		if (!refreshError) setTafiAdmins(data ?? [])
+		setTafiAdminName('')
+		setTafiAdminEmail('')
+		setTafiAdminPassword('')
+		setNotice('TAFI Admin account created successfully.')
 		setNoticeType('success')
 	}
 
@@ -200,6 +236,59 @@ export default function SuperAdminDashboard() {
 								</div>
 							) : (
 								<p className="super-admin-empty-state">No branches have been created yet.</p>
+							)}
+						</section>
+
+						<section className="super-admin-management-panel">
+							<div className="super-admin-panel-heading">
+								<ShieldCheck size={19} aria-hidden="true" />
+								<div>
+									<h2>Create TAFI Admin account</h2>
+									<p>Add a new TAFI Admin with a name, email, and password.</p>
+								</div>
+							</div>
+
+							<form className="super-admin-branch-form" onSubmit={addTafiAdmin}>
+								<label>
+									<span>Name</span>
+									<input value={tafiAdminName} onChange={(event) => setTafiAdminName(event.target.value)} required />
+								</label>
+								<label>
+									<span>Email</span>
+									<input type="email" value={tafiAdminEmail} onChange={(event) => setTafiAdminEmail(event.target.value)} autoComplete="off" required />
+								</label>
+								<label className="super-admin-full-width">
+									<span>Password (minimum 8 characters)</span>
+									<input type="password" value={tafiAdminPassword} onChange={(event) => setTafiAdminPassword(event.target.value)} minLength="8" autoComplete="new-password" required />
+								</label>
+								<button type="submit" className="super-admin-action-button super-admin-full-width" disabled={isLoading}>
+									<Plus size={17} aria-hidden="true" />
+									{isLoading ? 'Creating...' : 'Create TAFI Admin'}
+								</button>
+							</form>
+						</section>
+
+						<section className="super-admin-management-panel">
+							<div className="super-admin-panel-heading">
+								<ShieldCheck size={19} aria-hidden="true" />
+								<div>
+									<h2>TAFI Admins</h2>
+									<p>{tafiAdmins.length} account{tafiAdmins.length === 1 ? '' : 's'} registered</p>
+								</div>
+							</div>
+							{tafiAdmins.length ? (
+								<div className="super-admin-branch-list">
+									{tafiAdmins.map((admin) => (
+										<article className="super-admin-branch-item" key={admin.admin_id}>
+											<div>
+												<strong>{admin.admin_name}</strong>
+												<span>{admin.admin_email}</span>
+											</div>
+										</article>
+									))}
+								</div>
+							) : (
+								<p className="super-admin-empty-state">No TAFI Admin accounts have been created yet.</p>
 							)}
 						</section>
 					</div>

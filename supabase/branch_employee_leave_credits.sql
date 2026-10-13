@@ -1,6 +1,10 @@
 begin;
 
 -- Run after tafi_complete_schema.sql and branch_employee_contributions.sql.
+alter table public.employee
+  add column if not exists probationary_start_date date,
+  add column if not exists regular_start_date date;
+
 create table if not exists public.branch_employee_leave_request (
   id uuid primary key default gen_random_uuid(),
   branch_id uuid not null references public.branch(id) on delete cascade,
@@ -201,6 +205,10 @@ begin
   if p_credit_days is null or p_credit_days <= 0 then
     raise exception 'Requested leave credits must be greater than zero';
   end if;
+  if p_credit_days <> trunc(p_credit_days)
+    or p_end_date - p_start_date + 1 <> p_credit_days then
+    raise exception 'Leave credits must be whole days with one leave date for each credit day';
+  end if;
   if nullif(trim(p_reason), '') is null then
     raise exception 'A reason is required for the leave request';
   end if;
@@ -277,9 +285,18 @@ security definer
 set search_path = ''
 as $$
 declare
+  v_admin_id uuid;
   v_branch_id uuid;
+  v_employee_id uuid;
+  v_employee_code text;
+  v_start_date date;
+  v_end_date date;
+  v_credit_days numeric;
+  v_daily_rate numeric;
+  v_day_offset integer;
+  v_saved_count bigint;
 begin
-  select ba.branch_id into v_branch_id
+  select ba.id, ba.branch_id into v_admin_id, v_branch_id
   from public.branch_admin_session as admin_session
   join public.branch_admin as ba on ba.id = admin_session.branch_admin_id
   where admin_session.session_token = p_session_token
@@ -293,16 +310,102 @@ begin
     raise exception 'Request status must be approved or rejected';
   end if;
 
+  select leave_request.employee_code, leave_request.start_date,
+    leave_request.end_date, leave_request.credit_days
+  into v_employee_code, v_start_date, v_end_date, v_credit_days
+  from public.branch_employee_leave_request as leave_request
+  where leave_request.id = p_request_id
+    and leave_request.branch_id = v_branch_id
+    and leave_request.status = 'pending'
+  for update;
+
+  if not found then
+    raise exception 'Pending leave request was not found in this branch';
+  end if;
+
+  if p_status = 'approved' then
+    if v_credit_days <> trunc(v_credit_days)
+      or v_end_date - v_start_date + 1 <> v_credit_days then
+      raise exception 'Leave credits must be whole days with one leave date for each credit day';
+    end if;
+
+    select employee.id, employee.daily_rate
+    into v_employee_id, v_daily_rate
+    from public.employee as employee
+    where employee.branch_id = v_branch_id
+      and employee.employee_code = v_employee_code
+      and employee.employment_status = 'active'
+      and employee.employment_classification = 'Regular'
+    for update;
+
+    if not found then
+      raise exception 'The employee is not an active Regular employee in this branch';
+    end if;
+
+    if exists (
+      select 1
+      from public.branch_employee_leave_request as other_request
+      where other_request.branch_id = v_branch_id
+        and other_request.employee_code = v_employee_code
+        and other_request.id <> p_request_id
+        and other_request.status = 'approved'
+        and other_request.start_date <= v_end_date
+        and other_request.end_date >= v_start_date
+    ) then
+      raise exception 'These leave dates overlap another approved leave request';
+    end if;
+
+    if exists (
+      select 1
+      from public.employee_attendance as attendance
+      where attendance.employee_id = v_employee_id
+        and attendance.attendance_date between v_start_date and v_end_date
+        and attendance.status not in ('absent', 'not_marked', 'vl_with_pay')
+    ) then
+      raise exception 'One or more leave dates already have a different attendance status';
+    end if;
+
+    for v_day_offset in 0..(v_end_date - v_start_date)
+    loop
+      insert into public.employee_attendance as current_attendance (
+        employee_id,
+        attendance_date,
+        status,
+        late_minutes,
+        daily_rate_snapshot,
+        submitted_by,
+        updated_at
+      )
+      values (
+        v_employee_id,
+        v_start_date + v_day_offset,
+        'vl_with_pay',
+        0,
+        v_daily_rate,
+        v_admin_id,
+        now()
+      )
+      on conflict (employee_id, attendance_date) do update
+      set status = excluded.status,
+        late_minutes = 0,
+        daily_rate_snapshot = excluded.daily_rate_snapshot,
+        submitted_by = excluded.submitted_by,
+        updated_at = now()
+      where current_attendance.status in ('absent', 'not_marked', 'vl_with_pay');
+
+      get diagnostics v_saved_count = row_count;
+      if v_saved_count <> 1 then
+        raise exception 'Could not record Leave with Pay for %', v_start_date + v_day_offset;
+      end if;
+    end loop;
+  end if;
+
   update public.branch_employee_leave_request as leave_request
   set status = p_status,
     updated_at = now()
   where leave_request.id = p_request_id
     and leave_request.branch_id = v_branch_id
     and leave_request.status = 'pending';
-
-  if not found then
-    raise exception 'Pending leave request was not found in this branch';
-  end if;
 
   return true;
 end;
@@ -325,7 +428,9 @@ returns table (
   pagibig_number text,
   philhealth_number text,
   employment_classification text,
-  hire_date date
+  hire_date date,
+  probationary_start_date date,
+  regular_start_date date
 )
 language plpgsql
 security definer
@@ -348,7 +453,8 @@ begin
   select employee.employee_code, employee.name, employee.position, employee.daily_rate,
     coalesce(attendance.status, 'not_marked'), employee.address, employee.gender,
     employee.birthday, employee.tin_number, employee.sss_number, employee.pagibig_number,
-    employee.philhealth_number, employee.employment_classification, employee.hire_date
+    employee.philhealth_number, employee.employment_classification, employee.hire_date,
+    employee.probationary_start_date, employee.regular_start_date
   from public.employee as employee
   left join public.employee_attendance as attendance
     on attendance.employee_id = employee.id
@@ -362,6 +468,7 @@ $$;
 drop function if exists public.branch_admin_update_employee_profile(uuid, text, text, text, date, text, text, text, text);
 drop function if exists public.branch_admin_update_employee_profile(uuid, text, text, text, date, date, text, text, text, text);
 drop function if exists public.branch_admin_update_employee_profile(uuid, text, text, text, date, date, text, text, text, text, text);
+drop function if exists public.branch_admin_update_employee_profile(uuid, text, text, text, date, date, date, date, text, text, text, text, text);
 
 create function public.branch_admin_update_employee_profile(
   p_session_token uuid,
@@ -370,6 +477,8 @@ create function public.branch_admin_update_employee_profile(
   p_gender text,
   p_birthday date,
   p_hire_date date,
+  p_probationary_start_date date,
+  p_regular_start_date date,
   p_tin_number text,
   p_sss_number text,
   p_pagibig_number text,
@@ -397,8 +506,15 @@ begin
     or p_employment_classification is null
     or p_employment_classification not in ('Regular', 'Probationary', 'Trainee')
     or (p_birthday is not null and p_birthday > current_date)
-    or (p_hire_date is not null and p_hire_date > current_date) then
-    raise exception 'Enter a valid employee profile, hire date, and employment status';
+    or (p_hire_date is not null and p_hire_date > current_date)
+    or (p_probationary_start_date is not null and p_probationary_start_date > current_date)
+    or (p_regular_start_date is not null and p_regular_start_date > current_date)
+    or (p_hire_date is not null and p_probationary_start_date is not null
+      and p_probationary_start_date < p_hire_date)
+    or (coalesce(p_probationary_start_date, p_hire_date) is not null
+      and p_regular_start_date is not null
+      and p_regular_start_date < coalesce(p_probationary_start_date, p_hire_date)) then
+    raise exception 'Enter valid employee profile and employment stage dates in chronological order';
   end if;
   if p_gender is not null and p_gender not in ('Male', 'Female', 'Other', 'Prefer not to say') then
     raise exception 'Select a valid gender option';
@@ -409,6 +525,8 @@ begin
     gender = p_gender,
     birthday = p_birthday,
     hire_date = p_hire_date,
+    probationary_start_date = p_probationary_start_date,
+    regular_start_date = p_regular_start_date,
     tin_number = nullif(trim(p_tin_number), ''),
     sss_number = nullif(trim(p_sss_number), ''),
     pagibig_number = nullif(trim(p_pagibig_number), ''),
@@ -432,12 +550,12 @@ revoke all on function public.branch_admin_list_employee_leave_requests(uuid) fr
 revoke all on function public.branch_admin_create_employee_leave_request(uuid, text, date, date, numeric, text) from public;
 revoke all on function public.branch_admin_update_employee_leave_request_status(uuid, uuid, text) from public;
 revoke all on function public.branch_admin_list_employees(uuid) from public;
-revoke all on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, date, text, text, text, text, text) from public;
+revoke all on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, date, date, date, text, text, text, text, text) from public;
 grant execute on function public.branch_admin_list_employee_leave_credits(uuid) to anon, authenticated;
 grant execute on function public.branch_admin_list_employee_leave_requests(uuid) to anon, authenticated;
 grant execute on function public.branch_admin_create_employee_leave_request(uuid, text, date, date, numeric, text) to anon, authenticated;
 grant execute on function public.branch_admin_update_employee_leave_request_status(uuid, uuid, text) to anon, authenticated;
 grant execute on function public.branch_admin_list_employees(uuid) to anon, authenticated;
-grant execute on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, date, text, text, text, text, text) to anon, authenticated;
+grant execute on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, date, date, date, text, text, text, text, text) to anon, authenticated;
 
 commit;

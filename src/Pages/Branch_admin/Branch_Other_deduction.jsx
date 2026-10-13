@@ -13,19 +13,36 @@ import { getBranchEmployees } from './branchEmployees'
 import { getLocalDateKey } from './branchAttendanceRecords'
 
 const today = new Date()
-const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-const monthDayCount = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
-const monthName = today.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
-const payrollWeeks = Array.from({ length: Math.ceil(monthDayCount / 7) }, (_, index) => {
-  const startDay = index * 7 + 1
-  const endDay = Math.min((index + 1) * 7, monthDayCount)
+const currentMonthKey = getLocalDateKey(today).slice(0, 7)
+const currentMonthName = today.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+
+const getMonthRange = (monthKey) => {
+  const [year, month] = monthKey.split('-').map(Number)
+  const start = new Date(year, month - 1, 1)
+  const end = new Date(year, month, 0)
   return {
-    index,
-    startDate: getLocalDateKey(new Date(monthStart.getFullYear(), monthStart.getMonth(), startDay)),
-    endDate: getLocalDateKey(new Date(monthStart.getFullYear(), monthStart.getMonth(), endDay)),
-    label: `Week ${index + 1} · ${monthName.split(' ')[0]} ${startDay}–${endDay}`
+    startDate: getLocalDateKey(start),
+    endDate: getLocalDateKey(end),
+    dayCount: end.getDate(),
+    name: start.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
+    shortName: start.toLocaleDateString(undefined, { month: 'long' })
   }
-})
+}
+
+const getPayrollWeeks = (monthKey) => {
+  const month = getMonthRange(monthKey)
+  return Array.from({ length: Math.ceil(month.dayCount / 7) }, (_, index) => {
+    const startDay = index * 7 + 1
+    const endDay = Math.min((index + 1) * 7, month.dayCount)
+    const [year, monthNumber] = monthKey.split('-').map(Number)
+    return {
+      index,
+      startDate: getLocalDateKey(new Date(year, monthNumber - 1, startDay)),
+      endDate: getLocalDateKey(new Date(year, monthNumber - 1, endDay)),
+      label: `Week ${index + 1} · ${month.shortName} ${startDay}–${endDay}`
+    }
+  })
+}
 
 const formatCurrency = (amount) => Number(amount).toLocaleString('en-PH', {
   style: 'currency',
@@ -50,6 +67,8 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
   const [selectedLoanId, setSelectedLoanId] = useState('')
   const [weekIndex, setWeekIndex] = useState(0)
   const [paymentAmount, setPaymentAmount] = useState('')
+  const [hdmfMonth, setHdmfMonth] = useState(currentMonthKey)
+  const [otherMonth, setOtherMonth] = useState(currentMonthKey)
   const [undertimeEmployeeCode, setUndertimeEmployeeCode] = useState('')
   const [undertimeDate, setUndertimeDate] = useState(getLocalDateKey(today))
   const [undertimeMinutes, setUndertimeMinutes] = useState('')
@@ -63,6 +82,10 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
   const [message, setMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const sessionToken = branchAdmin?.session_token
+  const hdmfMonthRange = getMonthRange(hdmfMonth)
+  const otherMonthRange = getMonthRange(otherMonth)
+  const hdmfPayrollWeeks = getPayrollWeeks(hdmfMonth)
+  const otherPayrollWeeks = getPayrollWeeks(otherMonth)
 
   const fetchData = useCallback(async () => {
     if (!sessionToken) return { employees: [], loans: [], payments: [], error: null }
@@ -76,16 +99,16 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
     ] = await Promise.all([
       getBranchEmployees(sessionToken),
       listBranchHdmfLoans(sessionToken),
-      listBranchHdmfPayments(sessionToken),
+      listBranchHdmfPayments(sessionToken, hdmfMonthRange.startDate, hdmfMonthRange.endDate),
       listBranchUndertimeDeductions(
         sessionToken,
-        getLocalDateKey(monthStart),
-        getLocalDateKey(new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0))
+        getLocalDateKey(new Date(today.getFullYear(), today.getMonth(), 1)),
+        getLocalDateKey(new Date(today.getFullYear(), today.getMonth() + 1, 0))
       ),
       listBranchOtherDeductions(
         sessionToken,
-        getLocalDateKey(monthStart),
-        getLocalDateKey(new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0))
+        otherMonthRange.startDate,
+        otherMonthRange.endDate
       )
     ])
 
@@ -97,7 +120,7 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
       otherDeductions: loadedOtherDeductions ?? [],
       error: employeeError ?? loanError ?? paymentError ?? undertimeError ?? otherDeductionsError
     }
-  }, [sessionToken])
+  }, [sessionToken, hdmfMonthRange.startDate, hdmfMonthRange.endDate, otherMonthRange.startDate, otherMonthRange.endDate])
 
   useEffect(() => {
     let isCurrent = true
@@ -205,7 +228,7 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
     setMessage('')
 
     const amount = Number(paymentAmount)
-    const week = payrollWeeks[weekIndex]
+    const week = hdmfPayrollWeeks[weekIndex]
     const balance = Number(selectedLoan?.balance)
     if (!sessionToken || !selectedLoan || !week || !Number.isFinite(amount)
       || amount <= 0 || amount > balance) {
@@ -273,7 +296,7 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
     setMessage('')
 
     const amount = Number(otherAmount)
-    const week = payrollWeeks[otherWeekIndex]
+    const week = otherPayrollWeeks[otherWeekIndex]
     if (!sessionToken || !otherEmployeeCode || !week
       || !otherDescription.trim() || otherDescription.trim().length > 200
       || otherAmount.trim() === '' || !Number.isFinite(amount) || amount <= 0) {
@@ -411,7 +434,7 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
           <label>
             <span>Payroll week</span>
             <select value={weekIndex} onChange={(event) => setWeekIndex(Number(event.target.value))}>
-              {payrollWeeks.map((week) => <option key={week.index} value={week.index}>{week.label}</option>)}
+              {hdmfPayrollWeeks.map((week) => <option key={week.index} value={week.index}>{week.label}</option>)}
             </select>
           </label>
           <label>
@@ -478,6 +501,21 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
           <h4>HDMF repayment history</h4>
           <p>Each repayment is listed with the week it is deducted from payroll.</p>
         </div>
+        <label className="other-deduction-month-filter">
+          <span>History month</span>
+          <input
+            type="month"
+            value={hdmfMonth}
+            max={currentMonthKey}
+            onChange={(event) => {
+              if (!event.target.value) return
+              setStatus('loading')
+              setError('')
+              setHdmfMonth(event.target.value)
+              setWeekIndex(0)
+            }}
+          />
+        </label>
       </div>
       <div className="other-deduction-table-wrap" role="region" aria-label="HDMF repayment history" tabIndex="0">
         <table className="other-deduction-table">
@@ -556,7 +594,7 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
           <div className="other-deduction-history-heading">
             <div>
               <h4>Undertime deduction history</h4>
-              <p>{monthName} · Each entry records undertime minutes on its specific date.</p>
+              <p>{currentMonthName} · Each entry records undertime minutes on its specific date.</p>
             </div>
           </div>
           <div className="other-deduction-table-wrap" role="region" aria-label="Undertime deduction history" tabIndex="0">
@@ -609,7 +647,7 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
                   value={otherWeekIndex}
                   onChange={(event) => setOtherWeekIndex(Number(event.target.value))}
                 >
-                  {payrollWeeks.map((week) => (
+                  {otherPayrollWeeks.map((week) => (
                     <option key={week.index} value={week.index}>{week.label}</option>
                   ))}
                 </select>
@@ -643,9 +681,24 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
           </section>
           <div className="other-deduction-history-heading">
             <div>
-              <h4>Other deductions this month</h4>
+              <h4>Other deductions · {otherMonthRange.name}</h4>
               <p>Each entry is included in the employee’s total deduction for its selected payroll week.</p>
             </div>
+            <label className="other-deduction-month-filter">
+              <span>History month</span>
+              <input
+                type="month"
+                value={otherMonth}
+                max={currentMonthKey}
+                onChange={(event) => {
+                  if (!event.target.value) return
+                  setStatus('loading')
+                  setError('')
+                  setOtherMonth(event.target.value)
+                  setOtherWeekIndex(0)
+                }}
+              />
+            </label>
           </div>
           <div className="other-deduction-table-wrap" role="region" aria-label="Other deduction history" tabIndex="0">
             <table className="other-deduction-table">

@@ -9,6 +9,13 @@ import {
 
 const formatCredits = (value) => `${Number(value ?? 0).toFixed(2)} days`
 
+const getInclusiveDayCount = (startDate, endDate) => {
+	if (!startDate || !endDate) return 0
+	const start = new Date(`${startDate}T00:00:00Z`)
+	const end = new Date(`${endDate}T00:00:00Z`)
+	return Math.round((end - start) / 86400000) + 1
+}
+
 const formatDate = (value) => {
 	if (!value) return 'Not provided'
 	return new Intl.DateTimeFormat('en-PH', {
@@ -64,7 +71,7 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 	const [employeeCode, setEmployeeCode] = useState('')
 	const [startDate, setStartDate] = useState('')
 	const [endDate, setEndDate] = useState('')
-	const [creditDays, setCreditDays] = useState('1.25')
+	const [creditDays, setCreditDays] = useState('1')
 	const [reason, setReason] = useState('')
 
 	useEffect(() => {
@@ -140,6 +147,11 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 			setError('The end date must be on or after the start date.')
 			return
 		}
+		if (!Number.isInteger(requestedCredits) || requestedCredits < 1
+			|| getInclusiveDayCount(startDate, endDate) !== requestedCredits) {
+			setError('Use whole credits only, with one leave date for each credit day.')
+			return
+		}
 		if (requestedCredits > availableCredits) {
 			setError(`This request exceeds the available balance of ${formatCredits(availableCredits)}.`)
 			return
@@ -164,7 +176,7 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 		setMessage('Leave-credit request submitted.')
 		setStartDate('')
 		setEndDate('')
-		setCreditDays('1.25')
+		setCreditDays('1')
 		setReason('')
 		await refreshLeaveData()
 	}
@@ -300,7 +312,7 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 						<div className="leave-request-form-heading">
 							<div>
 								<h4>Request leave-credit use</h4>
-								<p>Submit a request on behalf of an active Regular employee.</p>
+								<p>Use whole credit days only. Select one leave date for each credit day requested.</p>
 							</div>
 							{selectedEmployee && (
 								<div className="leave-request-balance">
@@ -331,7 +343,7 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 							</label>
 							<label>
 								<span>Credits requested (days)</span>
-								<input type="number" min="0.01" step="0.25" value={creditDays} onChange={(event) => setCreditDays(event.target.value)} required />
+								<input type="number" min="1" step="1" value={creditDays} onChange={(event) => setCreditDays(event.target.value)} required />
 							</label>
 							<label className="leave-request-reason">
 								<span>Reason</span>

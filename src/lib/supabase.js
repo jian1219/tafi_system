@@ -30,6 +30,64 @@ export async function signInWithEmailPassword(email, password) {
   }
 }
 
+export async function verifyTafiAdminCredentials(email, password) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const { data, error } = await supabaseClient.rpc('tafi_admin_login', {
+      p_email: email.trim(),
+      p_password: password
+    })
+
+    return { profile: data?.[0] ?? null, error }
+  } catch (error) {
+    return {
+      profile: null,
+      error: error instanceof Error ? error : new Error('Unable to connect to the TAFI Admin login service.')
+    }
+  }
+}
+
+export async function listTafiAdminBranches(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_branches', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load branches.')
+    }
+  }
+}
+
+export async function listTafiAdminEmployees(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_employees', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load employees.')
+    }
+  }
+}
+
+export async function revokeTafiAdminSession(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_logout', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error : new Error('Unable to end the TAFI Admin session.')
+    }
+  }
+}
+
 export async function verifySuperAdminCredentials(email, password) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -86,6 +144,45 @@ export async function createBranchWithAdmin({
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to create the branch.')
+    }
+  }
+}
+
+export async function listTafiAdmins(email, password) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('super_admin_list_tafi_admins', {
+      p_super_admin_email: email.trim(),
+      p_super_admin_password: password
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load TAFI Admin accounts.')
+    }
+  }
+}
+
+export async function createTafiAdmin({
+  superAdminEmail,
+  superAdminPassword,
+  adminName,
+  adminEmail,
+  adminPassword
+}) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('super_admin_create_tafi_admin', {
+      p_super_admin_email: superAdminEmail.trim(),
+      p_super_admin_password: superAdminPassword,
+      p_admin_name: adminName,
+      p_admin_email: adminEmail,
+      p_admin_password: adminPassword
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to create the TAFI Admin account.')
     }
   }
 }
@@ -286,6 +383,7 @@ export async function createBranchEmployee(sessionToken, employee) {
     const supabaseClient = await getSupabaseClient()
     return await supabaseClient.rpc('branch_admin_create_employee', {
       p_session_token: sessionToken,
+      p_employee_code: employee.employeeCode,
       p_name: employee.name,
       p_position: employee.position
     })
@@ -323,6 +421,8 @@ export async function updateBranchEmployeeProfile(sessionToken, employeeCode, pr
       p_gender: profile.gender || null,
       p_birthday: profile.birthday || null,
       p_hire_date: profile.hireDate || null,
+      p_probationary_start_date: profile.probationaryDate || null,
+      p_regular_start_date: profile.regularDate || null,
       p_tin_number: profile.tinNumber,
       p_sss_number: profile.sssNumber,
       p_pagibig_number: profile.pagibigNumber,

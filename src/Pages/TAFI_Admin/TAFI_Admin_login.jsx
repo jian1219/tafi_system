@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, LockKeyhole, ShieldCheck, UserRound } from 'lucide-react'
-import { signInWithEmailPassword } from '../../lib/supabase'
+import { verifyTafiAdminCredentials } from '../../lib/supabase'
 import logoImage from '../../images/Tafi logo transparent.png'
 
 export default function AdminLogin() {
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loginMessage, setLoginMessage] = useState('')
@@ -14,11 +15,14 @@ export default function AdminLogin() {
     event.preventDefault()
     setLoginMessage('')
     setIsSubmitting(true)
-    const { error } = await signInWithEmailPassword(email, password)
+    const { profile, error } = await verifyTafiAdminCredentials(email, password)
     setIsSubmitting(false)
-    setLoginMessage(error
-      ? error.message
-      : 'Signed in successfully. The TAFI Admin workspace is not configured yet.')
+    if (error || !profile) {
+      setLoginMessage(error ? error.message : 'Invalid email or password.')
+      return
+    }
+
+    navigate('/tafi-dashboard', { state: { tafiAdmin: profile } })
   }
 
   return (

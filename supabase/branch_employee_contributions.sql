@@ -465,8 +465,11 @@ begin
 end;
 $$;
 
+drop function if exists public.branch_admin_create_employee(uuid, text, text);
+
 create or replace function public.branch_admin_create_employee(
   p_session_token uuid,
+  p_employee_code text,
   p_name text,
   p_position text
 )
@@ -477,7 +480,6 @@ set search_path = ''
 as $$
 declare
   v_branch_id uuid;
-  v_employee_code text;
 begin
   select ba.branch_id into v_branch_id
   from public.branch_admin_session as admin_session
@@ -489,15 +491,15 @@ begin
     raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
   end if;
 
-  if nullif(trim(p_name), '') is null or nullif(trim(p_position), '') is null then
-    raise exception 'Employee name and position are required';
+  if nullif(trim(p_employee_code), '') is null
+    or nullif(trim(p_name), '') is null
+    or nullif(trim(p_position), '') is null then
+    raise exception 'Employee code, name, and position are required';
   end if;
-
-  v_employee_code := 'EMP-' || upper(replace(gen_random_uuid()::text, '-', ''));
 
   return query
   insert into public.employee as new_employee (branch_id, employee_code, name, position)
-  values (v_branch_id, v_employee_code, trim(p_name), trim(p_position))
+  values (v_branch_id, trim(p_employee_code), trim(p_name), trim(p_position))
   returning new_employee.employee_code, new_employee.name,
     new_employee.position, new_employee.daily_rate;
 end;
@@ -1822,6 +1824,18 @@ begin
       raise exception 'Late minutes do not match attendance status for employee %', v_record->>'employee_code';
     end if;
 
+    if v_status <> 'vl_with_pay' and exists (
+      select 1
+      from public.branch_employee_leave_request as leave_request
+      where leave_request.branch_id = v_branch_id
+        and leave_request.employee_code = trim(v_record->>'employee_code')
+        and leave_request.status = 'approved'
+        and p_attendance_date between leave_request.start_date and leave_request.end_date
+    ) then
+      raise exception 'Attendance date is covered by an approved Leave with Pay request for employee %',
+        v_record->>'employee_code';
+    end if;
+
     insert into public.employee_attendance (
       employee_id, attendance_date, status, late_minutes,
       daily_rate_snapshot, submitted_by, updated_at
@@ -1951,7 +1965,7 @@ $$;
 
 revoke all on function public.branch_admin_login(text, text) from public;
 revoke all on function public.branch_admin_list_employees(uuid) from public;
-revoke all on function public.branch_admin_create_employee(uuid, text, text) from public;
+revoke all on function public.branch_admin_create_employee(uuid, text, text, text) from public;
 revoke all on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, text, text, text, text, text) from public;
 revoke all on function public.branch_admin_update_employee_daily_rate(uuid, text, numeric) from public;
 revoke all on function public.branch_admin_create_cash_advance(uuid, text, date, date, numeric, numeric) from public;
@@ -1980,7 +1994,7 @@ revoke all on function public.branch_admin_logout(uuid) from public;
 
 grant execute on function public.branch_admin_login(text, text) to anon, authenticated;
 grant execute on function public.branch_admin_list_employees(uuid) to anon, authenticated;
-grant execute on function public.branch_admin_create_employee(uuid, text, text) to anon, authenticated;
+grant execute on function public.branch_admin_create_employee(uuid, text, text, text) to anon, authenticated;
 grant execute on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, text, text, text, text, text) to anon, authenticated;
 grant execute on function public.branch_admin_update_employee_daily_rate(uuid, text, numeric) to anon, authenticated;
 grant execute on function public.branch_admin_create_cash_advance(uuid, text, date, date, numeric, numeric) to anon, authenticated;

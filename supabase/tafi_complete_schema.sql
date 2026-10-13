@@ -80,6 +80,8 @@ create table if not exists public.employee (
   employment_status text not null default 'active'
     check (employment_status in ('active', 'inactive')),
   hire_date date,
+  probationary_start_date date,
+  regular_start_date date,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint employee_branch_code_unique unique (branch_id, employee_code),

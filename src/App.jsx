@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { ArrowRight, Calculator, Crown, ShieldCheck, Store } from 'lucide-react'
 import AccountantLogin from './Pages/Accountant/Accountant_login'
 import AdminLogin from './Pages/TAFI_Admin/TAFI_Admin_login'
+import TafiDashboard from './Pages/TAFI_Admin/TAFI_Dashboard'
 import BranchAdminLogin from './Pages/Branch_admin/Branch_admin_login'
 import BranchAdminDashboard from './Pages/Branch_admin/Branch_admin_dashboard'
 import SuperAdminLogin from './Pages/Super_Admin/Super_Admin'
@@ -14,28 +15,28 @@ import Pause from './Pages/Pause'
 
 const roles = [
   {
-    name: 'Accountant',
+    name: 'TAFI Accountant',
     path: '/accountant-login',
     icon: Calculator,
-    description: 'Manage finance, invoices, and budget tracking.'
+    description: 'Manage finance, invoices, budget tracking, and Inventory tracking.'
   },
   {
     name: 'TAFI Admin',
     path: '/tafi-admin-login',
     icon: ShieldCheck,
-    description: 'Oversee system access, settings, and operations.'
+    description: 'Oversee branch operations, administration, and inventory tracking.'
   },
   {
     name: 'Branch Admin',
     path: '/branch-admin-login',
     icon: Store,
-    description: 'Coordinate branch activity and team performance.'
+    description: 'Coordinate branch operations and team performance.'
   },
   {
-    name: 'Super Admin',
+    name: 'SYSTEM Admin',
     path: '/super-admin-login',
     icon: Crown,
-    description: 'Manage company-wide access and administration.'
+    description: 'Manage company systems and configurations.'
   }
 ]
 
@@ -95,9 +96,10 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Pause />} />
+        <Route path="/" element={<Home />} />
         <Route path="/accountant-login" element={<AccountantLogin />} />
         <Route path="/tafi-admin-login" element={<AdminLogin />} />
+        <Route path="/tafi-dashboard" element={<TafiDashboard />} />
         <Route path="/branch-admin-login" element={<BranchAdminLogin />} />
         <Route path="/super-admin-login" element={<SuperAdminLogin />} />
         <Route path="/branch-admin-dashboard" element={<BranchAdminDashboard />} />

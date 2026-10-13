@@ -14,12 +14,22 @@ import {
 import { getBranchEmployees } from './branchEmployees'
 import { getLocalDateKey } from './branchAttendanceRecords'
 
-const today = new Date()
-const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-const monthDayCount = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
-const monthName = today.toLocaleDateString(undefined, { month: 'long' })
-const reportYear = today.getFullYear()
-const weekCount = Math.ceil(monthDayCount / 7)
+const getCurrentMonthValue = () => {
+  const today = new Date()
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+}
+
+const getMonthDetails = (monthValue) => {
+  const [year, month] = monthValue.split('-').map(Number)
+  const monthStart = new Date(year, month - 1, 1)
+  return {
+    monthStart,
+    monthDayCount: new Date(year, month, 0).getDate(),
+    monthName: monthStart.toLocaleDateString(undefined, { month: 'long' }),
+    reportYear: year
+  }
+}
+
 const statusLabels = {
   present: 'Present',
   present_late: 'Late',
@@ -28,7 +38,7 @@ const statusLabels = {
   paternity_leave: 'Paternity Leave',
   authorized_leave: 'Authorized Leave',
   birthday_leave: 'Birthday Leave',
-  vl_with_pay: 'VL with Pay',
+  vl_with_pay: 'Leave with Pay',
   vl_without_pay: 'VL without Pay',
   day_off: 'Day Off',
   not_marked: 'Not marked'
@@ -87,7 +97,8 @@ const csvCell = (value) => {
 
 const createCsv = (rows) => `\uFEFF${rows.map((row) => row.map(csvCell).join(',')).join('\r\n')}`
 
-const getPeriod = (periodType, weekIndex) => {
+const getPeriod = (periodType, weekIndex, monthValue) => {
+  const { monthStart, monthDayCount } = getMonthDetails(monthValue)
   const startDay = periodType === 'weekly' ? weekIndex * 7 + 1 : 1
   const endDay = periodType === 'weekly'
     ? Math.min((weekIndex + 1) * 7, monthDayCount)
@@ -101,8 +112,9 @@ const getPeriod = (periodType, weekIndex) => {
   }
 }
 
-const periodDescription = (periodType, weekIndex) => {
-  const { startDay, endDay } = getPeriod(periodType, weekIndex)
+const periodDescription = (periodType, weekIndex, monthValue) => {
+  const { startDay, endDay } = getPeriod(periodType, weekIndex, monthValue)
+  const { monthName, reportYear } = getMonthDetails(monthValue)
   return periodType === 'weekly'
     ? `Week ${weekIndex + 1} (${monthName} ${startDay}-${endDay}, ${reportYear})`
     : `${monthName} ${reportYear}`
@@ -120,9 +132,29 @@ const downloadCsv = (fileName, rows) => {
   URL.revokeObjectURL(downloadUrl)
 }
 
-function PeriodControls({ periodType, onPeriodTypeChange, weekIndex, onWeekChange, id }) {
+function PeriodControls({
+  periodType,
+  onPeriodTypeChange,
+  weekIndex,
+  onWeekChange,
+  monthValue,
+  onMonthChange,
+  id
+}) {
+  const { monthName, monthDayCount, reportYear } = getMonthDetails(monthValue)
+  const weekCount = Math.ceil(monthDayCount / 7)
   return (
     <div className="report-controls">
+      <label>
+        <span>Report month</span>
+        <input
+          type="month"
+          value={monthValue}
+          onChange={(event) => {
+            if (event.target.value) onMonthChange(event.target.value)
+          }}
+        />
+      </label>
       <label>
         <span>Report period</span>
         <select value={periodType} onChange={(event) => onPeriodTypeChange(event.target.value)}>
@@ -133,9 +165,12 @@ function PeriodControls({ periodType, onPeriodTypeChange, weekIndex, onWeekChang
       {periodType === 'weekly' && (
         <label>
           <span>Week</span>
-          <select value={weekIndex} onChange={(event) => onWeekChange(Number(event.target.value))}>
+          <select
+            value={weekIndex}
+            onChange={(event) => onWeekChange(Number(event.target.value))}
+          >
             {Array.from({ length: weekCount }, (_, index) => {
-              const period = getPeriod('weekly', index)
+              const period = getPeriod('weekly', index, monthValue)
               return (
                 <option key={`${id}-week-${index}`} value={index}>
                   Week {index + 1}: {monthName} {period.startDay}-{period.endDay}
@@ -151,8 +186,10 @@ function PeriodControls({ periodType, onPeriodTypeChange, weekIndex, onWeekChang
 }
 
 export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmin }) {
+  const [attendanceMonthValue, setAttendanceMonthValue] = useState(getCurrentMonthValue)
   const [attendancePeriodType, setAttendancePeriodType] = useState('weekly')
   const [attendanceWeekIndex, setAttendanceWeekIndex] = useState(0)
+  const [payrollMonthValue, setPayrollMonthValue] = useState(getCurrentMonthValue)
   const [payrollPeriodType, setPayrollPeriodType] = useState('weekly')
   const [payrollWeekIndex, setPayrollWeekIndex] = useState(0)
   const [attendanceMessage, setAttendanceMessage] = useState('')
@@ -288,7 +325,8 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
     setIsLoadingReport(true)
     setAttendanceMessage('')
     try {
-      const period = getPeriod(attendancePeriodType, attendanceWeekIndex)
+      const selectedMonth = getMonthDetails(attendanceMonthValue)
+      const period = getPeriod(attendancePeriodType, attendanceWeekIndex, attendanceMonthValue)
       const { employees, attendance } = await loadPeriodData(period)
       const dayNumbers = Array.from({ length: period.endDay - period.startDay + 1 }, (_, index) => period.startDay + index)
       const recordsByEmployeeAndDate = new Map(
@@ -298,7 +336,7 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
         'Employee ID',
         'Employee Name',
         'Position',
-        ...dayNumbers.map((day) => `${monthName} ${day}`),
+        ...dayNumbers.map((day) => `${selectedMonth.monthName} ${day}`),
         'Present',
         'Late',
         'Absent'
@@ -306,7 +344,7 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
 
       for (const employee of employees) {
         const statuses = dayNumbers.map((day) => {
-          const attendanceDate = getPeriod('monthly', 0).startDate.slice(0, 8) + String(day).padStart(2, '0')
+          const attendanceDate = period.startDate.slice(0, 8) + String(day).padStart(2, '0')
           return statusLabels[recordsByEmployeeAndDate.get(`${employee.id}:${attendanceDate}`)] ?? ''
         })
         rows.push([
@@ -320,9 +358,9 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
         ])
       }
 
-      const description = periodDescription(attendancePeriodType, attendanceWeekIndex)
+      const description = periodDescription(attendancePeriodType, attendanceWeekIndex, attendanceMonthValue)
       const suffix = attendancePeriodType === 'weekly' ? `week-${attendanceWeekIndex + 1}` : 'monthly'
-      downloadCsv(`attendance-${suffix}-${monthName.toLowerCase()}-${reportYear}.csv`, rows)
+      downloadCsv(`attendance-${suffix}-${selectedMonth.monthName.toLowerCase()}-${selectedMonth.reportYear}.csv`, rows)
       setAttendanceMessage(`Downloaded attendance report for ${description}.`)
     } catch (error) {
       setAttendanceMessage(`Could not generate attendance report: ${error.message}`)
@@ -335,7 +373,8 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
     setIsLoadingReport(true)
     setPayrollMessage('')
     try {
-      const period = getPeriod(payrollPeriodType, payrollWeekIndex)
+      const selectedMonth = getMonthDetails(payrollMonthValue)
+      const period = getPeriod(payrollPeriodType, payrollWeekIndex, payrollMonthValue)
       const { employees, attendance, contributions, cashAdvancePayments, hdmfPayments, undertimeDeductions, otherDeductions, payrollAdditions } = await loadPeriodData(period)
       const attendanceByEmployee = new Map()
       for (const record of attendance) {
@@ -432,8 +471,8 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
         let otherDeduction = 0
         for (let weekStartDay = period.startDay; weekStartDay <= period.endDay; weekStartDay += 7) {
           const weekStart = getLocalDateKey(new Date(
-            monthStart.getFullYear(),
-            monthStart.getMonth(),
+            selectedMonth.monthStart.getFullYear(),
+            selectedMonth.monthStart.getMonth(),
             weekStartDay
           ))
           const manualKey = `${employee.id}:${weekStart}`
@@ -485,9 +524,9 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
       rows.push(['Estimated net total for calculated employees', calculatedEmployees ? estimatedNetTotal.toFixed(2) : 'Awaiting complete data'])
       rows.push(['Calculation', 'Monthly rate = daily rate × 26. Working days include Present and Present (Late); basic salary = daily rate × working days. Salary credit = basic salary + Regular Holiday + Overtime + Special Non-working Holiday. Late = daily rate ÷ 8 ÷ 60 × recorded late minutes. Others are employee-specific deductions entered with a description. Total deduction = SSS + PhilHealth + Pag-IBIG + HDMF loan + CA + Late + Und + Others. Final net pay = Salary credit − Total deduction.'])
 
-      const description = periodDescription(payrollPeriodType, payrollWeekIndex)
+      const description = periodDescription(payrollPeriodType, payrollWeekIndex, payrollMonthValue)
       const suffix = payrollPeriodType === 'weekly' ? `week-${payrollWeekIndex + 1}` : 'monthly'
-      downloadCsv(`payroll-${suffix}-${monthName.toLowerCase()}-${reportYear}.csv`, rows)
+      downloadCsv(`payroll-${suffix}-${selectedMonth.monthName.toLowerCase()}-${selectedMonth.reportYear}.csv`, rows)
       setPayrollMessage(`Downloaded payroll report for ${description}.`)
     } catch (error) {
       setPayrollMessage(`Could not generate payroll report: ${error.message}`)
@@ -705,6 +744,11 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
           onPeriodTypeChange={setAttendancePeriodType}
           weekIndex={attendanceWeekIndex}
           onWeekChange={setAttendanceWeekIndex}
+          monthValue={attendanceMonthValue}
+          onMonthChange={(monthValue) => {
+            setAttendanceMonthValue(monthValue)
+            setAttendanceWeekIndex(0)
+          }}
         />
         {attendanceMessage && <p className="report-download-message" role="status">{attendanceMessage}</p>}
       </section>
@@ -725,6 +769,11 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
           onPeriodTypeChange={setPayrollPeriodType}
           weekIndex={payrollWeekIndex}
           onWeekChange={setPayrollWeekIndex}
+          monthValue={payrollMonthValue}
+          onMonthChange={(monthValue) => {
+            setPayrollMonthValue(monthValue)
+            setPayrollWeekIndex(0)
+          }}
         />
         {payrollMessage && <p className="report-download-message" role="status">{payrollMessage}</p>}
       </section>
