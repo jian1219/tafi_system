@@ -99,6 +99,7 @@ export default function TafiEmployee({ sessionToken }) {
 	const [selectedEmployeeId, setSelectedEmployeeId] = useState(null)
 	const [searchTerm, setSearchTerm] = useState('')
 	const [positionFilter, setPositionFilter] = useState('All positions')
+	const [employeeSortOrder, setEmployeeSortOrder] = useState('asc')
 	const [isLoading, setIsLoading] = useState(true)
 	const [errorMessage, setErrorMessage] = useState('')
 	const [isAddFormOpen, setIsAddFormOpen] = useState(false)
@@ -176,8 +177,18 @@ export default function TafiEmployee({ sessionToken }) {
 			const matchesPosition = positionFilter === 'All positions'
 				|| employee.employee_position === positionFilter
 			return matchesSearch && matchesPosition
+		}).sort((first, second) => {
+			const nameOrder = first.employee_name.localeCompare(
+				second.employee_name,
+				undefined,
+				{ sensitivity: 'base' }
+			)
+			const order = employeeSortOrder === 'asc' ? 1 : -1
+			return nameOrder === 0
+				? first.employee_code.localeCompare(second.employee_code, undefined, { numeric: true }) * order
+				: nameOrder * order
 		})
-	}, [filteredEmployees, searchTerm, positionFilter])
+	}, [filteredEmployees, searchTerm, positionFilter, employeeSortOrder])
 	const selectedEmployee = filteredEmployees.find((employee) => employee.employee_id === selectedEmployeeId)
 
 	useEffect(() => {
@@ -908,6 +919,16 @@ export default function TafiEmployee({ sessionToken }) {
 								<select value={positionFilter} onChange={(event) => setPositionFilter(event.target.value)}>
 									<option>All positions</option>
 									{positions.map((position) => <option key={position}>{position}</option>)}
+								</select>
+							</label>
+							<label className="employee-filter-label">
+								<span>Sort by name</span>
+								<select
+									value={employeeSortOrder}
+									onChange={(event) => setEmployeeSortOrder(event.target.value)}
+								>
+									<option value="asc">Ascending (A–Z)</option>
+									<option value="desc">Descending (Z–A)</option>
 								</select>
 							</label>
 						</div>
