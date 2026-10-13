@@ -4309,6 +4309,13 @@ button {
   font-size: 0.78rem;
 }
 
+.tafi-admin-content .tafi-other-addition-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
 .tafi-admin-content .tafi-attendance-branch-select select {
   border-color: #cbd5e1;
   background: #fff;
@@ -4515,6 +4522,12 @@ button {
 }
 
 @media (max-width: 720px) {
+  .tafi-admin-content .tafi-other-addition-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
   .tafi-admin-content .tafi-attendance-branch-select {
     width: 100%;
     padding: 0 16px 16px;

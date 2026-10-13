@@ -270,6 +270,7 @@ begin
     percentage = excluded.percentage,
     eligible_classifications = excluded.eligible_classifications,
     updated_by_branch_admin_id = excluded.updated_by_branch_admin_id,
+    updated_by_tafi_admin_id = null,
     updated_at = now();
 
   insert into public.branch_employee_holiday_pay_base (
@@ -331,6 +332,7 @@ begin
     daily_rate = excluded.daily_rate,
     amount = excluded.amount,
     created_by_branch_admin_id = excluded.created_by_branch_admin_id,
+    created_by_tafi_admin_id = null,
     updated_at = now();
 
   get diagnostics v_employee_count = row_count;
@@ -369,6 +371,7 @@ begin
   set period_end = excluded.period_end,
     amount = excluded.amount,
     created_by_branch_admin_id = excluded.created_by_branch_admin_id,
+    created_by_tafi_admin_id = null,
     updated_at = now();
 
   select coalesce(sum(holiday.amount), 0)

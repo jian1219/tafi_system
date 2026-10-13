@@ -160,6 +160,149 @@ export async function listTafiAdminOvertimeHours(sessionToken, branchId, startDa
   }
 }
 
+export async function listTafiAdminPayrollAdditions(sessionToken, branchId, startDate, endDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const additions = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('tafi_admin_list_other_additions', {
+        p_session_token: sessionToken,
+        p_branch_id: branchId,
+        p_period_start: startDate,
+        p_period_end: endDate,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      additions.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+    return { data: additions, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load payroll additions.')
+    }
+  }
+}
+
+export async function saveTafiAdminPayrollAddition(sessionToken, branchId, addition) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_save_other_addition', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_employee_code: addition.employeeCode,
+      p_period_start: addition.periodStart,
+      p_period_end: addition.periodEnd,
+      p_addition_type: addition.additionType,
+      p_amount: addition.amount
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save payroll addition.')
+    }
+  }
+}
+
+export async function listTafiAdminOvertimeHistory(sessionToken, branchId, startDate, endDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_other_overtime_hours', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_period_start: startDate,
+      p_period_end: endDate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load overtime hours.')
+    }
+  }
+}
+
+export async function saveTafiAdminOvertimeHours(sessionToken, branchId, overtime) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_save_other_overtime_hours', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_employee_code: overtime.employeeCode,
+      p_period_start: overtime.periodStart,
+      p_period_end: overtime.periodEnd,
+      p_daily_hours: overtime.dailyHours
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save overtime hours.')
+    }
+  }
+}
+
+export async function listTafiAdminHolidayPay(sessionToken, branchId, startDate, endDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_other_holiday_pay', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_period_start: startDate,
+      p_period_end: endDate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load holiday pay entries.')
+    }
+  }
+}
+
+export async function listTafiAdminHolidayPayRules(sessionToken, branchId, startDate, endDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_other_holiday_pay_rules', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_period_start: startDate,
+      p_period_end: endDate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load holiday pay rules.')
+    }
+  }
+}
+
+export async function saveTafiAdminHolidayPay(sessionToken, branchId, holidayPay) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_save_other_holiday_pay', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_period_start: holidayPay.periodStart,
+      p_period_end: holidayPay.periodEnd,
+      p_holiday_date: holidayPay.holidayDate,
+      p_addition_type: holidayPay.additionType,
+      p_percentage: holidayPay.percentage,
+      p_eligible_classifications: holidayPay.eligibleClassifications
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save holiday pay.')
+    }
+  }
+}
+
 export async function listTafiAdminUndertimeDeductions(sessionToken, branchId, startDate, endDate) {
   try {
     const supabaseClient = await getSupabaseClient()

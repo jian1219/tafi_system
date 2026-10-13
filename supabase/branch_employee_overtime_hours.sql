@@ -142,6 +142,7 @@ begin
     on conflict (branch_id, employee_code, overtime_date) do update
     set hours = excluded.hours,
       created_by_branch_admin_id = excluded.created_by_branch_admin_id,
+      created_by_tafi_admin_id = null,
       updated_at = now();
   end loop;
 
@@ -164,6 +165,7 @@ begin
   set period_end = excluded.period_end,
     amount = excluded.amount,
     created_by_branch_admin_id = excluded.created_by_branch_admin_id,
+    created_by_tafi_admin_id = null,
     updated_at = now();
 
   return v_overtime_pay;

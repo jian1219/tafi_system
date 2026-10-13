@@ -1490,6 +1490,7 @@ begin
   set period_end = excluded.period_end,
     amount = excluded.amount,
     created_by_branch_admin_id = excluded.created_by_branch_admin_id,
+    created_by_tafi_admin_id = null,
     updated_at = now();
 
   return true;
