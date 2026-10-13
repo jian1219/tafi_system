@@ -33,6 +33,12 @@ const attendanceStatusDetails = {
 	not_marked: { label: 'Not marked', className: '' }
 }
 
+const attendanceShiftDetails = [
+	{ value: '9am-2pm | 6pm-9pm', label: '9am - 2pm | 6pm - 9pm' },
+	{ value: '11am-4pm | 6pm-9pm', label: '11am - 4pm | 6pm - 9pm' },
+	{ value: '1pm-9pm', label: '1pm - 9pm' }
+]
+
 const formatMonth = (monthKey) => {
 	if (!monthKey) return ''
 	return new Intl.DateTimeFormat('en-PH', { month: 'long', year: 'numeric' })
@@ -519,6 +525,12 @@ export default function TafiEmployee({ sessionToken }) {
 		absent: monthlyStatuses.filter((status) => status === 'absent').length,
 		leave: monthlyStatuses.filter((status) => attendanceStatusDetails[status]?.className === 'v').length
 	}
+	const monthlyShiftCounts = attendanceShiftDetails.map((shift) => ({
+		...shift,
+		total: [...recordsByDate.values()].filter((record) =>
+			record.shift === shift.value && ['present', 'present_late'].includes(record.status)
+		).length
+	}))
 	const attendanceRate = Math.round((monthlyAttendance.present / attendanceDaysInMonth) * 100)
 	const attendanceRemark = getAttendanceRemark(attendanceRate)
 
@@ -1080,6 +1092,21 @@ export default function TafiEmployee({ sessionToken }) {
 								</p>
 							) : (
 								<>
+									<div className="employee-shift-month-record">
+										<div className="employee-shift-month-heading">
+											<h5>Shift month record</h5>
+											<span>{formatMonth(attendanceMonth)}</span>
+										</div>
+										<div className="employee-shift-month-grid">
+											{monthlyShiftCounts.map((shift) => (
+												<div className="employee-shift-month-card" key={shift.value}>
+													<span>{shift.label}</span>
+													<strong>{shift.total}</strong>
+													<small>{shift.total === 1 ? 'shift' : 'shifts'}</small>
+												</div>
+											))}
+										</div>
+									</div>
 									<div className="employee-attendance-summary">
 										<span>Total present <strong>{monthlyAttendance.present}</strong></span>
 										<span>Late <strong>{monthlyAttendance.late}</strong></span>
@@ -1110,17 +1137,26 @@ export default function TafiEmployee({ sessionToken }) {
 												const lateMinutes = status === 'present_late'
 													? Number(record.late_minutes) || 0
 													: null
+												const shiftLabel = attendanceShiftDetails.find(
+													(shift) => shift.value === record?.shift
+												)?.label
+												const displayedShiftLabel = ['present', 'present_late'].includes(status)
+													? shiftLabel
+													: ''
 
 												return (
 													<div
 														className={`employee-attendance-day${className}`}
 														key={dateKey}
-														title={`${dateKey}: ${statusDetail?.label ?? (status ? 'Not marked' : 'No record')}${lateMinutes === null ? '' : `, ${lateMinutes} minutes late`}`}
+														title={`${dateKey}: ${statusDetail?.label ?? (status ? 'Not marked' : 'No record')}${lateMinutes === null ? '' : `, ${lateMinutes} minutes late`}${displayedShiftLabel ? `, ${displayedShiftLabel}` : ''}`}
 													>
 														<strong>{day}</strong>
 														<span>{lateMinutes === null
 															? statusDetail?.label ?? (status ? 'Not marked' : '—')
 															: `${lateMinutes} min late`}</span>
+														{displayedShiftLabel && (
+															<span className="employee-attendance-day-shift">{displayedShiftLabel}</span>
+														)}
 													</div>
 												)
 											})}

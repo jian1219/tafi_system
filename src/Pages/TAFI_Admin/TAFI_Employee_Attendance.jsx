@@ -30,6 +30,8 @@ const shiftOptions = [
 	'1pm-9pm'
 ]
 
+const shiftEligibleStatuses = ['Present', 'Present (Late)']
+
 const statusFromDatabase = {
 	not_marked: 'Not marked',
 	present: 'Present',
@@ -236,10 +238,11 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 			setAttendanceRecords(records)
 			setDailyEmployees(branchEmployees.map((employee) => {
 				const record = attendanceForSelectedDate[employee.id]
+				const status = statusFromDatabase[record?.status] ?? 'Not marked'
 				return {
 					...employee,
-					shift: record?.shift ?? '',
-					status: statusFromDatabase[record?.status] ?? 'Not marked',
+					shift: shiftEligibleStatuses.includes(status) ? record?.shift ?? '' : '',
+					status,
 					lateMinutes: record?.late_minutes ?? 0
 				}
 			}))
@@ -392,7 +395,12 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 
 	const updateStatus = (employeeId, status) => {
 		setDailyEmployees((current) => current.map((employee) => employee.id === employeeId
-			? { ...employee, status, lateMinutes: status === 'Present (Late)' ? employee.lateMinutes : 0 }
+			? {
+				...employee,
+				status,
+				shift: shiftEligibleStatuses.includes(status) ? employee.shift : '',
+				lateMinutes: status === 'Present (Late)' ? employee.lateMinutes : 0
+			}
 			: employee))
 		setSaveMessage('')
 		setSaveError('')
@@ -416,7 +424,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 
 	const saveAttendance = async () => {
 		const missingShift = dailyEmployees.find((employee) =>
-			employee.status !== 'Not marked' && !employee.shift
+			shiftEligibleStatuses.includes(employee.status) && !employee.shift
 		)
 		if (missingShift) {
 			setSaveError(`Select a shift for ${missingShift.name} before saving attendance.`)
@@ -437,7 +445,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 		setIsSaving(true)
 		const records = dailyEmployees.map((employee) => ({
 			employee_code: employee.id,
-			shift: employee.shift || null,
+			shift: shiftEligibleStatuses.includes(employee.status) ? employee.shift || null : null,
 			status: statusToDatabase[employee.status] ?? 'not_marked',
 			late_minutes: employee.status === 'Present (Late)' ? employee.lateMinutes : 0
 		}))
@@ -616,20 +624,22 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 										</div>
 									</div>
 									<div className="attendance-row-controls">
-										<label className="attendance-select-field">
-											<span>Shift</span>
-											<select
-												value={employee.shift}
-												onChange={(event) => updateShift(employee.id, event.target.value)}
-												className="shift-select"
-												aria-label={`Shift for ${employee.name}`}
-											>
-												<option value="">Select shift</option>
-												{shiftOptions.map((shift) => (
-													<option key={shift} value={shift}>{shift}</option>
-												))}
-											</select>
-										</label>
+										{shiftEligibleStatuses.includes(employee.status) && (
+											<label className="attendance-select-field">
+												<span>Shift</span>
+												<select
+													value={employee.shift}
+													onChange={(event) => updateShift(employee.id, event.target.value)}
+													className="shift-select"
+													aria-label={`Shift for ${employee.name}`}
+												>
+													<option value="">Select shift</option>
+													{shiftOptions.map((shift) => (
+														<option key={shift} value={shift}>{shift}</option>
+													))}
+												</select>
+											</label>
+										)}
 										<label className="attendance-select-field">
 											<span>Attendance</span>
 										<select

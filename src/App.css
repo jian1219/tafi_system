@@ -1489,6 +1489,67 @@ button {
   color: #0f172a;
 }
 
+.employee-shift-month-record {
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.employee-shift-month-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.employee-shift-month-heading h5 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 0.84rem;
+}
+
+.employee-shift-month-heading span {
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.employee-shift-month-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.employee-shift-month-card {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.employee-shift-month-card span {
+  color: #475569;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.employee-shift-month-card strong {
+  color: #1d4ed8;
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.employee-shift-month-card small {
+  color: #64748b;
+  font-size: 0.68rem;
+}
+
 .employee-attendance-calendar {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -1515,7 +1576,7 @@ button {
 
 .employee-attendance-day {
   min-width: 0;
-  min-height: 48px;
+  min-height: 64px;
   display: grid;
   justify-items: center;
   align-content: center;
@@ -1530,6 +1591,15 @@ button {
 .employee-attendance-day strong {
   color: #0f172a;
   font-size: 0.76rem;
+}
+
+.employee-attendance-day-shift {
+  max-width: 100%;
+  color: #1e40af;
+  font-size: 0.52rem;
+  font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
 }
 
 .employee-attendance-day.p { background: #dcfce7; }
@@ -3741,6 +3811,10 @@ button {
 
   .tafi-employee-attendance-record {
     margin: 16px;
+  }
+
+  .employee-shift-month-grid {
+    grid-template-columns: 1fr;
   }
 
   .employee-personal-form {
