@@ -56,7 +56,7 @@ create table if not exists public.branch_employee_cash_advance (
   ),
   constraint branch_employee_cash_advance_employee_fk
     foreign key (branch_id, employee_code)
-    references public.employee (branch_id, employee_code) on delete restrict,
+    references public.employee (branch_id, employee_code) on update cascade on delete restrict,
   constraint branch_employee_cash_advance_admin_fk
     foreign key (created_by_branch_admin_id, branch_id)
     references public.branch_admin (id, branch_id) on delete restrict
@@ -79,7 +79,7 @@ create table if not exists public.branch_employee_cash_advance_loan (
   unique (id, branch_id, employee_code),
   constraint branch_employee_cash_advance_loan_employee_fk
     foreign key (branch_id, employee_code)
-    references public.employee (branch_id, employee_code) on delete restrict,
+    references public.employee (branch_id, employee_code) on update cascade on delete restrict,
   constraint branch_employee_cash_advance_loan_admin_fk
     foreign key (created_by_branch_admin_id, branch_id)
     references public.branch_admin (id, branch_id) on delete restrict
@@ -102,7 +102,7 @@ create table if not exists public.branch_employee_cash_advance_payment (
   ),
   constraint branch_employee_cash_advance_payment_loan_fk
     foreign key (advance_id, branch_id, employee_code)
-    references public.branch_employee_cash_advance_loan (id, branch_id, employee_code) on delete cascade,
+    references public.branch_employee_cash_advance_loan (id, branch_id, employee_code) on update cascade on delete cascade,
   constraint branch_employee_cash_advance_payment_admin_fk
     foreign key (created_by_branch_admin_id, branch_id)
     references public.branch_admin (id, branch_id) on delete restrict
@@ -144,7 +144,7 @@ create table if not exists public.branch_employee_hdmf_loan (
   unique (id, branch_id, employee_code),
   constraint branch_employee_hdmf_loan_employee_fk
     foreign key (branch_id, employee_code)
-    references public.employee (branch_id, employee_code) on delete restrict,
+    references public.employee (branch_id, employee_code) on update cascade on delete restrict,
   constraint branch_employee_hdmf_loan_admin_fk
     foreign key (created_by_branch_admin_id, branch_id)
     references public.branch_admin (id, branch_id) on delete restrict
@@ -166,7 +166,7 @@ create table if not exists public.branch_employee_hdmf_payment (
   ),
   constraint branch_employee_hdmf_payment_loan_fk
     foreign key (loan_id, branch_id, employee_code)
-    references public.branch_employee_hdmf_loan (id, branch_id, employee_code) on delete cascade,
+    references public.branch_employee_hdmf_loan (id, branch_id, employee_code) on update cascade on delete cascade,
   constraint branch_employee_hdmf_payment_admin_fk
     foreign key (created_by_branch_admin_id, branch_id)
     references public.branch_admin (id, branch_id) on delete restrict
@@ -192,7 +192,7 @@ create table if not exists public.branch_employee_undertime_deduction (
   ),
   constraint branch_employee_undertime_deduction_employee_fk
     foreign key (branch_id, employee_code)
-    references public.employee (branch_id, employee_code) on delete restrict,
+    references public.employee (branch_id, employee_code) on update cascade on delete restrict,
   constraint branch_employee_undertime_deduction_admin_fk
     foreign key (created_by_branch_admin_id, branch_id)
     references public.branch_admin (id, branch_id) on delete restrict
@@ -223,7 +223,7 @@ create table if not exists public.branch_employee_payroll_addition (
   ),
   constraint branch_employee_payroll_addition_employee_fk
     foreign key (branch_id, employee_code)
-    references public.employee (branch_id, employee_code) on delete restrict,
+    references public.employee (branch_id, employee_code) on update cascade on delete restrict,
   constraint branch_employee_payroll_addition_admin_fk
     foreign key (created_by_branch_admin_id, branch_id)
     references public.branch_admin (id, branch_id) on delete restrict

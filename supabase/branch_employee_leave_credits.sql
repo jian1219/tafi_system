@@ -21,7 +21,7 @@ create table if not exists public.branch_employee_leave_request (
   constraint branch_employee_leave_request_date_order check (end_date >= start_date),
   constraint branch_employee_leave_request_employee_fk
     foreign key (branch_id, employee_code)
-    references public.employee (branch_id, employee_code) on delete restrict,
+    references public.employee (branch_id, employee_code) on update cascade on delete restrict,
   constraint branch_employee_leave_request_admin_fk
     foreign key (requested_by_branch_admin_id, branch_id)
     references public.branch_admin (id, branch_id) on delete restrict

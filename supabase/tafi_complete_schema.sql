@@ -95,6 +95,11 @@ create table if not exists public.employee_attendance (
   id uuid primary key default gen_random_uuid(),
   employee_id uuid not null references public.employee(id) on delete restrict,
   attendance_date date not null,
+  shift text check (shift is null or shift in (
+    '9am-2pm | 6pm-9pm',
+    '11am-4pm | 6pm-9pm',
+    '1pm-9pm'
+  )),
   status text not null check (status in (
     'not_marked',
     'present',

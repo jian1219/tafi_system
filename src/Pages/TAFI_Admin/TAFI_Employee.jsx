@@ -3,8 +3,10 @@ import {
 	createTafiAdminEmployee,
 	listTafiAdminAttendance,
 	listTafiAdminBranches,
+	listTafiAdminEmployeeContributions,
 	listTafiAdminEmployees,
 	updateTafiAdminEmployeeDailyRate,
+	updateTafiAdminEmployeeIdentity,
 	updateTafiAdminEmployeeProfile
 } from '../../lib/supabase'
 import { getAttendanceRemark, getLocalDateKey } from '../Branch_admin/branchAttendanceRecords'
@@ -114,6 +116,11 @@ export default function TafiEmployee({ sessionToken }) {
 	const [isSavingProfile, setIsSavingProfile] = useState(false)
 	const [profileError, setProfileError] = useState('')
 	const [profileMessage, setProfileMessage] = useState('')
+	const [identityForm, setIdentityForm] = useState(null)
+	const [isEditingIdentity, setIsEditingIdentity] = useState(false)
+	const [isSavingIdentity, setIsSavingIdentity] = useState(false)
+	const [identityError, setIdentityError] = useState('')
+	const [identityMessage, setIdentityMessage] = useState('')
 	const [dailyRateInput, setDailyRateInput] = useState('')
 	const [isEditingDailyRate, setIsEditingDailyRate] = useState(false)
 	const [isSavingDailyRate, setIsSavingDailyRate] = useState(false)
@@ -121,6 +128,7 @@ export default function TafiEmployee({ sessionToken }) {
 	const [dailyRateMessage, setDailyRateMessage] = useState('')
 	const [attendanceMonth, setAttendanceMonth] = useState(currentMonthKey)
 	const [attendanceHistoryState, setAttendanceHistoryState] = useState(null)
+	const [employeeContributionState, setEmployeeContributionState] = useState(null)
 
 	useEffect(() => {
 		let isCurrent = true
@@ -190,6 +198,8 @@ export default function TafiEmployee({ sessionToken }) {
 		})
 	}, [filteredEmployees, searchTerm, positionFilter, employeeSortOrder])
 	const selectedEmployee = filteredEmployees.find((employee) => employee.employee_id === selectedEmployeeId)
+	const selectedEmployeeBranchId = selectedEmployee?.branch_id
+	const selectedEmployeeCode = selectedEmployee?.employee_code
 
 	useEffect(() => {
 		let isCurrent = true
@@ -229,6 +239,71 @@ export default function TafiEmployee({ sessionToken }) {
 	const attendanceHistoryError = !sessionToken
 		? 'Your login session is missing.'
 		: hasCurrentAttendanceHistory ? attendanceHistoryState.error : ''
+
+	useEffect(() => {
+		let isCurrent = true
+
+		const loadEmployeeContribution = async () => {
+			if (!sessionToken || !selectedEmployeeId || !selectedEmployeeBranchId || !selectedEmployeeCode) return
+			setEmployeeContributionState({
+				sessionToken,
+				employeeId: selectedEmployeeId,
+				status: 'loading',
+				contribution: null,
+				error: ''
+			})
+
+			const { data, error } = await listTafiAdminEmployeeContributions(
+				sessionToken,
+				selectedEmployeeBranchId
+			)
+			if (!isCurrent) return
+
+			if (error) {
+				setEmployeeContributionState({
+					sessionToken,
+					employeeId: selectedEmployeeId,
+					status: 'error',
+					contribution: null,
+					error: error.message
+				})
+				return
+			}
+
+			const contribution = (data ?? []).find(
+				(record) => record.employee_code === selectedEmployeeCode
+			) ?? null
+			setEmployeeContributionState({
+				sessionToken,
+				employeeId: selectedEmployeeId,
+				status: 'ready',
+				contribution,
+				error: ''
+			})
+		}
+
+		loadEmployeeContribution()
+		return () => {
+			isCurrent = false
+		}
+	}, [
+		sessionToken,
+		selectedEmployeeId,
+		selectedEmployeeBranchId,
+		selectedEmployeeCode
+	])
+
+	const hasCurrentEmployeeContribution = employeeContributionState?.sessionToken === sessionToken
+		&& employeeContributionState?.employeeId === selectedEmployeeId
+	const employeeContribution = hasCurrentEmployeeContribution
+		? employeeContributionState.contribution
+		: null
+	const isLoadingEmployeeContribution = Boolean(selectedEmployee && !hasCurrentEmployeeContribution)
+		|| employeeContributionState?.status === 'loading'
+	const employeeContributionError = hasCurrentEmployeeContribution
+		&& employeeContributionState.status === 'error'
+		? employeeContributionState.error
+		: ''
 
 	const selectBranch = (branchId) => {
 		setSelectedBranchId(branchId)
@@ -281,6 +356,47 @@ export default function TafiEmployee({ sessionToken }) {
 		setProfileForm((current) => ({ ...current, [field]: value }))
 		setProfileError('')
 		setProfileMessage('')
+	}
+
+	const saveEmployeeIdentity = async (event) => {
+		event.preventDefault()
+		if (!identityForm || !selectedEmployee) return
+
+		const employeeCode = identityForm.employeeCode.trim()
+		const name = identityForm.name.trim()
+		const position = identityForm.position.trim()
+		if (!employeeCode || !name || !position) {
+			setIdentityError('Employee ID, name, and position are required.')
+			return
+		}
+
+		setIsSavingIdentity(true)
+		setIdentityError('')
+		setIdentityMessage('')
+		const { error } = await updateTafiAdminEmployeeIdentity(
+			sessionToken,
+			selectedEmployee.employee_id,
+			{ employeeCode, name, position }
+		)
+		setIsSavingIdentity(false)
+		if (error) {
+			setIdentityError(error.message)
+			return
+		}
+
+		setEmployees((current) => current.map((employee) =>
+			employee.employee_id === selectedEmployee.employee_id
+				? {
+					...employee,
+					employee_code: employeeCode,
+					employee_name: name,
+					employee_position: position
+				}
+				: employee
+		))
+		setIdentityForm({ employeeCode, name, position })
+		setIsEditingIdentity(false)
+		setIdentityMessage('Employee information updated.')
 	}
 
 	const saveEmployeeProfile = async (event) => {
@@ -448,6 +564,7 @@ export default function TafiEmployee({ sessionToken }) {
 							<button type="button" className="employee-back-button" onClick={() => {
 								setSelectedEmployeeId(null)
 								setIsEditingProfile(false)
+								setIsEditingIdentity(false)
 								setIsEditingDailyRate(false)
 								setDailyRateError('')
 								setDailyRateMessage('')
@@ -472,6 +589,107 @@ export default function TafiEmployee({ sessionToken }) {
 								{selectedEmployee.employment_status}
 							</span>
 						</header>
+
+						<section className="employee-detail-panel employee-personal-details">
+							<div className="employee-detail-panel-heading employee-personal-heading">
+								<div>
+									<h4>Employee identification</h4>
+									<p>Update the employee name, ID, or position.</p>
+								</div>
+								{!isEditingIdentity && (
+									<button
+										type="button"
+										className="add-employee-button"
+										onClick={() => {
+											setIdentityForm({
+												employeeCode: selectedEmployee.employee_code,
+												name: selectedEmployee.employee_name,
+												position: selectedEmployee.employee_position
+											})
+											setIdentityError('')
+											setIdentityMessage('')
+											setIsEditingIdentity(true)
+										}}
+									>
+										Edit employee information
+									</button>
+								)}
+							</div>
+							{isEditingIdentity ? (
+								<form className="employee-personal-form" onSubmit={saveEmployeeIdentity}>
+									<label>
+										<span>Employee ID</span>
+										<input
+											required
+											value={identityForm.employeeCode}
+											onChange={(event) => setIdentityForm((current) => ({
+												...current,
+												employeeCode: event.target.value
+											}))}
+											autoComplete="off"
+										/>
+									</label>
+									<label>
+										<span>Employee name</span>
+										<input
+											required
+											value={identityForm.name}
+											onChange={(event) => setIdentityForm((current) => ({
+												...current,
+												name: event.target.value
+											}))}
+										/>
+									</label>
+									<label>
+										<span>Position</span>
+										<input
+											required
+											value={identityForm.position}
+											onChange={(event) => setIdentityForm((current) => ({
+												...current,
+												position: event.target.value
+											}))}
+										/>
+									</label>
+									<div className="employee-personal-actions">
+										{identityError && <p className="add-employee-error" role="alert">{identityError}</p>}
+										<button
+											type="button"
+											className="employee-profile-cancel"
+											disabled={isSavingIdentity}
+											onClick={() => {
+												setIdentityForm(null)
+												setIdentityError('')
+												setIsEditingIdentity(false)
+											}}
+										>
+											Cancel
+										</button>
+										<button type="submit" className="add-employee-submit" disabled={isSavingIdentity}>
+											{isSavingIdentity ? 'Saving…' : 'Save employee information'}
+										</button>
+									</div>
+								</form>
+							) : (
+								<>
+									<dl className="employee-profile-fields">
+										<div className="employee-profile-field">
+											<dt>Employee ID</dt>
+											<dd>{selectedEmployee.employee_code}</dd>
+										</div>
+										<div className="employee-profile-field">
+											<dt>Name</dt>
+											<dd>{selectedEmployee.employee_name}</dd>
+										</div>
+										<div className="employee-profile-field">
+											<dt>Position</dt>
+											<dd>{selectedEmployee.employee_position}</dd>
+										</div>
+									</dl>
+									{identityMessage && <p className="employee-personal-saved" role="status">{identityMessage}</p>}
+								</>
+							)}
+						</section>
 
 						<div className="employee-detail-summary">
 							<div className="employee-detail-stat">
@@ -797,6 +1015,41 @@ export default function TafiEmployee({ sessionToken }) {
 							{dailyRateMessage && <p className="employee-personal-saved" role="status">{dailyRateMessage}</p>}
 						</section>
 
+						<section className="employee-detail-panel employee-personal-details">
+							<div className="employee-detail-panel-heading">
+								<div>
+									<h4>Weekly contributions</h4>
+									<p>Mandatory contributions saved for this employee.</p>
+								</div>
+							</div>
+							{isLoadingEmployeeContribution ? (
+								<p className="employee-detail-empty" role="status">Loading weekly contributions…</p>
+							) : employeeContributionError ? (
+								<p className="employee-detail-empty error" role="alert">
+									Could not load weekly contributions: {employeeContributionError}
+								</p>
+							) : employeeContribution ? (
+								<dl className="employee-profile-fields">
+									<div className="employee-profile-field">
+										<dt>SSS / week</dt>
+										<dd>{formatDailyRate(employeeContribution.sss)}</dd>
+									</div>
+									<div className="employee-profile-field">
+										<dt>PhilHealth / week</dt>
+										<dd>{formatDailyRate(employeeContribution.philhealth)}</dd>
+									</div>
+									<div className="employee-profile-field">
+										<dt>Pag-IBIG / week</dt>
+										<dd>{formatDailyRate(employeeContribution.pagibig)}</dd>
+									</div>
+								</dl>
+							) : (
+								<p className="employee-detail-empty">
+									No weekly contributions have been saved for this employee.
+								</p>
+							)}
+						</section>
+
 						<section className="employee-detail-panel tafi-employee-attendance-record">
 							<div className="employee-detail-panel-heading">
 								<div>
@@ -1010,6 +1263,9 @@ export default function TafiEmployee({ sessionToken }) {
 																setIsEditingProfile(false)
 																setProfileError('')
 																setProfileMessage('')
+																setIsEditingIdentity(false)
+																setIdentityError('')
+																setIdentityMessage('')
 																setIsEditingDailyRate(false)
 																setDailyRateError('')
 																setDailyRateMessage('')

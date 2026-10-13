@@ -24,6 +24,12 @@ const attendanceOptions = [
 	'Day Off'
 ]
 
+const shiftOptions = [
+	'9am-2pm | 6pm-9pm',
+	'11am-4pm | 6pm-9pm',
+	'1pm-9pm'
+]
+
 const statusFromDatabase = {
 	not_marked: 'Not marked',
 	present: 'Present',
@@ -209,6 +215,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 				setAttendanceRecords([])
 				setDailyEmployees(branchEmployees.map((employee) => ({
 					...employee,
+					shift: '',
 					status: 'Not marked',
 					lateMinutes: 0
 				})))
@@ -231,6 +238,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 				const record = attendanceForSelectedDate[employee.id]
 				return {
 					...employee,
+					shift: record?.shift ?? '',
 					status: statusFromDatabase[record?.status] ?? 'Not marked',
 					lateMinutes: record?.late_minutes ?? 0
 				}
@@ -390,6 +398,14 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 		setSaveError('')
 	}
 
+	const updateShift = (employeeId, shift) => {
+		setDailyEmployees((current) => current.map((employee) => employee.id === employeeId
+			? { ...employee, shift }
+			: employee))
+		setSaveMessage('')
+		setSaveError('')
+	}
+
 	const updateLateMinutes = (employeeId, minutes) => {
 		setDailyEmployees((current) => current.map((employee) => employee.id === employeeId
 			? { ...employee, lateMinutes: minutes === '' ? 0 : Math.max(0, Number(minutes)) }
@@ -399,6 +415,15 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 	}
 
 	const saveAttendance = async () => {
+		const missingShift = dailyEmployees.find((employee) =>
+			employee.status !== 'Not marked' && !employee.shift
+		)
+		if (missingShift) {
+			setSaveError(`Select a shift for ${missingShift.name} before saving attendance.`)
+			setSaveMessage('')
+			return
+		}
+
 		const incompleteLateEntry = dailyEmployees.find((employee) =>
 			employee.status === 'Present (Late)'
 			&& (!Number.isInteger(employee.lateMinutes) || employee.lateMinutes < 1)
@@ -412,6 +437,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 		setIsSaving(true)
 		const records = dailyEmployees.map((employee) => ({
 			employee_code: employee.id,
+			shift: employee.shift || null,
 			status: statusToDatabase[employee.status] ?? 'not_marked',
 			late_minutes: employee.status === 'Present (Late)' ? employee.lateMinutes : 0
 		}))
@@ -433,7 +459,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 			...records.map((record) => ({ ...record, attendance_date: dailyAttendanceDateKey }))
 		])
 		setSaveError('')
-		setSaveMessage('Attendance and late minutes saved.')
+		setSaveMessage('Shift, attendance, and late minutes saved.')
 	}
 
 	const updateRecordsMonth = (month) => {
@@ -590,10 +616,27 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 										</div>
 									</div>
 									<div className="attendance-row-controls">
+										<label className="attendance-select-field">
+											<span>Shift</span>
+											<select
+												value={employee.shift}
+												onChange={(event) => updateShift(employee.id, event.target.value)}
+												className="shift-select"
+												aria-label={`Shift for ${employee.name}`}
+											>
+												<option value="">Select shift</option>
+												{shiftOptions.map((shift) => (
+													<option key={shift} value={shift}>{shift}</option>
+												))}
+											</select>
+										</label>
+										<label className="attendance-select-field">
+											<span>Attendance</span>
 										<select
 											value={employee.status}
 											onChange={(event) => updateStatus(employee.id, event.target.value)}
 											className="status-select"
+											aria-label={`Attendance for ${employee.name}`}
 										>
 											{attendanceOptions.map((option) => {
 												const leavePayUnavailable = option === 'Leave with Pay'
@@ -614,6 +657,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 												)
 											})}
 										</select>
+										</label>
 										{employee.status === 'Present (Late)' && (
 											<>
 												<label className="late-minutes-field">

@@ -61,6 +61,40 @@ export async function listTafiAdminBranches(sessionToken) {
   }
 }
 
+export async function listTafiAdminEmployeeContributions(sessionToken, branchId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_employee_contributions', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load employee contributions.')
+    }
+  }
+}
+
+export async function saveTafiAdminEmployeeContribution(sessionToken, branchId, contribution) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_save_employee_contribution', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_employee_code: contribution.employeeCode,
+      p_sss: contribution.sss,
+      p_philhealth: contribution.philhealth,
+      p_pagibig: contribution.pagibig
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save employee contributions.')
+    }
+  }
+}
+
 export async function getTafiAdminWeeklyPayrollData(sessionToken, branchId, periodStart, periodEnd) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -217,6 +251,24 @@ export async function updateTafiAdminEmployeeProfile(sessionToken, employeeId, p
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to save the employee profile.')
+    }
+  }
+}
+
+export async function updateTafiAdminEmployeeIdentity(sessionToken, employeeId, identity) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_update_employee_identity', {
+      p_session_token: sessionToken,
+      p_employee_id: employeeId,
+      p_employee_code: identity.employeeCode,
+      p_name: identity.name,
+      p_position: identity.position
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update employee information.')
     }
   }
 }

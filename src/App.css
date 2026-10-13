@@ -2284,6 +2284,25 @@ button {
   gap: 10px;
 }
 
+.attendance-select-field {
+  display: grid;
+  gap: 4px;
+  color: #475569;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.attendance-select-field select {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  background: white;
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
 .late-minutes-field {
   display: grid;
   gap: 4px;
@@ -4326,13 +4345,15 @@ button {
 }
 
 .tafi-admin-content .status-select,
+.tafi-admin-content .shift-select,
 .tafi-admin-content .late-minutes-field input {
   border-color: #cbd5e1;
   border-radius: 8px;
   font-family: inherit;
 }
 
-.tafi-admin-content .status-select {
+.tafi-admin-content .status-select,
+.tafi-admin-content .shift-select {
   font-size: 0.88rem;
 }
 

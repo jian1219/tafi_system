@@ -29,6 +29,14 @@ alter table public.employee_attendance
   references public.tafi_admin(id) on delete set null;
 
 alter table public.employee_attendance
+  add column if not exists shift text
+  check (shift is null or shift in (
+    '9am-2pm | 6pm-9pm',
+    '11am-4pm | 6pm-9pm',
+    '1pm-9pm'
+  ));
+
+alter table public.employee_attendance
   add column if not exists submitted_by_tafi_admin_id uuid
   references public.tafi_admin(id) on delete set null;
 
@@ -177,6 +185,102 @@ begin
 end;
 $$;
 
+create or replace function public.tafi_admin_list_employee_contributions(
+  p_session_token uuid,
+  p_branch_id uuid
+)
+returns table (
+  employee_code text,
+  sss numeric,
+  philhealth numeric,
+  pagibig numeric
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1 from public.tafi_admin_session as admin_session
+    where admin_session.session_token = p_session_token
+      and admin_session.expires_at > now()
+  ) then
+    raise exception 'Invalid or expired TAFI Admin session' using errcode = '28000';
+  end if;
+
+  if p_branch_id is null
+    or not exists (select 1 from public.branch where id = p_branch_id) then
+    raise exception 'Selected branch was not found';
+  end if;
+
+  return query
+  select contribution.employee_code, contribution.sss,
+    contribution.philhealth, contribution.pagibig
+  from public.branch_employee_contribution as contribution
+  where contribution.branch_id = p_branch_id
+  order by contribution.employee_code;
+end;
+$$;
+
+create or replace function public.tafi_admin_save_employee_contribution(
+  p_session_token uuid,
+  p_branch_id uuid,
+  p_employee_code text,
+  p_sss numeric,
+  p_philhealth numeric,
+  p_pagibig numeric
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1 from public.tafi_admin_session as admin_session
+    where admin_session.session_token = p_session_token
+      and admin_session.expires_at > now()
+  ) then
+    raise exception 'Invalid or expired TAFI Admin session' using errcode = '28000';
+  end if;
+
+  if p_branch_id is null
+    or not exists (select 1 from public.branch where id = p_branch_id) then
+    raise exception 'Selected branch was not found';
+  end if;
+
+  if nullif(trim(p_employee_code), '') is null
+    or p_sss is null or p_sss < 0
+    or p_philhealth is null or p_philhealth < 0
+    or p_pagibig is null or p_pagibig < 0 then
+    raise exception 'Employee code and non-negative contribution amounts are required';
+  end if;
+
+  if not exists (
+    select 1 from public.employee as employee
+    where employee.branch_id = p_branch_id
+      and employee.employee_code = trim(p_employee_code)
+      and employee.employment_status = 'active'
+  ) then
+    raise exception 'Active employee was not found in this branch';
+  end if;
+
+  insert into public.branch_employee_contribution (
+    branch_id, employee_code, sss, philhealth, pagibig, updated_at
+  )
+  values (
+    p_branch_id, trim(p_employee_code), p_sss, p_philhealth, p_pagibig, now()
+  )
+  on conflict (branch_id, employee_code) do update
+  set sss = excluded.sss,
+    philhealth = excluded.philhealth,
+    pagibig = excluded.pagibig,
+    updated_at = now();
+
+  return true;
+end;
+$$;
+
 drop function if exists public.tafi_admin_list_employees(uuid);
 
 create function public.tafi_admin_list_employees(p_session_token uuid)
@@ -228,6 +332,8 @@ begin
 end;
 $$;
 
+drop function if exists public.tafi_admin_list_attendance(uuid, uuid, date, date);
+
 create or replace function public.tafi_admin_list_attendance(
   p_session_token uuid,
   p_branch_id uuid,
@@ -237,6 +343,7 @@ create or replace function public.tafi_admin_list_attendance(
 returns table (
   employee_code text,
   attendance_date date,
+  shift text,
   status text,
   late_minutes integer
 )
@@ -266,7 +373,7 @@ begin
 
   return query
   select employee.employee_code, attendance.attendance_date,
-    attendance.status, attendance.late_minutes
+    attendance.shift, attendance.status, attendance.late_minutes
   from public.employee_attendance as attendance
   join public.employee as employee on employee.id = attendance.employee_id
   where employee.branch_id = p_branch_id
@@ -490,6 +597,7 @@ declare
   v_late_minutes integer;
   v_daily_rate numeric;
   v_employee_code text;
+  v_shift text;
 begin
   select admin_session.tafi_admin_id into v_admin_id
   from public.tafi_admin_session as admin_session
@@ -530,8 +638,19 @@ begin
     end if;
 
     v_status := v_record->>'status';
+    v_shift := nullif(v_record->>'shift', '');
     v_late_minutes := coalesce((v_record->>'late_minutes')::integer, 0);
 
+    if v_shift is not null and v_shift not in (
+      '9am-2pm | 6pm-9pm',
+      '11am-4pm | 6pm-9pm',
+      '1pm-9pm'
+    ) then
+      raise exception 'Invalid shift for employee %', v_employee_code;
+    end if;
+    if v_status <> 'not_marked' and v_shift is null then
+      raise exception 'A shift is required for employee %', v_employee_code;
+    end if;
     if v_status is null or v_status not in (
       'not_marked', 'present', 'present_late', 'absent',
       'maternity_leave', 'paternity_leave', 'authorized_leave',
@@ -557,15 +676,16 @@ begin
     end if;
 
     insert into public.employee_attendance (
-      employee_id, attendance_date, status, late_minutes,
+      employee_id, attendance_date, shift, status, late_minutes,
       daily_rate_snapshot, submitted_by, submitted_by_tafi_admin_id, updated_at
     )
     values (
-      v_employee_id, p_attendance_date, v_status, v_late_minutes,
+      v_employee_id, p_attendance_date, v_shift, v_status, v_late_minutes,
       v_daily_rate, null, v_admin_id, now()
     )
     on conflict (employee_id, attendance_date) do update
-    set status = excluded.status,
+    set shift = excluded.shift,
+      status = excluded.status,
       late_minutes = excluded.late_minutes,
       daily_rate_snapshot = excluded.daily_rate_snapshot,
       submitted_by = null,
@@ -661,6 +781,7 @@ create or replace function public.tafi_admin_list_attendance(
 returns table (
   employee_code text,
   attendance_date date,
+  shift text,
   status text,
   late_minutes integer
 )
@@ -690,7 +811,7 @@ begin
 
   return query
   select employee.employee_code, attendance.attendance_date,
-    attendance.status, attendance.late_minutes
+    attendance.shift, attendance.status, attendance.late_minutes
   from public.employee_attendance as attendance
   join public.employee as employee on employee.id = attendance.employee_id
   where employee.branch_id = p_branch_id
@@ -784,6 +905,7 @@ declare
   v_late_minutes integer;
   v_daily_rate numeric;
   v_employee_code text;
+  v_shift text;
 begin
   select admin_session.tafi_admin_id into v_admin_id
   from public.tafi_admin_session as admin_session
@@ -824,8 +946,19 @@ begin
     end if;
 
     v_status := v_record->>'status';
+    v_shift := nullif(v_record->>'shift', '');
     v_late_minutes := coalesce((v_record->>'late_minutes')::integer, 0);
 
+    if v_shift is not null and v_shift not in (
+      '9am-2pm | 6pm-9pm',
+      '11am-4pm | 6pm-9pm',
+      '1pm-9pm'
+    ) then
+      raise exception 'Invalid shift for employee %', v_employee_code;
+    end if;
+    if v_status <> 'not_marked' and v_shift is null then
+      raise exception 'A shift is required for employee %', v_employee_code;
+    end if;
     if v_status is null or v_status not in (
       'not_marked', 'present', 'present_late', 'absent',
       'maternity_leave', 'paternity_leave', 'authorized_leave',
@@ -851,15 +984,16 @@ begin
     end if;
 
     insert into public.employee_attendance (
-      employee_id, attendance_date, status, late_minutes,
+      employee_id, attendance_date, shift, status, late_minutes,
       daily_rate_snapshot, submitted_by, submitted_by_tafi_admin_id, updated_at
     )
     values (
-      v_employee_id, p_attendance_date, v_status, v_late_minutes,
+      v_employee_id, p_attendance_date, v_shift, v_status, v_late_minutes,
       v_daily_rate, null, v_admin_id, now()
     )
     on conflict (employee_id, attendance_date) do update
-    set status = excluded.status,
+    set shift = excluded.shift,
+      status = excluded.status,
       late_minutes = excluded.late_minutes,
       daily_rate_snapshot = excluded.daily_rate_snapshot,
       submitted_by = null,
@@ -1043,6 +1177,8 @@ as $$
 $$;
 
 revoke all on function public.tafi_admin_list_branches(uuid) from public;
+revoke all on function public.tafi_admin_list_employee_contributions(uuid, uuid) from public;
+revoke all on function public.tafi_admin_save_employee_contribution(uuid, uuid, text, numeric, numeric, numeric) from public;
 revoke all on function public.tafi_admin_list_employees(uuid) from public;
 revoke all on function public.tafi_admin_list_attendance(uuid, uuid, date, date) from public;
 revoke all on function public.tafi_admin_list_employee_leave_credits(uuid, uuid) from public;
@@ -1060,6 +1196,8 @@ revoke all on function public.tafi_admin_logout(uuid) from public;
 drop function if exists public.branch_admin_update_employee_daily_rate(uuid, text, numeric);
 revoke all on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, date, date, date, text, text, text, text, text) from public, anon, authenticated;
 grant execute on function public.tafi_admin_list_branches(uuid) to anon, authenticated;
+grant execute on function public.tafi_admin_list_employee_contributions(uuid, uuid) to anon, authenticated;
+grant execute on function public.tafi_admin_save_employee_contribution(uuid, uuid, text, numeric, numeric, numeric) to anon, authenticated;
 grant execute on function public.tafi_admin_list_employees(uuid) to anon, authenticated;
 grant execute on function public.tafi_admin_list_attendance(uuid, uuid, date, date) to anon, authenticated;
 grant execute on function public.tafi_admin_list_employee_leave_credits(uuid, uuid) to anon, authenticated;
