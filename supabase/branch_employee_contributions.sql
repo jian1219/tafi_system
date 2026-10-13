@@ -505,45 +505,7 @@ begin
 end;
 $$;
 
-create or replace function public.branch_admin_update_employee_daily_rate(
-  p_session_token uuid,
-  p_employee_code text,
-  p_daily_rate numeric
-)
-returns boolean
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_branch_id uuid;
-begin
-  select ba.branch_id into v_branch_id
-  from public.branch_admin_session as admin_session
-  join public.branch_admin as ba on ba.id = admin_session.branch_admin_id
-  where admin_session.session_token = p_session_token
-    and admin_session.expires_at > now();
-
-  if not found then
-    raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
-  end if;
-  if p_daily_rate is null or p_daily_rate < 0 then
-    raise exception 'Daily rate must be zero or more';
-  end if;
-
-  update public.employee
-  set daily_rate = p_daily_rate, updated_at = now()
-  where branch_id = v_branch_id
-    and employee_code = trim(p_employee_code)
-    and employment_status = 'active';
-
-  if not found then
-    raise exception 'Employee was not found in this branch';
-  end if;
-
-  return true;
-end;
-$$;
+drop function if exists public.branch_admin_update_employee_daily_rate(uuid, text, numeric);
 
 create or replace function public.branch_admin_create_cash_advance(
   p_session_token uuid,
@@ -1966,8 +1928,7 @@ $$;
 revoke all on function public.branch_admin_login(text, text) from public;
 revoke all on function public.branch_admin_list_employees(uuid) from public;
 revoke all on function public.branch_admin_create_employee(uuid, text, text, text) from public;
-revoke all on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, text, text, text, text, text) from public;
-revoke all on function public.branch_admin_update_employee_daily_rate(uuid, text, numeric) from public;
+revoke all on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, text, text, text, text, text) from public, anon, authenticated;
 revoke all on function public.branch_admin_create_cash_advance(uuid, text, date, date, numeric, numeric) from public;
 revoke all on function public.branch_admin_list_cash_advances(uuid, integer, integer, date, date) from public;
 revoke all on function public.branch_admin_create_cash_advance_loan(uuid, text, date, numeric) from public;
@@ -1995,8 +1956,6 @@ revoke all on function public.branch_admin_logout(uuid) from public;
 grant execute on function public.branch_admin_login(text, text) to anon, authenticated;
 grant execute on function public.branch_admin_list_employees(uuid) to anon, authenticated;
 grant execute on function public.branch_admin_create_employee(uuid, text, text, text) to anon, authenticated;
-grant execute on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, text, text, text, text, text) to anon, authenticated;
-grant execute on function public.branch_admin_update_employee_daily_rate(uuid, text, numeric) to anon, authenticated;
 grant execute on function public.branch_admin_create_cash_advance(uuid, text, date, date, numeric, numeric) to anon, authenticated;
 grant execute on function public.branch_admin_list_cash_advances(uuid, integer, integer, date, date) to anon, authenticated;
 grant execute on function public.branch_admin_create_cash_advance_loan(uuid, text, date, numeric) to anon, authenticated;

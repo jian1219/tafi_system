@@ -1190,6 +1190,10 @@ button {
   margin: 20px 24px 0;
 }
 
+.tafi-employee-attendance-record {
+  margin: 20px 24px;
+}
+
 .employee-personal-heading {
   align-items: center;
 }
@@ -1683,6 +1687,38 @@ button {
   padding: 12px 18px;
   letter-spacing: -0.04em;
   text-transform: uppercase;
+}
+
+.tafi-attendance-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.tafi-attendance-header .branch-title {
+  flex: 1;
+}
+
+.tafi-attendance-branch-select {
+  display: grid;
+  gap: 4px;
+  min-width: 220px;
+  padding: 10px 18px;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.tafi-attendance-branch-select select {
+  min-height: 38px;
+  padding: 6px 10px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #fff;
+  color: #1d4ed8;
+  font: inherit;
 }
 
 .attendance-monitoring-bar {
@@ -3684,6 +3720,10 @@ button {
     margin: 16px;
   }
 
+  .tafi-employee-attendance-record {
+    margin: 16px;
+  }
+
   .employee-personal-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3874,6 +3914,10 @@ button {
   min-height: 240px;
 }
 
+.tafi-admin-content .payroll-period-controls {
+  flex-wrap: wrap;
+}
+
 .tafi-admin-section {
   padding: 26px;
   border: 1px solid #e2e8f0;
@@ -3931,6 +3975,18 @@ button {
     align-items: flex-start;
     flex-direction: column;
   }
+}
+
+@media (max-width: 1100px) {
+  .tafi-admin-content .payroll-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .tafi-admin-content .payroll-summary-grid {
+    grid-template-columns: 1fr;
+  }
 
   .tafi-admin-account {
     overflow-wrap: anywhere;
@@ -3968,6 +4024,11 @@ button {
   margin: 0;
   color: #64748b;
   font-size: 0.86rem;
+}
+
+.tafi-employee-directory-tools {
+  padding: 0 0 18px;
+  margin-bottom: 16px;
 }
 
 .tafi-branch-list {
@@ -4017,6 +4078,25 @@ button {
   align-items: baseline;
   justify-content: space-between;
   gap: 14px;
+}
+
+.tafi-employee-create-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  padding: 18px 0;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.tafi-employee-create-form select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.88rem;
 }
 
 .tafi-employee-table-wrap {
@@ -4097,5 +4177,265 @@ button {
 @media (max-width: 900px) {
   .tafi-employee-view {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .tafi-employee-create-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tafi-admin-content .attendance-monitoring-shell {
+  border-color: #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.05);
+  color: #0f172a;
+  font-family: Inter, "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+
+.tafi-admin-content .attendance-header-strip {
+  background: #f8fafc;
+  border-bottom-color: #e2e8f0;
+}
+
+.tafi-admin-content .branch-title {
+  padding: 16px 20px;
+  background: transparent;
+  color: #0f172a;
+  font-size: 1.25rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  text-transform: none;
+}
+
+.tafi-admin-content .tafi-attendance-branch-select {
+  min-width: 240px;
+  color: #475569;
+  font-size: 0.78rem;
+}
+
+.tafi-admin-content .tafi-attendance-branch-select select {
+  border-color: #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.tafi-admin-content .tafi-attendance-branch-select select:focus-visible,
+.tafi-admin-content .attendance-month-select input:focus-visible,
+.tafi-admin-content .attendance-date-control input:focus-visible,
+.tafi-admin-content .status-select:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.25);
+  outline-offset: 1px;
+  border-color: #2563eb;
+}
+
+.tafi-admin-content .attendance-monitoring-bar {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.tafi-admin-content .attendance-monitoring-bar h3 {
+  color: #1e3a8a;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.tafi-admin-content .attendance-monitoring-tabs {
+  gap: 8px;
+  padding: 12px 20px 0;
+  border-bottom-color: #e2e8f0;
+  background: #f8fafc;
+}
+
+.tafi-admin-content .monitoring-tab {
+  padding: 10px 16px;
+  border-color: #e2e8f0;
+  border-radius: 9px 9px 0 0;
+  color: #475569;
+  font-size: 0.88rem;
+  font-weight: 650;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.tafi-admin-content .monitoring-tab:hover {
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.tafi-admin-content .monitoring-tab.active {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+  color: #fff;
+}
+
+.tafi-admin-content .attendance-legend-box {
+  border-bottom-color: #e2e8f0;
+  background: #fff;
+}
+
+.tafi-admin-content .legend-title {
+  color: #0f172a;
+  font-size: 0.92rem;
+}
+
+.tafi-admin-content .legend-items {
+  color: #475569;
+  font-size: 0.82rem;
+}
+
+.tafi-admin-content .daily-summary-grid,
+.tafi-admin-content .weekly-summary-grid {
+  background: #f8fafc;
+}
+
+.tafi-admin-content .summary-box,
+.tafi-admin-content .weekly-card {
+  border-color: #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
+.tafi-admin-content .weekly-card:hover,
+.tafi-admin-content .weekly-card.selected {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.tafi-admin-content .weekly-card.selected .week-label {
+  color: #1d4ed8;
+}
+
+.tafi-admin-content .submit-panel {
+  background: #fff;
+}
+
+.tafi-admin-content .submit-panel-header h4 {
+  color: #0f172a;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.tafi-admin-content .attendance-row {
+  border-color: #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.tafi-admin-content .status-select,
+.tafi-admin-content .late-minutes-field input {
+  border-color: #cbd5e1;
+  border-radius: 8px;
+  font-family: inherit;
+}
+
+.tafi-admin-content .status-select {
+  font-size: 0.88rem;
+}
+
+.tafi-admin-content .save-button {
+  border-radius: 8px;
+  background: #1d4ed8;
+  font-family: inherit;
+  font-size: 0.9rem;
+  transition: background-color 140ms ease;
+}
+
+.tafi-admin-content .save-button:hover:not(:disabled) {
+  background: #1e40af;
+}
+
+.tafi-admin-content .save-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.tafi-admin-content .monitoring-toolbar {
+  border-bottom-color: #e2e8f0;
+  background: #f8fafc;
+}
+
+.tafi-admin-content .month-select,
+.tafi-admin-content .attendance-month-select {
+  border-color: #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font-size: 0.84rem;
+}
+
+.tafi-admin-content .attendance-month-select input {
+  min-height: 36px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #0f172a;
+  font: inherit;
+}
+
+.tafi-admin-content .summary-inline {
+  color: #475569;
+  font-size: 0.84rem;
+}
+
+.tafi-admin-content .summary-inline strong {
+  color: #0f172a;
+}
+
+.tafi-admin-content .attendance-grid-wrap {
+  background: #fff;
+}
+
+.tafi-admin-content .attendance-col-name {
+  width: 260px;
+}
+
+.tafi-admin-content .attendance-col-total {
+  width: 155px;
+}
+
+.tafi-admin-content .attendance-col-rate {
+  width: 110px;
+}
+
+.tafi-admin-content .attendance-col-remarks {
+  width: 180px;
+}
+
+.tafi-admin-content .monthly-attendance-table thead th {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.tafi-admin-content .attendance-table tbody td.attendance-employee-name,
+.tafi-admin-content .weekly-attendance-table th:nth-child(2),
+.tafi-admin-content .monthly-attendance-table th:nth-child(2) {
+  width: 260px;
+  min-width: 260px;
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+@media (max-width: 720px) {
+  .tafi-admin-content .tafi-attendance-branch-select {
+    width: 100%;
+    padding: 0 16px 16px;
+  }
+
+  .tafi-admin-content .branch-title {
+    padding: 16px;
+    font-size: 1.1rem;
+  }
+
+  .tafi-admin-content .attendance-monitoring-tabs {
+    overflow-x: auto;
+  }
+
+  .tafi-admin-content .monitoring-tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
 }

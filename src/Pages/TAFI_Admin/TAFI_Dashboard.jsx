@@ -1,14 +1,16 @@
 import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { CalendarDays, LogOut, ShieldCheck, Users } from 'lucide-react'
+import { CalendarDays, LogOut, ShieldCheck, Users, Wallet } from 'lucide-react'
 import { revokeTafiAdminSession } from '../../lib/supabase'
 import TafiEmployee from './TAFI_Employee'
 import TafiEmployeeAttendance from './TAFI_Employee_Attendance'
+import TafiBranchPayroll from './TAFI_Branch_Payroll'
 import logoImage from '../../images/Tafi logo transparent.png'
 
 const navigationItems = [
 	{ id: 'employees', label: 'Employee', icon: Users },
-	{ id: 'attendance', label: 'Employee Attendance', icon: CalendarDays }
+	{ id: 'attendance', label: 'Employee Attendance', icon: CalendarDays },
+	{ id: 'payroll', label: 'Branch Payroll', icon: Wallet }
 ]
 
 export default function TafiDashboard() {
@@ -82,7 +84,9 @@ export default function TafiDashboard() {
 				<section className="tafi-admin-content" aria-live="polite">
 					{activePage === 'employees'
 						? <TafiEmployee sessionToken={tafiAdmin.session_token} />
-						: <TafiEmployeeAttendance />}
+						: activePage === 'attendance'
+							? <TafiEmployeeAttendance sessionToken={tafiAdmin.session_token} />
+							: <TafiBranchPayroll sessionToken={tafiAdmin.session_token} />}
 				</section>
 			</main>
 		</div>

@@ -61,6 +61,23 @@ export async function listTafiAdminBranches(sessionToken) {
   }
 }
 
+export async function getTafiAdminWeeklyPayrollData(sessionToken, branchId, periodStart, periodEnd) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_get_weekly_payroll_data', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_period_start: periodStart,
+      p_period_end: periodEnd
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load weekly payroll data.')
+    }
+  }
+}
+
 export async function listTafiAdminEmployees(sessionToken) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -71,6 +88,151 @@ export async function listTafiAdminEmployees(sessionToken) {
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to load employees.')
+    }
+  }
+}
+
+export async function listTafiAdminAttendance(sessionToken, branchId, startDate, endDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_attendance', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_start_date: startDate,
+      p_end_date: endDate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load attendance records.')
+    }
+  }
+}
+
+export async function listTafiAdminOvertimeHours(sessionToken, branchId, startDate, endDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_overtime_hours', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_period_start: startDate,
+      p_period_end: endDate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load overtime hours.')
+    }
+  }
+}
+
+export async function listTafiAdminUndertimeDeductions(sessionToken, branchId, startDate, endDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_undertime_deductions', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_period_start: startDate,
+      p_period_end: endDate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load undertime deductions.')
+    }
+  }
+}
+
+export async function listTafiAdminEmployeeLeaveCredits(sessionToken, branchId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_employee_leave_credits', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load employee leave credits.')
+    }
+  }
+}
+
+export async function saveTafiAdminAttendance(sessionToken, branchId, attendanceDate, records) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_save_attendance', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_attendance_date: attendanceDate,
+      p_records: records
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save attendance.')
+    }
+  }
+}
+
+export async function createTafiAdminEmployee(sessionToken, employee) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_create_employee', {
+      p_session_token: sessionToken,
+      p_branch_id: employee.branchId,
+      p_employee_code: employee.employeeCode,
+      p_name: employee.name,
+      p_position: employee.position
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to add the employee.')
+    }
+  }
+}
+
+export async function updateTafiAdminEmployeeProfile(sessionToken, employeeId, profile) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_update_employee_profile', {
+      p_session_token: sessionToken,
+      p_employee_id: employeeId,
+      p_address: profile.address,
+      p_gender: profile.gender || null,
+      p_birthday: profile.birthday || null,
+      p_email: profile.email || null,
+      p_phone: profile.phone || null,
+      p_hire_date: profile.hireDate || null,
+      p_probationary_start_date: profile.probationaryDate || null,
+      p_regular_start_date: profile.regularDate || null,
+      p_tin_number: profile.tinNumber,
+      p_sss_number: profile.sssNumber,
+      p_pagibig_number: profile.pagibigNumber,
+      p_philhealth_number: profile.philhealthNumber,
+      p_employment_classification: profile.employmentClassification
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the employee profile.')
+    }
+  }
+}
+
+export async function updateTafiAdminEmployeeDailyRate(sessionToken, employeeId, dailyRate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_update_employee_daily_rate', {
+      p_session_token: sessionToken,
+      p_employee_id: employeeId,
+      p_daily_rate: dailyRate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the employee daily rate.')
     }
   }
 }
@@ -391,48 +553,6 @@ export async function createBranchEmployee(sessionToken, employee) {
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to add the employee.')
-    }
-  }
-}
-
-export async function updateBranchEmployeeDailyRate(sessionToken, employeeCode, dailyRate) {
-  try {
-    const supabaseClient = await getSupabaseClient()
-    return await supabaseClient.rpc('branch_admin_update_employee_daily_rate', {
-      p_session_token: sessionToken,
-      p_employee_code: employeeCode,
-      p_daily_rate: dailyRate
-    })
-  } catch (error) {
-    return {
-      data: null,
-      error: error instanceof Error ? error : new Error('Unable to save the employee daily rate.')
-    }
-  }
-}
-
-export async function updateBranchEmployeeProfile(sessionToken, employeeCode, profile) {
-  try {
-    const supabaseClient = await getSupabaseClient()
-    return await supabaseClient.rpc('branch_admin_update_employee_profile', {
-      p_session_token: sessionToken,
-      p_employee_code: employeeCode,
-      p_address: profile.address,
-      p_gender: profile.gender || null,
-      p_birthday: profile.birthday || null,
-      p_hire_date: profile.hireDate || null,
-      p_probationary_start_date: profile.probationaryDate || null,
-      p_regular_start_date: profile.regularDate || null,
-      p_tin_number: profile.tinNumber,
-      p_sss_number: profile.sssNumber,
-      p_pagibig_number: profile.pagibigNumber,
-      p_philhealth_number: profile.philhealthNumber,
-      p_employment_classification: profile.employmentClassification
-    })
-  } catch (error) {
-    return {
-      data: null,
-      error: error instanceof Error ? error : new Error('Unable to save the employee profile.')
     }
   }
 }

@@ -550,12 +550,11 @@ revoke all on function public.branch_admin_list_employee_leave_requests(uuid) fr
 revoke all on function public.branch_admin_create_employee_leave_request(uuid, text, date, date, numeric, text) from public;
 revoke all on function public.branch_admin_update_employee_leave_request_status(uuid, uuid, text) from public;
 revoke all on function public.branch_admin_list_employees(uuid) from public;
-revoke all on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, date, date, date, text, text, text, text, text) from public;
+revoke all on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, date, date, date, text, text, text, text, text) from public, anon, authenticated;
 grant execute on function public.branch_admin_list_employee_leave_credits(uuid) to anon, authenticated;
 grant execute on function public.branch_admin_list_employee_leave_requests(uuid) to anon, authenticated;
 grant execute on function public.branch_admin_create_employee_leave_request(uuid, text, date, date, numeric, text) to anon, authenticated;
 grant execute on function public.branch_admin_update_employee_leave_request_status(uuid, uuid, text) to anon, authenticated;
 grant execute on function public.branch_admin_list_employees(uuid) to anon, authenticated;
-grant execute on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, date, date, date, text, text, text, text, text) to anon, authenticated;
 
 commit;
