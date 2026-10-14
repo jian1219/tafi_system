@@ -320,6 +320,178 @@ export async function listTafiAdminUndertimeDeductions(sessionToken, branchId, s
   }
 }
 
+export async function createTafiAdminHdmfLoan(sessionToken, branchId, loan) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_create_hdmf_loan', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_employee_code: loan.employeeCode,
+      p_loan_amount: loan.loanAmount
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the HDMF loan.')
+    }
+  }
+}
+
+export async function listTafiAdminHdmfLoans(sessionToken, branchId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_hdmf_loans', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load HDMF loans.')
+    }
+  }
+}
+
+export async function createTafiAdminHdmfPayment(sessionToken, branchId, payment) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_create_hdmf_payment', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_loan_id: payment.loanId,
+      p_period_start: payment.periodStart,
+      p_period_end: payment.periodEnd,
+      p_amount: payment.amount
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the HDMF repayment.')
+    }
+  }
+}
+
+export async function listTafiAdminHdmfPayments(sessionToken, branchId, periodStart, periodEnd) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_hdmf_payments', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_period_start: periodStart,
+      p_period_end: periodEnd
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load HDMF repayment records.')
+    }
+  }
+}
+
+export async function listTafiAdminUndertimeRecords(sessionToken, branchId, periodStart, periodEnd) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const deductions = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('tafi_admin_list_undertime_records', {
+        p_session_token: sessionToken,
+        p_branch_id: branchId,
+        p_period_start: periodStart,
+        p_period_end: periodEnd,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      deductions.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: deductions, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load undertime deductions.')
+    }
+  }
+}
+
+export async function saveTafiAdminUndertimeMinutes(sessionToken, branchId, undertime) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_save_undertime_minutes', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_employee_code: undertime.employeeCode,
+      p_undertime_date: undertime.undertimeDate,
+      p_minutes: undertime.minutes
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save undertime minutes.')
+    }
+  }
+}
+
+export async function listTafiAdminOtherDeductions(sessionToken, branchId, periodStart, periodEnd) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const deductions = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('tafi_admin_list_other_deductions', {
+        p_session_token: sessionToken,
+        p_branch_id: branchId,
+        p_period_start: periodStart,
+        p_period_end: periodEnd,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      deductions.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: deductions, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load other deductions.')
+    }
+  }
+}
+
+export async function createTafiAdminOtherDeduction(sessionToken, branchId, deduction) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_create_other_deduction', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_employee_code: deduction.employeeCode,
+      p_period_start: deduction.periodStart,
+      p_period_end: deduction.periodEnd,
+      p_description: deduction.description,
+      p_amount: deduction.amount
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the other deduction.')
+    }
+  }
+}
+
 export async function listTafiAdminEmployeeLeaveCredits(sessionToken, branchId) {
   try {
     const supabaseClient = await getSupabaseClient()

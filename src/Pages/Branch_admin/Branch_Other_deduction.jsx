@@ -56,7 +56,26 @@ const formatDate = (dateKey) => new Date(`${dateKey}T12:00:00`).toLocaleDateStri
   year: 'numeric'
 })
 
-export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', branchAdmin }) {
+const branchDeductionApi = {
+  createHdmfLoan: createBranchHdmfLoan,
+  createHdmfPayment: createBranchHdmfPayment,
+  createOtherDeduction: createBranchOtherDeduction,
+  listHdmfLoans: listBranchHdmfLoans,
+  listHdmfPayments: listBranchHdmfPayments,
+  listOtherDeductions: listBranchOtherDeductions,
+  listUndertimeDeductions: listBranchUndertimeDeductions,
+  saveUndertimeMinutes: saveBranchUndertimeMinutes
+}
+
+export default function BranchOtherDeduction({
+  branchName = 'Bansasi Branch',
+  branchAdmin,
+  sessionToken: providedSessionToken,
+  employees: providedEmployees,
+  deductionApi = branchDeductionApi,
+  isTafiAdmin = false,
+  headerControl
+}) {
   const [employees, setEmployees] = useState([])
   const [loans, setLoans] = useState([])
   const [payments, setPayments] = useState([])
@@ -81,7 +100,7 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
-  const sessionToken = branchAdmin?.session_token
+  const sessionToken = providedSessionToken ?? branchAdmin?.session_token
   const hdmfMonthRange = getMonthRange(hdmfMonth)
   const otherMonthRange = getMonthRange(otherMonth)
   const hdmfPayrollWeeks = getPayrollWeeks(hdmfMonth)
@@ -97,15 +116,17 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
       { data: loadedUndertime, error: undertimeError },
       { data: loadedOtherDeductions, error: otherDeductionsError }
     ] = await Promise.all([
-      getBranchEmployees(sessionToken),
-      listBranchHdmfLoans(sessionToken),
-      listBranchHdmfPayments(sessionToken, hdmfMonthRange.startDate, hdmfMonthRange.endDate),
-      listBranchUndertimeDeductions(
+      providedEmployees
+        ? Promise.resolve({ employees: providedEmployees, error: null })
+        : getBranchEmployees(sessionToken),
+      deductionApi.listHdmfLoans(sessionToken),
+      deductionApi.listHdmfPayments(sessionToken, hdmfMonthRange.startDate, hdmfMonthRange.endDate),
+      deductionApi.listUndertimeDeductions(
         sessionToken,
         getLocalDateKey(new Date(today.getFullYear(), today.getMonth(), 1)),
         getLocalDateKey(new Date(today.getFullYear(), today.getMonth() + 1, 0))
       ),
-      listBranchOtherDeductions(
+      deductionApi.listOtherDeductions(
         sessionToken,
         otherMonthRange.startDate,
         otherMonthRange.endDate
@@ -120,7 +141,7 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
       otherDeductions: loadedOtherDeductions ?? [],
       error: employeeError ?? loanError ?? paymentError ?? undertimeError ?? otherDeductionsError
     }
-  }, [sessionToken, hdmfMonthRange.startDate, hdmfMonthRange.endDate, otherMonthRange.startDate, otherMonthRange.endDate])
+  }, [sessionToken, providedEmployees, deductionApi, hdmfMonthRange.startDate, hdmfMonthRange.endDate, otherMonthRange.startDate, otherMonthRange.endDate])
 
   useEffect(() => {
     let isCurrent = true
@@ -206,7 +227,7 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
     }
 
     setIsSaving(true)
-    const { error: saveError } = await createBranchHdmfLoan(sessionToken, {
+    const { error: saveError } = await deductionApi.createHdmfLoan(sessionToken, {
       employeeCode,
       loanAmount: amount
     })
@@ -237,7 +258,7 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
     }
 
     setIsSaving(true)
-    const { error: saveError } = await createBranchHdmfPayment(sessionToken, {
+    const { error: saveError } = await deductionApi.createHdmfPayment(sessionToken, {
       loanId: selectedLoan.id,
       periodStart: week.startDate,
       periodEnd: week.endDate,
@@ -273,7 +294,7 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
     }
 
     setIsSaving(true)
-    const { error: saveError } = await saveBranchUndertimeMinutes(sessionToken, {
+    const { error: saveError } = await deductionApi.saveUndertimeMinutes(sessionToken, {
       employeeCode: undertimeEmployeeCode,
       undertimeDate,
       minutes
@@ -305,7 +326,7 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
     }
 
     setIsSaving(true)
-    const { error: saveError } = await createBranchOtherDeduction(sessionToken, {
+    const { error: saveError } = await deductionApi.createOtherDeduction(sessionToken, {
       employeeCode: otherEmployeeCode,
       periodStart: week.startDate,
       periodEnd: week.endDate,
@@ -330,11 +351,12 @@ export default function BranchOtherDeduction({ branchName = 'Bansasi Branch', br
       <header className="branch-other-deduction-header">
         <div>
           <p className="employee-info-eyebrow">{branchName}</p>
-          <h3>Branch Other Deduction</h3>
+          <h3>{isTafiAdmin ? 'TAFI Other Deduction' : 'Branch Other Deduction'}</h3>
           <p className="employee-info-description">
             Manage optional HDMF loan balances and record the employee’s agreed partial or full repayment for each payroll week.
           </p>
         </div>
+        {headerControl}
       </header>
 
       <div className="other-deduction-tabs" role="tablist" aria-label="Other deduction types">

@@ -9,6 +9,7 @@ import {
 	saveTafiAdminAttendance
 } from '../../lib/supabase'
 import { getAttendanceRemark, getLocalDateKey, hasEarnedMonthlyCredit } from '../Branch_admin/branchAttendanceRecords'
+import { recordLegend, statusCodeClassNames, statusCodes } from '../attendanceStatusDisplay'
 
 const attendanceOptions = [
 	'Not marked',
@@ -49,19 +50,6 @@ const statusFromDatabase = {
 const statusToDatabase = Object.fromEntries(
 	Object.entries(statusFromDatabase).map(([status, label]) => [label, status])
 )
-
-const statusCodes = {
-	present: 'P',
-	present_late: 'L',
-	absent: 'A',
-	maternity_leave: 'V',
-	paternity_leave: 'V',
-	authorized_leave: 'V',
-	birthday_leave: 'V',
-	vl_with_pay: 'V',
-	vl_without_pay: 'V',
-	day_off: 'O'
-}
 
 function getMonthDates(monthKey) {
 	const [year, month] = monthKey.split('-').map(Number)
@@ -727,10 +715,11 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 					<div className="attendance-legend-box">
 						<div className="legend-title">Weekly performance overview:</div>
 						<div className="legend-items">
-							<span className="legend-item"><i className="legend-box present" /> Present</span>
-							<span className="legend-item"><i className="legend-box late" /> Late</span>
-							<span className="legend-item"><i className="legend-box absent" /> Absent</span>
-							<span className="legend-item"><i className="legend-box leave" /> Leave</span>
+							{recordLegend.map((item) => (
+								<span className="legend-item" key={item.className}>
+									<i className={`legend-box ${item.className}`} /> {item.label}
+								</span>
+							))}
 						</div>
 					</div>
 					<div className="weekly-summary-grid">
@@ -799,7 +788,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 													return (
 														<td
 															key={`${employee.id}-${day}`}
-															className={`status-cell ${code === 'L' ? 'l' : code.toLowerCase()}`}
+															className={`status-cell ${statusCodeClassNames[code] ?? ''}`}
 															title={code === 'L' ? `Present (Late): ${record.late_minutes} minutes late` : undefined}
 														>
 															{code === 'P' ? '✓' : code === 'L' ? record.late_minutes : code}
@@ -826,10 +815,11 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 					<div className="attendance-legend-box">
 						<div className="legend-title">Monthly attendance legend:</div>
 						<div className="legend-items">
-							<span className="legend-item"><i className="legend-box present" /> Present</span>
-							<span className="legend-item"><i className="legend-box late" /> Late</span>
-							<span className="legend-item"><i className="legend-box absent" /> Absent</span>
-							<span className="legend-item"><i className="legend-box leave" /> Leave</span>
+							{recordLegend.map((item) => (
+								<span className="legend-item" key={item.className}>
+									<i className={`legend-box ${item.className}`} /> {item.label}
+								</span>
+							))}
 							<span className="legend-item">Excellent attendance: 100%</span>
 							<span className="legend-item">Good attendance: 60%–99%</span>
 							<span className="legend-item">Poor attendance: below 60%</span>
@@ -890,7 +880,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 										{employee.days.map((value, index) => (
 											<td
 												key={`${employee.id}-${index}`}
-												className={`status-cell ${value === 'L' ? 'l' : value.toLowerCase()}`}
+												className={`status-cell ${statusCodeClassNames[value] ?? ''}`}
 												title={value === 'L'
 													? `Present (Late): ${employee.lateMinutesByDay[index]} minutes late`
 													: undefined}

@@ -8,6 +8,7 @@ import {
 } from '../../lib/supabase'
 import { getBranchEmployees } from './branchEmployees'
 import { getAttendanceRemark, getLocalDateKey, hasEarnedMonthlyCredit } from './branchAttendanceRecords'
+import { recordLegend, statusCodeClassNames, statusCodes } from '../attendanceStatusDisplay'
 
 const attendanceOptions = [
   'Not marked',
@@ -48,19 +49,6 @@ const statusFromDatabase = {
 const statusToDatabase = Object.fromEntries(
   Object.entries(statusFromDatabase).map(([databaseStatus, label]) => [label, databaseStatus])
 )
-
-const statusCodes = {
-  present: 'P',
-  present_late: 'L',
-  absent: 'A',
-  maternity_leave: 'V',
-  paternity_leave: 'V',
-  authorized_leave: 'V',
-  birthday_leave: 'V',
-  vl_with_pay: 'V',
-  vl_without_pay: 'V',
-  day_off: 'O'
-}
 
 export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branch', branchAdmin }) {
   const [activeTab, setActiveTab] = useState('daily')
@@ -604,10 +592,11 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
           <div className="attendance-legend-box">
             <div className="legend-title">Weekly performance overview:</div>
             <div className="legend-items">
-              <span className="legend-item"><i className="legend-box present" /> Present</span>
-              <span className="legend-item"><i className="legend-box late" /> Late</span>
-              <span className="legend-item"><i className="legend-box absent" /> Absent</span>
-              <span className="legend-item"><i className="legend-box leave" /> Leave (V), including Leave with Pay</span>
+              {recordLegend.map((item) => (
+                <span className="legend-item" key={item.className}>
+                  <i className={`legend-box ${item.className}`} /> {item.label}
+                </span>
+              ))}
             </div>
           </div>
 
@@ -699,10 +688,10 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
                           {weekDays.map((value, index) => (
                             <td
                               key={`${employee.id}-week-${index}`}
-                              className={`status-cell ${value === 'L' ? 'l' : value.toLowerCase()}`}
+                              className={`status-cell ${statusCodeClassNames[value] ?? ''}`}
                               title={value === 'L' ? `Present (Late): ${employee.lateMinutesByDay[selectedWeek.firstDay + index - 1]} minutes late` : undefined}
                             >
-                              {value === 'P' ? '✓' : value === 'L' ? employee.lateMinutesByDay[selectedWeek.firstDay + index - 1] : value === 'A' ? 'A' : value === 'V' ? 'V' : value === 'O' ? 'O' : ''}
+                              {value === 'P' ? '✓' : value === 'L' ? employee.lateMinutesByDay[selectedWeek.firstDay + index - 1] : value}
                             </td>
                           ))}
                           <td>{presentCount}</td>
@@ -726,10 +715,11 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
           <div className="attendance-legend-box">
             <div className="legend-title">Monthly record:</div>
             <div className="legend-items">
-              <span className="legend-item"><i className="legend-box present" /> Present</span>
-              <span className="legend-item"><i className="legend-box late" /> Late</span>
-              <span className="legend-item"><i className="legend-box absent" /> Absent</span>
-              <span className="legend-item"><i className="legend-box leave" /> Leave (V), including Leave with Pay</span>
+              {recordLegend.map((item) => (
+                <span className="legend-item" key={item.className}>
+                  <i className={`legend-box ${item.className}`} /> {item.label}
+                </span>
+              ))}
               <span className="legend-item">Excellent attendance: 100%</span>
               <span className="legend-item">Good attendance: 60%–99%</span>
               <span className="legend-item">Poor attendance: below 60%</span>
@@ -793,10 +783,10 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
                       {employee.days.map((value, index) => (
                         <td
                           key={`${employee.id}-${index}`}
-                          className={`status-cell ${value === 'L' ? 'l' : value.toLowerCase()}`}
+                          className={`status-cell ${statusCodeClassNames[value] ?? ''}`}
                           title={value === 'L' ? `Present (Late): ${employee.lateMinutesByDay[index]} minutes late` : undefined}
                         >
-                          {value === 'P' ? '✓' : value === 'L' ? employee.lateMinutesByDay[index] : value === 'A' ? 'A' : value === 'V' ? 'V' : value === 'O' ? 'O' : ''}
+                          {value === 'P' ? '✓' : value === 'L' ? employee.lateMinutesByDay[index] : value}
                         </td>
                       ))}
                       <td>{employee.presentDays}</td>

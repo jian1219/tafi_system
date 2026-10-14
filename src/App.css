@@ -1976,8 +1976,15 @@ button {
 
 .legend-box.present { background: #9ee6a8; }
 .legend-box.late { background: #9ee6a8; }
-.legend-box.absent { background: #edf2f7; }
+.legend-box.absent { background: #dc2626; }
 .legend-box.leave { background: #c7d2fe; }
+.legend-box.day-off { background: #9acd32; }
+.legend-box.vlp { background: #ffff00; }
+.legend-box.vlwp { background: #2563eb; }
+.legend-box.ml { background: #ffc0cb; }
+.legend-box.pl { background: #ee82ee; }
+.legend-box.bl { background: #87ceeb; }
+.legend-box.authorized-leave { background: #8b4513; }
 
 .daily-summary-grid {
   display: grid;
@@ -2741,9 +2748,25 @@ button {
 
 .status-cell.p { background: #a9f3b5; color: #14532d; }
 .status-cell.l { background: #a9f3b5; color: #14532d; }
-.status-cell.a { background: #eef2f7; color: #1f2937; }
+.status-cell.a { background: #dc2626; color: #fff; }
 .status-cell.v { background: #8bd7ff; color: #0f172a; }
 .status-cell.o { background: #dfe7ef; color: #0f172a; }
+.status-cell.day-off { background: #9acd32; color: #0f172a; }
+.status-cell.vlp { background: #ffff00; color: #0f172a; }
+.status-cell.vlwp { background: #2563eb; color: #fff; }
+.status-cell.ml { background: #ffc0cb; color: #0f172a; }
+.status-cell.pl { background: #ee82ee; color: #0f172a; }
+.status-cell.bl { background: #87ceeb; color: #0f172a; }
+.status-cell.authorized-leave { background: #8b4513; color: #fff; }
+
+.monthly-attendance-table .attendance-col-day {
+  width: 52px;
+}
+
+.monthly-attendance-table .status-cell {
+  font-size: 0.58rem;
+  white-space: nowrap;
+}
 
 .branch-payroll-shell {
   min-width: 0;
@@ -3127,8 +3150,34 @@ button {
 }
 
 .branch-other-deduction-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
   padding: 18px 0;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.other-deduction-branch-picker {
+  display: grid;
+  flex: 0 0 240px;
+  gap: 6px;
+  width: 240px;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.other-deduction-branch-picker select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.88rem;
 }
 
 .branch-other-deduction-header h3 {
@@ -3386,6 +3435,20 @@ button {
 
 .other-deduction-message.error {
   color: #b91c1c;
+}
+
+@media (max-width: 640px) {
+  .branch-other-deduction-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .other-deduction-branch-picker {
+    flex-basis: auto;
+    width: min(100%, 280px);
+    align-self: flex-end;
+  }
 }
 
 .other-deduction-history-heading {

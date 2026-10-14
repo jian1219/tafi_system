@@ -1,12 +1,13 @@
 import { lazy, Suspense, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { CalendarDays, CircleDollarSign, LogOut, PlusCircle, ShieldCheck, Users, Wallet } from 'lucide-react'
+import { CalendarDays, CircleDollarSign, LogOut, MinusCircle, PlusCircle, ShieldCheck, Users, Wallet } from 'lucide-react'
 import { revokeTafiAdminSession } from '../../lib/supabase'
 import TafiEmployee from './TAFI_Employee'
 import TafiEmployeeContributions from './TAFI_Employee_Contributions'
 import TafiEmployeeAttendance from './TAFI_Employee_Attendance'
 import TafiBranchPayroll from './TAFI_Branch_Payroll'
 const TafiOtherAdditionPay = lazy(() => import('./TAFI_Other_Addition_Pay'))
+const TafiOtherDeductionPay = lazy(() => import('./TAFI_Other_Deduction_Pay'))
 import logoImage from '../../images/Tafi logo transparent.png'
 
 const navigationItems = [
@@ -14,6 +15,7 @@ const navigationItems = [
 	{ id: 'attendance', label: 'Employee Attendance', icon: CalendarDays },
 	{ id: 'contributions', label: 'Mandatory Contributions', icon: CircleDollarSign },
 	{ id: 'other-additions', label: 'Other Addition Pay', icon: PlusCircle },
+	{ id: 'other-deductions', label: 'Other Deduction Pay', icon: MinusCircle },
 	{ id: 'payroll', label: 'Branch Payroll', icon: Wallet }
 ]
 
@@ -98,7 +100,13 @@ export default function TafiDashboard() {
 											<TafiOtherAdditionPay sessionToken={tafiAdmin.session_token} />
 										</Suspense>
 									)
-									: <TafiBranchPayroll sessionToken={tafiAdmin.session_token} />}
+									: activePage === 'other-deductions'
+										? (
+											<Suspense fallback={<p className="other-deduction-message" role="status">Loading payroll deduction tools…</p>}>
+												<TafiOtherDeductionPay sessionToken={tafiAdmin.session_token} />
+											</Suspense>
+										)
+										: <TafiBranchPayroll sessionToken={tafiAdmin.session_token} />}
 				</section>
 			</main>
 		</div>
