@@ -22,6 +22,8 @@ export default function BranchAdminLogin() {
       setLoginMessage(error.message)
     } else if (!profile) {
       setLoginMessage('Email or password is incorrect.')
+    } else if (!profile.session_token) {
+      setLoginMessage('Branch login did not return a session token. Apply the updated branch login SQL, then try again.')
     } else {
       try {
         window.sessionStorage.setItem('tafi-branch-admin-session', JSON.stringify(profile))

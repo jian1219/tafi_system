@@ -59,6 +59,19 @@ create unique index if not exists branch_admin_email_lower_idx
 create unique index if not exists branch_admin_id_branch_idx
   on public.branch_admin (id, branch_id);
 
+create table if not exists public.branch_admin_session (
+  session_token uuid primary key,
+  branch_admin_id uuid not null references public.branch_admin(id) on delete cascade,
+  expires_at timestamptz not null default (now() + interval '12 hours'),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists branch_admin_session_expiry_idx
+  on public.branch_admin_session (expires_at);
+
+alter table public.branch_admin_session enable row level security;
+revoke all on table public.branch_admin_session from public, anon, authenticated;
+
 create table if not exists public.employee (
   id uuid primary key default gen_random_uuid(),
   branch_id uuid not null references public.branch(id) on delete restrict,
@@ -299,18 +312,41 @@ returns table (
   branch_id uuid,
   branch_name text,
   branch_location text,
-  admin_email text
+  admin_email text,
+  session_token uuid
 )
-language sql
+language plpgsql
 security definer
 set search_path = ''
 as $$
-  select ba.id, ba.name, b.id, b.name, b.location, ba.email
+declare
+  v_admin record;
+  v_session_token uuid;
+begin
+  select ba.id as admin_id, ba.name as admin_name, b.id as branch_id,
+    b.name as branch_name, b.location as branch_location, ba.email as admin_email
+  into v_admin
   from public.branch_admin as ba
   join public.branch as b on b.id = ba.branch_id
   where lower(ba.email) = lower(trim(p_email))
     and ba.password_hash = extensions.crypt(p_password, ba.password_hash)
   limit 1;
+
+  if not found then
+    return;
+  end if;
+
+  delete from public.branch_admin_session where expires_at <= now();
+
+  v_session_token := gen_random_uuid();
+  insert into public.branch_admin_session (session_token, branch_admin_id)
+  values (v_session_token, v_admin.admin_id);
+
+  return query
+  select v_admin.admin_id, v_admin.admin_name, v_admin.branch_id,
+    v_admin.branch_name, v_admin.branch_location, v_admin.admin_email,
+    v_session_token;
+end;
 $$;
 
 revoke all on function public.super_admin_login(text, text) from public;
