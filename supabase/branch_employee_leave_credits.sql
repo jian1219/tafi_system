@@ -1,6 +1,7 @@
 begin;
 
 -- Run after tafi_complete_schema.sql and branch_employee_contributions.sql.
+-- Then apply tafi_admin_management.sql to enable TAFI Admin leave-credit tools.
 alter table public.employee
   add column if not exists probationary_start_date date,
   add column if not exists regular_start_date date;
@@ -27,15 +28,34 @@ create table if not exists public.branch_employee_leave_request (
     references public.branch_admin (id, branch_id) on delete restrict
 );
 
+create table if not exists public.branch_employee_leave_credit_adjustment (
+  id uuid primary key default gen_random_uuid(),
+  branch_id uuid not null references public.branch(id) on delete cascade,
+  employee_code text not null,
+  credit_days numeric(8, 2) not null check (credit_days > 0),
+  reason text not null check (nullif(trim(reason), '') is not null),
+  created_by_tafi_admin_id uuid not null,
+  created_at timestamptz not null default now(),
+  constraint branch_employee_leave_credit_adjustment_employee_fk
+    foreign key (branch_id, employee_code)
+    references public.employee (branch_id, employee_code) on update cascade on delete restrict
+);
+
 create index if not exists branch_employee_leave_request_branch_status_idx
   on public.branch_employee_leave_request (branch_id, status, created_at desc);
 create index if not exists branch_employee_leave_request_employee_idx
   on public.branch_employee_leave_request (branch_id, employee_code, status);
+create index if not exists branch_employee_leave_credit_adjustment_employee_idx
+  on public.branch_employee_leave_credit_adjustment (branch_id, employee_code, created_at desc);
 
 alter table public.branch_employee_leave_request enable row level security;
+alter table public.branch_employee_leave_credit_adjustment enable row level security;
 revoke all on table public.branch_employee_leave_request from public, anon, authenticated;
+revoke all on table public.branch_employee_leave_credit_adjustment from public, anon, authenticated;
 
-create or replace function public.branch_admin_list_employee_leave_credits(
+drop function if exists public.branch_admin_list_employee_leave_credits(uuid);
+
+create function public.branch_admin_list_employee_leave_credits(
   p_session_token uuid
 )
 returns table (
@@ -46,6 +66,7 @@ returns table (
   employment_status text,
   employment_classification text,
   earned_credits numeric,
+  manual_credits numeric,
   used_credits numeric,
   pending_credits numeric,
   balance numeric
@@ -85,6 +106,13 @@ begin
     from qualifying_months
     group by qualifying_months.employee_id
   ),
+  manual_totals as (
+    select adjustment.employee_code,
+      sum(adjustment.credit_days) as credits
+    from public.branch_employee_leave_credit_adjustment as adjustment
+    where adjustment.branch_id = v_branch_id
+    group by adjustment.employee_code
+  ),
   request_totals as (
     select leave_request.employee_code,
       coalesce(sum(leave_request.credit_days) filter (where leave_request.status = 'approved'), 0) as used,
@@ -101,13 +129,17 @@ begin
     employee.employment_classification,
     case when employee.employment_classification = 'Regular'
       then coalesce(earned.credits, 0) else 0 end,
+    case when employee.employment_classification = 'Regular'
+      then coalesce(manual_totals.credits, 0) else 0 end,
     coalesce(request_totals.used, 0),
     coalesce(request_totals.pending, 0),
     case when employee.employment_classification = 'Regular'
-      then coalesce(earned.credits, 0) - coalesce(request_totals.used, 0)
+      then coalesce(earned.credits, 0) + coalesce(manual_totals.credits, 0)
+        - coalesce(request_totals.used, 0)
       else 0 end
   from public.employee as employee
   left join earned on earned.employee_id = employee.id
+  left join manual_totals on manual_totals.employee_code = employee.employee_code
   left join request_totals on request_totals.employee_code = employee.employee_code
   where employee.branch_id = v_branch_id
   order by employee.name, employee.employee_code;
@@ -185,6 +217,7 @@ declare
   v_branch_id uuid;
   v_employee_id uuid;
   v_earned numeric := 0;
+  v_manual numeric := 0;
   v_used numeric := 0;
   v_pending numeric := 0;
   v_request_id uuid;
@@ -237,6 +270,12 @@ begin
         then 24 else 26 end
   ) as qualifying_months;
 
+  select coalesce(sum(adjustment.credit_days), 0)
+  into v_manual
+  from public.branch_employee_leave_credit_adjustment as adjustment
+  where adjustment.branch_id = v_branch_id
+    and adjustment.employee_code = trim(p_employee_code);
+
   select
     coalesce(sum(leave_request.credit_days) filter (where leave_request.status = 'approved'), 0),
     coalesce(sum(leave_request.credit_days) filter (where leave_request.status = 'pending'), 0)
@@ -245,9 +284,9 @@ begin
   where leave_request.branch_id = v_branch_id
     and leave_request.employee_code = trim(p_employee_code);
 
-  if p_credit_days > v_earned - v_used - v_pending then
+  if p_credit_days > v_earned + v_manual - v_used - v_pending then
     raise exception 'Requested credits exceed the employee available balance of % days',
-      greatest(v_earned - v_used - v_pending, 0);
+      greatest(v_earned + v_manual - v_used - v_pending, 0);
   end if;
 
   insert into public.branch_employee_leave_request (

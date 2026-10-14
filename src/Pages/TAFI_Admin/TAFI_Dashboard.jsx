@@ -5,6 +5,7 @@ import { revokeTafiAdminSession } from '../../lib/supabase'
 import TafiEmployee from './TAFI_Employee'
 import TafiEmployeeContributions from './TAFI_Employee_Contributions'
 import TafiEmployeeAttendance from './TAFI_Employee_Attendance'
+import TafiLeaveCredits from './TAFI_Leave_Credits'
 import TafiBranchPayroll from './TAFI_Branch_Payroll'
 const TafiOtherAdditionPay = lazy(() => import('./TAFI_Other_Addition_Pay'))
 const TafiOtherDeductionPay = lazy(() => import('./TAFI_Other_Deduction_Pay'))
@@ -13,6 +14,7 @@ import logoImage from '../../images/Tafi logo transparent.png'
 const navigationItems = [
 	{ id: 'employees', label: 'Employee', icon: Users },
 	{ id: 'attendance', label: 'Employee Attendance', icon: CalendarDays },
+	{ id: 'leave-credits', label: 'Leave Credits', icon: PlusCircle },
 	{ id: 'contributions', label: 'Mandatory Contributions', icon: CircleDollarSign },
 	{ id: 'other-additions', label: 'Other Addition Pay', icon: PlusCircle },
 	{ id: 'other-deductions', label: 'Other Deduction Pay', icon: MinusCircle },
@@ -92,21 +94,23 @@ export default function TafiDashboard() {
 						? <TafiEmployee sessionToken={tafiAdmin.session_token} />
 						: activePage === 'attendance'
 							? <TafiEmployeeAttendance sessionToken={tafiAdmin.session_token} />
-							: activePage === 'contributions'
-								? <TafiEmployeeContributions sessionToken={tafiAdmin.session_token} />
-								: activePage === 'other-additions'
-									? (
+							: activePage === 'leave-credits'
+								? <TafiLeaveCredits sessionToken={tafiAdmin.session_token} />
+								: activePage === 'contributions'
+									? <TafiEmployeeContributions sessionToken={tafiAdmin.session_token} />
+									: activePage === 'other-additions'
+										? (
 										<Suspense fallback={<p className="other-deduction-message" role="status">Loading payroll addition tools…</p>}>
 											<TafiOtherAdditionPay sessionToken={tafiAdmin.session_token} />
 										</Suspense>
-									)
-									: activePage === 'other-deductions'
-										? (
+										)
+										: activePage === 'other-deductions'
+											? (
 											<Suspense fallback={<p className="other-deduction-message" role="status">Loading payroll deduction tools…</p>}>
 												<TafiOtherDeductionPay sessionToken={tafiAdmin.session_token} />
 											</Suspense>
-										)
-										: <TafiBranchPayroll sessionToken={tafiAdmin.session_token} />}
+											)
+											: <TafiBranchPayroll sessionToken={tafiAdmin.session_token} />}
 				</section>
 			</main>
 		</div>

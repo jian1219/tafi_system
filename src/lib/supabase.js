@@ -507,6 +507,71 @@ export async function listTafiAdminEmployeeLeaveCredits(sessionToken, branchId) 
   }
 }
 
+export async function listTafiAdminEmployeeLeaveCreditSummary(sessionToken, branchId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_employee_leave_credit_summary', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load employee leave-credit details.')
+    }
+  }
+}
+
+export async function addTafiAdminEmployeeLeaveCredits(sessionToken, branchId, credit) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_add_employee_leave_credits', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_employee_code: credit.employeeCode,
+      p_credit_days: credit.creditDays,
+      p_reason: credit.reason
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to add employee leave credits.')
+    }
+  }
+}
+
+export async function listTafiAdminEmployeeLeaveRequests(sessionToken, branchId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_employee_leave_requests', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load employee leave requests.')
+    }
+  }
+}
+
+export async function updateTafiAdminEmployeeLeaveRequestStatus(sessionToken, branchId, requestId, status) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_update_employee_leave_request_status', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_request_id: requestId,
+      p_status: status
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the employee leave request.')
+    }
+  }
+}
+
 export async function saveTafiAdminAttendance(sessionToken, branchId, attendanceDate, records) {
   try {
     const supabaseClient = await getSupabaseClient()

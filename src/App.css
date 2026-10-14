@@ -2153,13 +2153,18 @@ button {
   font-size: 0.8rem;
 }
 
+.tafi-leave-credit-policy {
+  max-width: none;
+  margin: 12px 24px 0;
+}
+
 .leave-credit-tabs {
   padding-top: 12px;
 }
 
 .leave-credits-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   padding: 20px 24px 0;
 }

@@ -247,9 +247,14 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 				<>
 					<div className="leave-credits-summary">
 						<div><span>Employees</span><strong>{isLoading ? '—' : employees.length}</strong></div>
-						<div><span>Available earned balance</span><strong>{isLoading
+						<div><span>Available balance</span><strong>{isLoading
 							? '—'
-							: formatCredits(employees.reduce((total, employee) => total + Number(employee.balance ?? 0), 0))}</strong></div>
+							: formatCredits(employees.reduce((total, employee) =>
+								total + Math.max(0, Number(employee.balance ?? 0) - Number(employee.pending_credits ?? 0)), 0
+							))}</strong></div>
+						<div><span>Manual credits added</span><strong>{isLoading
+							? '—'
+							: formatCredits(employees.reduce((total, employee) => total + Number(employee.manual_credits ?? 0), 0))}</strong></div>
 						<div><span>Pending requests</span><strong>{isLoading
 							? '—'
 							: formatCredits(employees.reduce((total, employee) => total + Number(employee.pending_credits ?? 0), 0))}</strong></div>
@@ -276,6 +281,7 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 									<th>Tenure</th>
 									<th>Employee Status</th>
 									<th>Earned</th>
+									<th>Manual Added</th>
 									<th>Used</th>
 									<th>Pending</th>
 									<th>Balance</th>
@@ -292,13 +298,14 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 											{employee.employment_classification || 'Not specified'}
 										</span></td>
 										<td>{formatCredits(employee.earned_credits)}</td>
+										<td>{formatCredits(employee.manual_credits)}</td>
 										<td>{formatCredits(employee.used_credits)}</td>
 										<td>{formatCredits(employee.pending_credits)}</td>
 										<td><strong>{formatCredits(employee.balance)}</strong></td>
 									</tr>
 								))}
 								{!isLoading && filteredEmployees.length === 0 && (
-									<tr><td colSpan="9" className="leave-credit-empty">
+									<tr><td colSpan="10" className="leave-credit-empty">
 										{employees.length ? 'No employees match your search.' : 'No employees found for this branch.'}
 									</td></tr>
 								)}
