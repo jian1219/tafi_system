@@ -5,6 +5,8 @@ import {
 	listTafiAdminBranches,
 	listTafiAdminEmployeeContributions,
 	listTafiAdminEmployees,
+	getTafiAdminEmployeePhoto,
+	saveTafiAdminEmployeePhoto,
 	updateTafiAdminEmployeeDailyRate,
 	updateTafiAdminEmployeeIdentity,
 	updateTafiAdminEmployeeProfile
@@ -100,6 +102,26 @@ function getEmployeeProfile(employee) {
 	}
 }
 
+function readPhotoAsBase64(file) {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader()
+		reader.onload = () => {
+			if (typeof reader.result !== 'string') {
+				reject(new Error('Unable to read the selected photo.'))
+				return
+			}
+			const separatorIndex = reader.result.indexOf(',')
+			if (separatorIndex < 0) {
+				reject(new Error('Unable to read the selected photo.'))
+				return
+			}
+			resolve(reader.result.slice(separatorIndex + 1))
+		}
+		reader.onerror = () => reject(reader.error ?? new Error('Unable to read the selected photo.'))
+		reader.readAsDataURL(file)
+	})
+}
+
 export default function TafiEmployee({ sessionToken }) {
 	const [branches, setBranches] = useState([])
 	const [employees, setEmployees] = useState([])
@@ -122,6 +144,8 @@ export default function TafiEmployee({ sessionToken }) {
 	const [isSavingProfile, setIsSavingProfile] = useState(false)
 	const [profileError, setProfileError] = useState('')
 	const [profileMessage, setProfileMessage] = useState('')
+	const [employeePhotoState, setEmployeePhotoState] = useState(null)
+	const [isEmployeePhotoExpanded, setIsEmployeePhotoExpanded] = useState(false)
 	const [identityForm, setIdentityForm] = useState(null)
 	const [isEditingIdentity, setIsEditingIdentity] = useState(false)
 	const [isSavingIdentity, setIsSavingIdentity] = useState(false)
@@ -206,6 +230,108 @@ export default function TafiEmployee({ sessionToken }) {
 	const selectedEmployee = filteredEmployees.find((employee) => employee.employee_id === selectedEmployeeId)
 	const selectedEmployeeBranchId = selectedEmployee?.branch_id
 	const selectedEmployeeCode = selectedEmployee?.employee_code
+
+	useEffect(() => {
+		let isCurrent = true
+
+		const loadEmployeePhoto = async () => {
+			if (!sessionToken || !selectedEmployee) return
+			setEmployeePhotoState({
+				sessionToken,
+				employeeId: selectedEmployee.employee_id,
+				imageUrl: '',
+				isLoading: true,
+				isSaving: false,
+				error: '',
+				message: ''
+			})
+			const { data, error } = await getTafiAdminEmployeePhoto(sessionToken, selectedEmployee.employee_id)
+			if (!isCurrent) return
+			const photo = data?.[0]
+			setEmployeePhotoState({
+				sessionToken,
+				employeeId: selectedEmployee.employee_id,
+				imageUrl: photo ? `data:${photo.content_type};base64,${photo.photo_base64}` : '',
+				isLoading: false,
+				isSaving: false,
+				error: error?.message ?? '',
+				message: ''
+			})
+		}
+
+		loadEmployeePhoto()
+		return () => {
+			isCurrent = false
+		}
+	}, [sessionToken, selectedEmployee])
+
+	const uploadEmployeePhoto = async (event) => {
+		const file = event.currentTarget.files?.[0]
+		event.currentTarget.value = ''
+		if (!file || !selectedEmployee) return
+
+		const employeeId = selectedEmployee.employee_id
+		const currentImageUrl = employeePhotoState?.employeeId === employeeId
+			&& employeePhotoState?.sessionToken === sessionToken
+			? employeePhotoState.imageUrl
+			: ''
+		const setPhotoFeedback = (error, message = '') => setEmployeePhotoState({
+			sessionToken,
+			employeeId,
+			imageUrl: currentImageUrl,
+			isLoading: false,
+			isSaving: false,
+			error,
+			message
+		})
+
+		if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+			setPhotoFeedback('Choose a JPEG, PNG, or WebP image.')
+			return
+		}
+		if (file.size > 2 * 1024 * 1024) {
+			setPhotoFeedback('Photo must be no larger than 2 MB.')
+			return
+		}
+
+		setEmployeePhotoState({
+			sessionToken,
+			employeeId,
+			imageUrl: currentImageUrl,
+			isLoading: false,
+			isSaving: true,
+			error: '',
+			message: ''
+		})
+		let photoBase64
+		try {
+			photoBase64 = await readPhotoAsBase64(file)
+		} catch (error) {
+			setPhotoFeedback(error instanceof Error ? error.message : 'Unable to read the selected photo.')
+			return
+		}
+
+		const { error } = await saveTafiAdminEmployeePhoto(
+			sessionToken,
+			employeeId,
+			file.type,
+			photoBase64
+		)
+		if (error) {
+			setPhotoFeedback(error.message)
+			return
+		}
+
+		setEmployeePhotoState({
+			sessionToken,
+			employeeId,
+			imageUrl: `data:${file.type};base64,${photoBase64}`,
+			isLoading: false,
+			isSaving: false,
+			error: '',
+			message: 'Photo saved.'
+		})
+	}
 
 	useEffect(() => {
 		let isCurrent = true
@@ -533,6 +659,19 @@ export default function TafiEmployee({ sessionToken }) {
 	}))
 	const attendanceRate = Math.round((monthlyAttendance.present / attendanceDaysInMonth) * 100)
 	const attendanceRemark = getAttendanceRemark(attendanceRate)
+	const currentEmployeePhoto = employeePhotoState?.sessionToken === sessionToken
+		&& employeePhotoState?.employeeId === selectedEmployee?.employee_id
+		? employeePhotoState
+		: null
+
+	useEffect(() => {
+		if (!isEmployeePhotoExpanded) return undefined
+		const closeOnEscape = (event) => {
+			if (event.key === 'Escape') setIsEmployeePhotoExpanded(false)
+		}
+		document.addEventListener('keydown', closeOnEscape)
+		return () => document.removeEventListener('keydown', closeOnEscape)
+	}, [isEmployeePhotoExpanded])
 
 	return (
 		<div className="tafi-employee-view">
@@ -584,9 +723,42 @@ export default function TafiEmployee({ sessionToken }) {
 								Back to employees
 							</button>
 							<div className="employee-profile-identity">
-								<span className="employee-profile-avatar">
-									{selectedEmployee.employee_name?.charAt(0) || '?'}
-								</span>
+								<div className="employee-profile-photo">
+									{currentEmployeePhoto?.imageUrl ? (
+										<button
+											type="button"
+											className="employee-profile-avatar employee-profile-avatar-clickable"
+											aria-label={`View larger profile photo of ${selectedEmployee.employee_name}`}
+											onClick={() => setIsEmployeePhotoExpanded(true)}
+										>
+											<img src={currentEmployeePhoto.imageUrl} alt="" />
+										</button>
+									) : (
+										<span className="employee-profile-avatar">
+											{selectedEmployee.employee_name?.charAt(0) || '?'}
+										</span>
+									)}
+									<label className="employee-profile-photo-upload">
+										<input
+											type="file"
+											accept="image/jpeg,image/png,image/webp"
+											aria-label={`Upload profile photo for ${selectedEmployee.employee_name}`}
+											disabled={!sessionToken || currentEmployeePhoto?.isSaving}
+											onChange={uploadEmployeePhoto}
+										/>
+										{currentEmployeePhoto?.isSaving ? 'Uploading…' : 'Upload photo'}
+									</label>
+									{currentEmployeePhoto?.error && (
+										<span className="employee-profile-photo-feedback error" role="alert">
+											{currentEmployeePhoto.error}
+										</span>
+									)}
+									{currentEmployeePhoto?.message && (
+										<span className="employee-profile-photo-feedback" role="status">
+											{currentEmployeePhoto.message}
+										</span>
+									)}
+								</div>
 								<div>
 									<p className="employee-info-eyebrow">Employee profile</p>
 									<h3>{selectedEmployee.employee_name}</h3>
@@ -601,6 +773,26 @@ export default function TafiEmployee({ sessionToken }) {
 								{selectedEmployee.employment_status}
 							</span>
 						</header>
+						{isEmployeePhotoExpanded && currentEmployeePhoto?.imageUrl && (
+							<div
+								className="employee-photo-lightbox"
+								role="dialog"
+								aria-modal="true"
+								aria-label={`${selectedEmployee.employee_name} profile photo`}
+							>
+								<div className="employee-photo-lightbox-frame">
+									<button
+										type="button"
+										className="employee-photo-lightbox-close"
+										aria-label="Close enlarged photo"
+										onClick={() => setIsEmployeePhotoExpanded(false)}
+									>
+										×
+									</button>
+									<img src={currentEmployeePhoto.imageUrl} alt={`${selectedEmployee.employee_name} profile`} />
+								</div>
+							</div>
+						)}
 
 						<section className="employee-detail-panel employee-personal-details">
 							<div className="employee-detail-panel-heading employee-personal-heading">

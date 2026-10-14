@@ -620,7 +620,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 										<div className="employee-avatar">{employee.name.charAt(0)}</div>
 										<div>
 											<strong>{employee.name}</strong>
-											<span>{employee.position}</span>
+											<span>{employee.position} · Employee ID: {employee.id}</span>
 										</div>
 									</div>
 									<div className="attendance-row-controls">

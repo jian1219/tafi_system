@@ -23,6 +23,14 @@ const attendanceOptions = [
   'Day Off'
 ]
 
+const shiftOptions = [
+  '9am-2pm | 6pm-9pm',
+  '11am-4pm | 6pm-9pm',
+  '1pm-9pm'
+]
+
+const shiftEligibleStatuses = ['Present', 'Present (Late)']
+
 const statusFromDatabase = {
   not_marked: 'Not marked',
   present: 'Present',
@@ -158,6 +166,7 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
         const record = recordsForToday[employee.id]
         return {
           ...employee,
+          shift: shiftEligibleStatuses.includes(statusFromDatabase[record?.status]) ? record?.shift ?? '' : '',
           status: statusFromDatabase[record?.status] ?? 'Not marked',
           lateMinutes: record?.late_minutes ?? 0
         }
@@ -278,10 +287,23 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
     setEmployees((current) =>
       current.map((employee) =>
         employee.id === employeeId
-          ? { ...employee, status, lateMinutes: status === 'Present (Late)' ? employee.lateMinutes : 0 }
+          ? {
+              ...employee,
+              status,
+              shift: shiftEligibleStatuses.includes(status) ? employee.shift : '',
+              lateMinutes: status === 'Present (Late)' ? employee.lateMinutes : 0
+            }
           : employee
       )
     )
+  }
+
+  const updateShift = (employeeId, shift) => {
+    setEmployees((current) => current.map((employee) => employee.id === employeeId
+      ? { ...employee, shift }
+      : employee))
+    setSaveMessage('')
+    setSaveError('')
   }
 
   const updateLateMinutes = (employeeId, minutes) => {
@@ -307,6 +329,16 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
   })
 
   const saveAttendance = async () => {
+    const missingShift = employees.find((employee) =>
+      shiftEligibleStatuses.includes(employee.status) && !employee.shift
+    )
+
+    if (missingShift) {
+      setSaveError(`Select a shift for ${missingShift.name} before saving attendance.`)
+      setSaveMessage('')
+      return
+    }
+
     const incompleteLateEntry = employees.find((employee) =>
       employee.status === 'Present (Late)' && (!Number.isInteger(employee.lateMinutes) || employee.lateMinutes < 1)
     )
@@ -319,6 +351,7 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
 
     const records = employees.map((employee) => ({
       employee_code: employee.id,
+      shift: shiftEligibleStatuses.includes(employee.status) ? employee.shift || null : null,
       status: statusToDatabase[employee.status] ?? 'not_marked',
       late_minutes: employee.status === 'Present (Late)' ? employee.lateMinutes : 0
     }))
@@ -334,7 +367,7 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
       ...records.map((record) => ({ ...record, attendance_date: dailyAttendanceDateKey }))
     ])
     setSaveError('')
-    setSaveMessage('Attendance and late minutes saved.')
+    setSaveMessage('Shift, attendance, and late minutes saved.')
   }
 
   const summary = useMemo(() => {
@@ -475,11 +508,27 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
                     <div className="employee-avatar">{employee.name.charAt(0)}</div>
                     <div>
                       <strong>{employee.name}</strong>
-                      <span>{employee.position}</span>
+                      <span>{employee.position} · Employee ID: {employee.id}</span>
                     </div>
                   </div>
 
                   <div className="attendance-row-controls">
+                    {shiftEligibleStatuses.includes(employee.status) && (
+                      <label className="attendance-select-field">
+                        <span>Shift</span>
+                        <select
+                          value={employee.shift}
+                          onChange={(event) => updateShift(employee.id, event.target.value)}
+                          className="shift-select"
+                          aria-label={`Shift for ${employee.name}`}
+                        >
+                          <option value="">Select shift</option>
+                          {shiftOptions.map((shift) => (
+                            <option key={shift} value={shift}>{shift}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
                     <select
                       value={employee.status}
                       onChange={(event) => {

@@ -41,6 +41,16 @@ set shift = null
 where status not in ('present', 'present_late')
   and shift is not null;
 
+create table if not exists public.employee_profile_photo (
+  employee_id uuid primary key references public.employee(id) on delete cascade,
+  content_type text not null check (content_type in ('image/jpeg', 'image/png', 'image/webp')),
+  image_data bytea not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.employee_profile_photo enable row level security;
+revoke all on table public.employee_profile_photo from public, anon, authenticated;
+
 alter table public.employee_attendance
   add column if not exists submitted_by_tafi_admin_id uuid
   references public.tafi_admin(id) on delete set null;
@@ -283,6 +293,86 @@ begin
     updated_at = now();
 
   return true;
+end;
+$$;
+
+create or replace function public.tafi_admin_save_employee_photo(
+  p_session_token uuid,
+  p_employee_id uuid,
+  p_content_type text,
+  p_photo_base64 text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_image_data bytea;
+begin
+  if not exists (
+    select 1 from public.tafi_admin_session as admin_session
+    where admin_session.session_token = p_session_token
+      and admin_session.expires_at > now()
+  ) then
+    raise exception 'Invalid or expired TAFI Admin session' using errcode = '28000';
+  end if;
+
+  if p_employee_id is null or not exists (
+    select 1 from public.employee as employee where employee.id = p_employee_id
+  ) then
+    raise exception 'Employee was not found';
+  end if;
+  if p_content_type is null or p_content_type not in ('image/jpeg', 'image/png', 'image/webp') then
+    raise exception 'Employee photos must be JPEG, PNG, or WebP images';
+  end if;
+  if p_photo_base64 is null or length(p_photo_base64) = 0 or length(p_photo_base64) > 2796204 then
+    raise exception 'Employee photos must be no larger than 2 MB';
+  end if;
+
+  v_image_data := decode(p_photo_base64, 'base64');
+  if octet_length(v_image_data) = 0 or octet_length(v_image_data) > 2097152 then
+    raise exception 'Employee photos must be no larger than 2 MB';
+  end if;
+
+  insert into public.employee_profile_photo (employee_id, content_type, image_data, updated_at)
+  values (p_employee_id, p_content_type, v_image_data, now())
+  on conflict (employee_id) do update
+  set content_type = excluded.content_type,
+    image_data = excluded.image_data,
+    updated_at = now();
+
+  return true;
+end;
+$$;
+
+create or replace function public.tafi_admin_get_employee_photo(
+  p_session_token uuid,
+  p_employee_id uuid
+)
+returns table (content_type text, photo_base64 text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1 from public.tafi_admin_session as admin_session
+    where admin_session.session_token = p_session_token
+      and admin_session.expires_at > now()
+  ) then
+    raise exception 'Invalid or expired TAFI Admin session' using errcode = '28000';
+  end if;
+  if p_employee_id is null or not exists (
+    select 1 from public.employee as employee where employee.id = p_employee_id
+  ) then
+    raise exception 'Employee was not found';
+  end if;
+
+  return query
+  select photo.content_type, replace(encode(photo.image_data, 'base64'), E'\n', '')
+  from public.employee_profile_photo as photo
+  where photo.employee_id = p_employee_id;
 end;
 $$;
 
@@ -1190,6 +1280,8 @@ as $$
 $$;
 
 revoke all on function public.tafi_admin_list_branches(uuid) from public;
+revoke all on function public.tafi_admin_save_employee_photo(uuid, uuid, text, text) from public;
+revoke all on function public.tafi_admin_get_employee_photo(uuid, uuid) from public;
 revoke all on function public.tafi_admin_list_employee_contributions(uuid, uuid) from public;
 revoke all on function public.tafi_admin_save_employee_contribution(uuid, uuid, text, numeric, numeric, numeric) from public;
 revoke all on function public.tafi_admin_list_employees(uuid) from public;
@@ -1209,6 +1301,8 @@ revoke all on function public.tafi_admin_logout(uuid) from public;
 drop function if exists public.branch_admin_update_employee_daily_rate(uuid, text, numeric);
 revoke all on function public.branch_admin_update_employee_profile(uuid, text, text, text, date, date, date, date, text, text, text, text, text) from public, anon, authenticated;
 grant execute on function public.tafi_admin_list_branches(uuid) to anon, authenticated;
+grant execute on function public.tafi_admin_save_employee_photo(uuid, uuid, text, text) to anon, authenticated;
+grant execute on function public.tafi_admin_get_employee_photo(uuid, uuid) to anon, authenticated;
 grant execute on function public.tafi_admin_list_employee_contributions(uuid, uuid) to anon, authenticated;
 grant execute on function public.tafi_admin_save_employee_contribution(uuid, uuid, text, numeric, numeric, numeric) to anon, authenticated;
 grant execute on function public.tafi_admin_list_employees(uuid) to anon, authenticated;

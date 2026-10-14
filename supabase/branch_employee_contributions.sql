@@ -26,6 +26,24 @@ alter table public.employee
   add column if not exists employment_classification text
   check (employment_classification in ('Regular', 'Probationary', 'Trainee'));
 
+create table if not exists public.employee_profile_photo (
+  employee_id uuid primary key references public.employee(id) on delete cascade,
+  content_type text not null check (content_type in ('image/jpeg', 'image/png', 'image/webp')),
+  image_data bytea not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.employee_profile_photo enable row level security;
+revoke all on table public.employee_profile_photo from public, anon, authenticated;
+
+alter table public.employee_attendance
+  add column if not exists shift text
+  check (shift is null or shift in (
+    '9am-2pm | 6pm-9pm',
+    '11am-4pm | 6pm-9pm',
+    '1pm-9pm'
+  ));
+
 create table if not exists public.branch_employee_contribution (
   branch_id uuid not null references public.branch(id) on delete cascade,
   employee_code text not null check (nullif(trim(employee_code), '') is not null),
@@ -895,7 +913,9 @@ begin
 end;
 $$;
 
-create or replace function public.branch_admin_list_attendance(
+drop function if exists public.branch_admin_list_attendance(uuid, date, date);
+
+create function public.branch_admin_list_attendance(
   p_session_token uuid,
   p_start_date date,
   p_end_date date
@@ -903,6 +923,7 @@ create or replace function public.branch_admin_list_attendance(
 returns table (
   employee_code text,
   attendance_date date,
+  shift text,
   status text,
   late_minutes integer
 )
@@ -928,12 +949,51 @@ begin
 
   return query
   select employee.employee_code, attendance.attendance_date,
-    attendance.status, attendance.late_minutes
+    attendance.shift, attendance.status, attendance.late_minutes
   from public.employee_attendance as attendance
   join public.employee as employee on employee.id = attendance.employee_id
   where employee.branch_id = v_branch_id
     and attendance.attendance_date between p_start_date and p_end_date
   order by employee.employee_code, attendance.attendance_date;
+end;
+$$;
+
+create or replace function public.branch_admin_get_employee_photo(
+  p_session_token uuid,
+  p_employee_code text
+)
+returns table (content_type text, photo_base64 text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_branch_id uuid;
+  v_employee_id uuid;
+begin
+  select ba.branch_id into v_branch_id
+  from public.branch_admin_session as admin_session
+  join public.branch_admin as ba on ba.id = admin_session.branch_admin_id
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now();
+
+  if not found then
+    raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
+  end if;
+
+  select employee.id into v_employee_id
+  from public.employee as employee
+  where employee.branch_id = v_branch_id
+    and employee.employee_code = p_employee_code;
+
+  if not found then
+    raise exception 'Employee was not found in this branch';
+  end if;
+
+  return query
+  select photo.content_type, replace(encode(photo.image_data, 'base64'), E'\n', '')
+  from public.employee_profile_photo as photo
+  where photo.employee_id = v_employee_id;
 end;
 $$;
 
@@ -1743,6 +1803,7 @@ declare
   v_record jsonb;
   v_employee_id uuid;
   v_status text;
+  v_shift text;
   v_late_minutes integer;
   v_daily_rate numeric;
 begin
@@ -1773,6 +1834,7 @@ begin
     end if;
 
     v_status := v_record->>'status';
+    v_shift := nullif(v_record->>'shift', '');
     v_late_minutes := coalesce((v_record->>'late_minutes')::integer, 0);
 
     if v_status is null or v_status not in (
@@ -1781,6 +1843,20 @@ begin
       'birthday_leave', 'vl_with_pay', 'vl_without_pay', 'day_off'
     ) then
       raise exception 'Invalid attendance status for employee %', v_record->>'employee_code';
+    end if;
+    if v_shift is not null and v_shift not in (
+      '9am-2pm | 6pm-9pm',
+      '11am-4pm | 6pm-9pm',
+      '1pm-9pm'
+    ) then
+      raise exception 'Invalid shift for employee %', v_record->>'employee_code';
+    end if;
+    if v_status in ('present', 'present_late') and v_shift is null then
+      raise exception 'A shift is required for employee %', v_record->>'employee_code';
+    end if;
+    if v_status not in ('present', 'present_late') and v_shift is not null then
+      raise exception 'A shift is only allowed for Present or Present (Late) attendance for employee %',
+        v_record->>'employee_code';
     end if;
     if (v_status = 'present_late' and v_late_minutes < 1)
       or (v_status <> 'present_late' and v_late_minutes <> 0) then
@@ -1800,15 +1876,16 @@ begin
     end if;
 
     insert into public.employee_attendance (
-      employee_id, attendance_date, status, late_minutes,
+      employee_id, attendance_date, shift, status, late_minutes,
       daily_rate_snapshot, submitted_by, updated_at
     )
     values (
-      v_employee_id, p_attendance_date, v_status, v_late_minutes,
+      v_employee_id, p_attendance_date, v_shift, v_status, v_late_minutes,
       v_daily_rate, v_admin_id, now()
     )
     on conflict (employee_id, attendance_date) do update
-    set status = excluded.status,
+    set shift = excluded.shift,
+      status = excluded.status,
       late_minutes = excluded.late_minutes,
       daily_rate_snapshot = excluded.daily_rate_snapshot,
       submitted_by = excluded.submitted_by,
@@ -1946,6 +2023,7 @@ revoke all on function public.branch_admin_save_undertime_minutes(uuid, text, da
 revoke all on function public.branch_admin_list_payroll_additions(uuid, date, date, integer, integer) from public;
 revoke all on function public.branch_admin_save_payroll_addition(uuid, text, date, date, text, numeric) from public;
 revoke all on function public.branch_admin_list_attendance(uuid, date, date) from public;
+revoke all on function public.branch_admin_get_employee_photo(uuid, text) from public;
 revoke all on function public.branch_admin_list_attendance_history(uuid, integer, integer) from public;
 revoke all on function public.branch_admin_save_weekly_payroll_snapshot(uuid, date, date) from public;
 revoke all on function public.branch_admin_list_weekly_payroll_snapshots(uuid, integer, integer) from public;
@@ -1973,6 +2051,7 @@ grant execute on function public.branch_admin_save_undertime_minutes(uuid, text,
 grant execute on function public.branch_admin_list_payroll_additions(uuid, date, date, integer, integer) to anon, authenticated;
 grant execute on function public.branch_admin_save_payroll_addition(uuid, text, date, date, text, numeric) to anon, authenticated;
 grant execute on function public.branch_admin_list_attendance(uuid, date, date) to anon, authenticated;
+grant execute on function public.branch_admin_get_employee_photo(uuid, text) to anon, authenticated;
 grant execute on function public.branch_admin_list_attendance_history(uuid, integer, integer) to anon, authenticated;
 grant execute on function public.branch_admin_save_weekly_payroll_snapshot(uuid, date, date) to anon, authenticated;
 grant execute on function public.branch_admin_list_weekly_payroll_snapshots(uuid, integer, integer) to anon, authenticated;

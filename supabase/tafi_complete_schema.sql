@@ -91,6 +91,16 @@ create table if not exists public.employee (
 create index if not exists employee_branch_name_idx
   on public.employee (branch_id, name);
 
+create table if not exists public.employee_profile_photo (
+  employee_id uuid primary key references public.employee(id) on delete cascade,
+  content_type text not null check (content_type in ('image/jpeg', 'image/png', 'image/webp')),
+  image_data bytea not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.employee_profile_photo enable row level security;
+revoke all on table public.employee_profile_photo from public, anon, authenticated;
+
 create table if not exists public.employee_attendance (
   id uuid primary key default gen_random_uuid(),
   employee_id uuid not null references public.employee(id) on delete restrict,

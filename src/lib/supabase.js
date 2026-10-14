@@ -398,6 +398,38 @@ export async function updateTafiAdminEmployeeProfile(sessionToken, employeeId, p
   }
 }
 
+export async function saveTafiAdminEmployeePhoto(sessionToken, employeeId, contentType, photoBase64) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_save_employee_photo', {
+      p_session_token: sessionToken,
+      p_employee_id: employeeId,
+      p_content_type: contentType,
+      p_photo_base64: photoBase64
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the employee photo.')
+    }
+  }
+}
+
+export async function getTafiAdminEmployeePhoto(sessionToken, employeeId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_get_employee_photo', {
+      p_session_token: sessionToken,
+      p_employee_id: employeeId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the employee photo.')
+    }
+  }
+}
+
 export async function updateTafiAdminEmployeeIdentity(sessionToken, employeeId, identity) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -668,6 +700,21 @@ export async function listBranchEmployees(sessionToken) {
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to load branch employees.')
+    }
+  }
+}
+
+export async function getBranchAdminEmployeePhoto(sessionToken, employeeCode) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_get_employee_photo', {
+      p_session_token: sessionToken,
+      p_employee_code: employeeCode
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the employee photo.')
     }
   }
 }

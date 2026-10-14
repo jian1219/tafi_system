@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { listBranchAttendanceHistory } from '../../lib/supabase'
+import { getBranchAdminEmployeePhoto, listBranchAttendanceHistory } from '../../lib/supabase'
 import { getBranchEmployees } from './branchEmployees'
 import { getAttendanceRemark, getLocalDateKey, hasEarnedMonthlyCredit } from './branchAttendanceRecords'
 
@@ -97,6 +97,8 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 	const [formError, setFormError] = useState('')
 	const [selectedEmployeeId, setSelectedEmployeeId] = useState(null)
 	const [attendanceMonth, setAttendanceMonth] = useState(currentMonthKey)
+	const [employeePhotoState, setEmployeePhotoState] = useState(null)
+	const [isEmployeePhotoExpanded, setIsEmployeePhotoExpanded] = useState(false)
 	const sessionToken = branchAdmin?.session_token
 
 	useEffect(() => {
@@ -148,6 +150,48 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 
 	const selectedEmployee = employees.find((employee) => employee.id === selectedEmployeeId)
 
+	useEffect(() => {
+		let isCurrent = true
+
+		const loadEmployeePhoto = async () => {
+			if (!sessionToken || !selectedEmployee) return
+			setEmployeePhotoState({
+				sessionToken,
+				employeeId: selectedEmployee.id,
+				imageUrl: '',
+				error: ''
+			})
+			const { data, error } = await getBranchAdminEmployeePhoto(sessionToken, selectedEmployee.id)
+			if (!isCurrent) return
+			const photo = data?.[0]
+			setEmployeePhotoState({
+				sessionToken,
+				employeeId: selectedEmployee.id,
+				imageUrl: photo ? `data:${photo.content_type};base64,${photo.photo_base64}` : '',
+				error: error?.message ?? ''
+			})
+		}
+
+		loadEmployeePhoto()
+		return () => {
+			isCurrent = false
+		}
+	}, [sessionToken, selectedEmployee])
+
+	const currentEmployeePhoto = employeePhotoState?.sessionToken === sessionToken
+		&& employeePhotoState?.employeeId === selectedEmployee?.id
+		? employeePhotoState
+		: null
+
+	useEffect(() => {
+		if (!isEmployeePhotoExpanded) return undefined
+		const closeOnEscape = (event) => {
+			if (event.key === 'Escape') setIsEmployeePhotoExpanded(false)
+		}
+		document.addEventListener('keydown', closeOnEscape)
+		return () => document.removeEventListener('keydown', closeOnEscape)
+	}, [isEmployeePhotoExpanded])
+
 	const positions = [...new Set(employees.map((employee) => employee.position))]
 	const filteredEmployees = useMemo(() => {
 		const normalizedSearch = searchTerm.trim().toLowerCase()
@@ -195,17 +239,53 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 						Back to employees
 					</button>
 					<div className="employee-profile-identity">
-						<span className="employee-profile-avatar">{selectedEmployee.name.charAt(0)}</span>
+						{currentEmployeePhoto?.imageUrl ? (
+							<button
+								type="button"
+								className="employee-profile-avatar employee-profile-avatar-clickable"
+								aria-label={`View larger profile photo of ${selectedEmployee.name}`}
+								onClick={() => setIsEmployeePhotoExpanded(true)}
+							>
+								<img src={currentEmployeePhoto.imageUrl} alt="" />
+							</button>
+						) : (
+							<span className="employee-profile-avatar">{selectedEmployee.name.charAt(0)}</span>
+						)}
 						<div>
 							<p className="employee-info-eyebrow">Employee profile</p>
 							<h3>{selectedEmployee.name}</h3>
 							<p>{selectedEmployee.id} <span aria-hidden="true">·</span> {selectedEmployee.position}</p>
+							{currentEmployeePhoto?.error && (
+								<span className="employee-profile-photo-feedback error" role="alert">
+									{currentEmployeePhoto.error}
+								</span>
+							)}
 						</div>
 					</div>
 					<span className={`employee-status-badge ${selectedEmployee.todayStatus.toLowerCase().replaceAll(' ', '-')}`}>
 						Today: {selectedEmployee.todayStatus}
 					</span>
 				</header>
+				{isEmployeePhotoExpanded && currentEmployeePhoto?.imageUrl && (
+					<div
+						className="employee-photo-lightbox"
+						role="dialog"
+						aria-modal="true"
+						aria-label={`${selectedEmployee.name} profile photo`}
+					>
+						<div className="employee-photo-lightbox-frame">
+							<button
+								type="button"
+								className="employee-photo-lightbox-close"
+								aria-label="Close enlarged photo"
+								onClick={() => setIsEmployeePhotoExpanded(false)}
+							>
+								×
+							</button>
+							<img src={currentEmployeePhoto.imageUrl} alt={`${selectedEmployee.name} profile`} />
+						</div>
+					</div>
+				)}
 
 				<div className="employee-detail-summary">
 					<div className="employee-detail-stat">
