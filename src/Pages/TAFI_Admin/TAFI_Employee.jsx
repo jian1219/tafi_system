@@ -11,7 +11,11 @@ import {
 	updateTafiAdminEmployeeIdentity,
 	updateTafiAdminEmployeeProfile
 } from '../../lib/supabase'
-import { getAttendanceRemark, getLocalDateKey } from '../Branch_admin/branchAttendanceRecords'
+import {
+	getAttendanceDayValue,
+	getAttendanceRemark,
+	getLocalDateKey
+} from '../Branch_admin/branchAttendanceRecords'
 
 const today = new Date()
 const todayDateKey = [
@@ -24,6 +28,7 @@ const currentMonthKey = todayDateKey.slice(0, 7)
 const attendanceStatusDetails = {
 	present: { label: 'Present', className: 'p' },
 	present_late: { label: 'Late', className: 'l' },
+	half_day: { label: 'Half Day', className: 'half-day' },
 	absent: { label: 'Absent', className: 'a' },
 	maternity_leave: { label: 'Leave', className: 'v' },
 	paternity_leave: { label: 'Leave', className: 'v' },
@@ -646,7 +651,7 @@ export default function TafiEmployee({ sessionToken }) {
 	)
 	const monthlyStatuses = [...recordsByDate.values()].map((record) => record.status)
 	const monthlyAttendance = {
-		present: monthlyStatuses.filter((status) => status === 'present' || status === 'present_late').length,
+		present: monthlyStatuses.reduce((total, status) => total + getAttendanceDayValue(status), 0),
 		late: monthlyStatuses.filter((status) => status === 'present_late').length,
 		absent: monthlyStatuses.filter((status) => status === 'absent').length,
 		leave: monthlyStatuses.filter((status) => attendanceStatusDetails[status]?.className === 'v').length
@@ -654,7 +659,7 @@ export default function TafiEmployee({ sessionToken }) {
 	const monthlyShiftCounts = attendanceShiftDetails.map((shift) => ({
 		...shift,
 		total: [...recordsByDate.values()].filter((record) =>
-			record.shift === shift.value && ['present', 'present_late'].includes(record.status)
+			record.shift === shift.value && ['present', 'present_late', 'half_day'].includes(record.status)
 		).length
 	}))
 	const attendanceRate = Math.round((monthlyAttendance.present / attendanceDaysInMonth) * 100)
@@ -1332,7 +1337,7 @@ export default function TafiEmployee({ sessionToken }) {
 												const shiftLabel = attendanceShiftDetails.find(
 													(shift) => shift.value === record?.shift
 												)?.label
-												const displayedShiftLabel = ['present', 'present_late'].includes(status)
+												const displayedShiftLabel = ['present', 'present_late', 'half_day'].includes(status)
 													? shiftLabel
 													: ''
 

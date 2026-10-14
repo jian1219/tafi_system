@@ -7,13 +7,19 @@ import {
   saveBranchAttendance
 } from '../../lib/supabase'
 import { getBranchEmployees } from './branchEmployees'
-import { getAttendanceRemark, getLocalDateKey, hasEarnedMonthlyCredit } from './branchAttendanceRecords'
+import {
+  getAttendanceDayValue,
+  getAttendanceRemark,
+  getLocalDateKey,
+  hasEarnedMonthlyCredit
+} from './branchAttendanceRecords'
 import { recordLegend, statusCodeClassNames, statusCodes } from '../attendanceStatusDisplay'
 
 const attendanceOptions = [
   'Not marked',
   'Present',
   'Present (Late)',
+  'Half Day',
   'Absent',
   'Maternity Leave',
   'Paternity Leave',
@@ -30,12 +36,13 @@ const shiftOptions = [
   '1pm-9pm'
 ]
 
-const shiftEligibleStatuses = ['Present', 'Present (Late)']
+const shiftEligibleStatuses = ['Present', 'Present (Late)', 'Half Day']
 
 const statusFromDatabase = {
   not_marked: 'Not marked',
   present: 'Present',
   present_late: 'Present (Late)',
+  half_day: 'Half Day',
   absent: 'Absent',
   maternity_leave: 'Maternity Leave',
   paternity_leave: 'Paternity Leave',
@@ -205,10 +212,16 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
     const undertimeMinutes = undertimeRecords === null ? null : undertimeRecords
       .filter((record) => record.employee_code === employee.id)
       .reduce((total, record) => total + Number(record.undertime_minutes || 0), 0)
-    const presentDays = days.filter((day) => day === 'P' || day === 'L').length
+    const presentDays = [...recordsForEmployee.values()].reduce(
+      (total, record) => total + getAttendanceDayValue(record.status),
+      0
+    )
+    const fullPresentDays = [...recordsForEmployee.values()].filter(
+      (record) => record.status === 'present' || record.status === 'present_late'
+    ).length
     const attendanceRate = Math.round((presentDays / daysInMonth) * 100)
     const earnedCredit = employee.employmentClassification === 'Regular'
-      && hasEarnedMonthlyCredit(presentDays, monthKey)
+      && hasEarnedMonthlyCredit(fullPresentDays, monthKey)
       ? 1.25
       : 0
 
@@ -229,7 +242,9 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
     }
   }), [employees, attendanceRecords, overtimeRecords, undertimeRecords, daysInMonth, monthKey])
 
-  const totalPresent = employees.filter((employee) => ['Present', 'Present (Late)'].includes(employee.status)).length
+  const totalPresent = employees.filter((employee) =>
+    ['Present', 'Present (Late)', 'Half Day'].includes(employee.status)
+  ).length
   const totalLate = employees.filter((employee) => employee.status === 'Present (Late)').length
   const totalAbsent = employees.filter((employee) => employee.status === 'Absent').length
 
@@ -252,9 +267,10 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
         firstDay,
         lastDay,
         days: weekDays,
-        present: weekAttendance.filter((record) =>
-          record.status === 'present' || record.status === 'present_late'
-        ).length,
+        present: weekAttendance.reduce(
+          (total, record) => total + getAttendanceDayValue(record.status),
+          0
+        ),
         late: weekAttendance.filter((record) => record.status === 'present_late').length,
         absent: weekAttendance.filter((record) => record.status === 'absent').length
       }
@@ -436,6 +452,7 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
             <div className="legend-items">
               <span className="legend-item"><i className="legend-box present" /> Present</span>
               <span className="legend-item"><i className="legend-box late" /> Present (Late)</span>
+              <span className="legend-item"><i className="legend-box half-day" /> Half Day</span>
               <span className="legend-item"><i className="legend-box absent" /> Absent</span>
               <span className="legend-item"><i className="legend-box leave" /> Leave</span>
             </div>

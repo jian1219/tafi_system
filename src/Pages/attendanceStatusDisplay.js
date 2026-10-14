@@ -1,6 +1,7 @@
 export const statusCodes = {
   present: 'P',
   present_late: 'L',
+  half_day: 'HD',
   absent: 'A',
   maternity_leave: 'ML',
   paternity_leave: 'PL',
@@ -14,6 +15,7 @@ export const statusCodes = {
 export const statusCodeClassNames = {
   P: 'p',
   L: 'l',
+  HD: 'half-day',
   A: 'a',
   ML: 'ml',
   PL: 'pl',
@@ -27,6 +29,7 @@ export const statusCodeClassNames = {
 export const recordLegend = [
   { className: 'present', label: 'Present (✓)' },
   { className: 'late', label: 'Present (Late)' },
+  { className: 'half-day', label: 'Half day (HD)' },
   { className: 'absent', label: 'Absent (A)' },
   { className: 'day-off', label: 'Day off (DAY OFF)' },
   { className: 'vlp', label: 'Vacation leave with pay (VLP)' },

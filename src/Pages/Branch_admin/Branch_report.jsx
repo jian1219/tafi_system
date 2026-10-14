@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { getAttendanceDayValue, getLocalDateKey } from './branchAttendanceRecords'
 import {
   listBranchAttendance,
   listBranchAttendanceHistory,
@@ -12,7 +13,6 @@ import {
   saveBranchWeeklyPayrollSnapshot
 } from '../../lib/supabase'
 import { getBranchEmployees } from './branchEmployees'
-import { getLocalDateKey } from './branchAttendanceRecords'
 
 const getCurrentMonthValue = () => {
   const today = new Date()
@@ -33,6 +33,7 @@ const getMonthDetails = (monthValue) => {
 const statusLabels = {
   present: 'Present',
   present_late: 'Late',
+  half_day: 'Half Day',
   absent: 'Absent',
   maternity_leave: 'Maternity Leave',
   paternity_leave: 'Paternity Leave',
@@ -439,9 +440,10 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
 
       for (const employee of employees) {
         const records = attendanceByEmployee.get(employee.id) ?? []
-        const presentDays = records.filter(
-          (record) => record.status === 'present' || record.status === 'present_late'
-        ).length
+        const presentDays = records.reduce(
+          (total, record) => total + getAttendanceDayValue(record.status),
+          0
+        )
         const absentDays = records.filter((record) => record.status === 'absent').length
         const hasAttendance = records.some((record) => record.status !== 'not_marked')
         const dailyRate = Number.isFinite(employee.dailyRate) ? employee.dailyRate : null
@@ -522,7 +524,7 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
 
       rows.push([])
       rows.push(['Estimated net total for calculated employees', calculatedEmployees ? estimatedNetTotal.toFixed(2) : 'Awaiting complete data'])
-      rows.push(['Calculation', 'Monthly rate = daily rate × 26. Working days include Present and Present (Late); basic salary = daily rate × working days. Salary credit = basic salary + Regular Holiday + Overtime + Special Non-working Holiday. Late = daily rate ÷ 8 ÷ 60 × recorded late minutes. Others are employee-specific deductions entered with a description. Total deduction = SSS + PhilHealth + Pag-IBIG + HDMF loan + CA + Late + Und + Others. Final net pay = Salary credit − Total deduction.'])
+      rows.push(['Calculation', 'Monthly rate = daily rate × 26. Working days include Present and Present (Late) as 1 day each and Half Day as 0.5 day; basic salary = daily rate × weighted working days. Salary credit = basic salary + Regular Holiday + Overtime + Special Non-working Holiday. Late = daily rate ÷ 8 ÷ 60 × recorded late minutes. Others are employee-specific deductions entered with a description. Total deduction = SSS + PhilHealth + Pag-IBIG + HDMF loan + CA + Late + Und + Others. Final net pay = Salary credit − Total deduction.'])
 
       const description = periodDescription(payrollPeriodType, payrollWeekIndex, payrollMonthValue)
       const suffix = payrollPeriodType === 'weekly' ? `week-${payrollWeekIndex + 1}` : 'monthly'

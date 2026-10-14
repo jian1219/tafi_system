@@ -4,6 +4,7 @@ const statusLabels = {
   not_marked: 'Not marked',
   present: 'Present',
   present_late: 'Present (Late)',
+  half_day: 'Half Day',
   absent: 'Absent',
   maternity_leave: 'Maternity Leave',
   paternity_leave: 'Paternity Leave',

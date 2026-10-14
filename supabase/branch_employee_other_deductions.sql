@@ -229,11 +229,16 @@ begin
     employee.employee_code,
     employee.name,
     employee.position,
-    count(*) filter (where attendance.status = 'present')::integer,
+    sum(case
+      when attendance.status in ('present', 'present_late') then 1
+      when attendance.status = 'half_day' then 0.5
+      else 0
+    end),
     count(*) filter (where attendance.status = 'present_late')::integer,
     count(*) filter (where attendance.status = 'absent')::integer,
     round(sum(case
       when attendance.status in ('present', 'present_late') then attendance.daily_rate_snapshot
+      when attendance.status = 'half_day' then attendance.daily_rate_snapshot / 2
       else 0
     end), 2),
     coalesce(contribution.sss, 0),
@@ -253,6 +258,7 @@ begin
     round(
       sum(case
         when attendance.status in ('present', 'present_late') then attendance.daily_rate_snapshot
+        when attendance.status = 'half_day' then attendance.daily_rate_snapshot / 2
         else 0
       end)
       + coalesce(additions.holiday_regular_pay, 0)

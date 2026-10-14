@@ -8,13 +8,19 @@ import {
 	listTafiAdminUndertimeDeductions,
 	saveTafiAdminAttendance
 } from '../../lib/supabase'
-import { getAttendanceRemark, getLocalDateKey, hasEarnedMonthlyCredit } from '../Branch_admin/branchAttendanceRecords'
+import {
+	getAttendanceDayValue,
+	getAttendanceRemark,
+	getLocalDateKey,
+	hasEarnedMonthlyCredit
+} from '../Branch_admin/branchAttendanceRecords'
 import { recordLegend, statusCodeClassNames, statusCodes } from '../attendanceStatusDisplay'
 
 const attendanceOptions = [
 	'Not marked',
 	'Present',
 	'Present (Late)',
+	'Half Day',
 	'Absent',
 	'Maternity Leave',
 	'Paternity Leave',
@@ -31,12 +37,13 @@ const shiftOptions = [
 	'1pm-9pm'
 ]
 
-const shiftEligibleStatuses = ['Present', 'Present (Late)']
+const shiftEligibleStatuses = ['Present', 'Present (Late)', 'Half Day']
 
 const statusFromDatabase = {
 	not_marked: 'Not marked',
 	present: 'Present',
 	present_late: 'Present (Late)',
+	half_day: 'Half Day',
 	absent: 'Absent',
 	maternity_leave: 'Maternity Leave',
 	paternity_leave: 'Paternity Leave',
@@ -280,7 +287,13 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 		const undertimeMinutes = undertimeRecords === null ? null : undertimeRecords
 			.filter((record) => record.employee_code === employee.id)
 			.reduce((total, record) => total + Number(record.undertime_minutes || 0), 0)
-		const presentDays = days.filter((day) => day === 'P' || day === 'L').length
+		const presentDays = [...recordsByDay.values()].reduce(
+			(total, record) => total + getAttendanceDayValue(record.status),
+			0
+		)
+		const fullPresentDays = [...recordsByDay.values()].filter(
+			(record) => record.status === 'present' || record.status === 'present_late'
+		).length
 		const attendanceRate = monthDates.days
 			? Math.round((presentDays / monthDates.days) * 100)
 			: 0
@@ -299,7 +312,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 			attendanceRate,
 			attendanceRemark: getAttendanceRemark(attendanceRate),
 			earnedCredit: employee.employmentClassification === 'Regular'
-				&& hasEarnedMonthlyCredit(presentDays, selectedRecordsMonth)
+				&& hasEarnedMonthlyCredit(fullPresentDays, selectedRecordsMonth)
 				? 1.25
 				: 0
 		}
@@ -334,9 +347,10 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 			return {
 				label: `Week ${weekIndex + 1}`,
 				days,
-				present: records.filter((record) =>
-					record.status === 'present' || record.status === 'present_late'
-				).length,
+				present: records.reduce(
+					(total, record) => total + getAttendanceDayValue(record.status),
+					0
+				),
 				late: records.filter((record) => record.status === 'present_late').length,
 				absent: records.filter((record) => record.status === 'absent').length,
 				records
@@ -354,7 +368,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 			: 0
 	} : { present: 0, late: 0, absent: 0, rate: 0 }
 	const totalPresent = dailyEmployees.filter((employee) =>
-		['Present', 'Present (Late)'].includes(employee.status)
+		['Present', 'Present (Late)', 'Half Day'].includes(employee.status)
 	).length
 	const totalLate = dailyEmployees.filter((employee) => employee.status === 'Present (Late)').length
 	const totalAbsent = dailyEmployees.filter((employee) => employee.status === 'Absent').length
@@ -549,6 +563,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 						<div className="legend-items">
 							<span className="legend-item"><i className="legend-box present" /> Present</span>
 							<span className="legend-item"><i className="legend-box late" /> Present (Late)</span>
+							<span className="legend-item"><i className="legend-box half-day" /> Half Day</span>
 							<span className="legend-item"><i className="legend-box absent" /> Absent</span>
 							<span className="legend-item"><i className="legend-box leave" /> Leave</span>
 						</div>

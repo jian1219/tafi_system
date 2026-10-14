@@ -114,6 +114,7 @@ create table if not exists public.employee_attendance (
     'not_marked',
     'present',
     'present_late',
+    'half_day',
     'absent',
     'maternity_leave',
     'paternity_leave',

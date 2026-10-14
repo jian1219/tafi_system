@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getTafiAdminWeeklyPayrollData, listTafiAdminBranches } from '../../lib/supabase'
-import { getLocalDateKey } from '../Branch_admin/branchAttendanceRecords'
+import { getAttendanceDayValue, getLocalDateKey } from '../Branch_admin/branchAttendanceRecords'
 
 const formatCurrency = (amount) => amount.toLocaleString('en-PH', {
   style: 'currency',
@@ -196,9 +196,10 @@ export default function TafiBranchPayroll({ sessionToken }) {
       && record.attendance_date >= selectedStartDate
       && record.attendance_date <= selectedEndDate
     )
-    const presentDays = employeeRecords.filter(
-      (record) => record.status === 'present' || record.status === 'present_late'
-    ).length
+    const presentDays = employeeRecords.reduce(
+      (total, record) => total + getAttendanceDayValue(record.status),
+      0
+    )
     const leaveWithPayDays = employeeRecords.filter((record) => record.status === 'vl_with_pay').length
     const paidDays = presentDays + leaveWithPayDays
     const hasAttendance = employeeRecords.some((record) => record.status !== 'not_marked')

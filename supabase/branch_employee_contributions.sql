@@ -280,7 +280,7 @@ create table if not exists public.branch_weekly_payroll_snapshot_item (
   employee_code text not null,
   employee_name text not null,
   employee_position text not null,
-  present_days integer not null default 0 check (present_days >= 0),
+  present_days numeric(6, 2) not null default 0 check (present_days >= 0),
   late_days integer not null default 0 check (late_days >= 0),
   absent_days integer not null default 0 check (absent_days >= 0),
   weekly_gross numeric(12, 2) not null default 0 check (weekly_gross >= 0),
@@ -299,6 +299,10 @@ create table if not exists public.branch_weekly_payroll_snapshot_item (
     foreign key (branch_id, period_start)
     references public.branch_weekly_payroll_snapshot (branch_id, period_start) on delete cascade
 );
+
+alter table public.branch_weekly_payroll_snapshot_item
+  alter column present_days type numeric(6, 2)
+  using present_days::numeric;
 
 alter table public.branch_weekly_payroll_snapshot_item
   add column if not exists cash_advance_deduction numeric(12, 2) not null default 0
@@ -1614,11 +1618,16 @@ begin
     employee.employee_code,
     employee.name,
     employee.position,
-    count(*) filter (where attendance.status = 'present')::integer,
+    sum(case
+      when attendance.status in ('present', 'present_late') then 1
+      when attendance.status = 'half_day' then 0.5
+      else 0
+    end),
     count(*) filter (where attendance.status = 'present_late')::integer,
     count(*) filter (where attendance.status = 'absent')::integer,
     round(sum(case
       when attendance.status in ('present', 'present_late') then attendance.daily_rate_snapshot
+      when attendance.status = 'half_day' then attendance.daily_rate_snapshot / 2
       else 0
     end), 2),
     coalesce(contribution.sss, 0),
@@ -1637,6 +1646,7 @@ begin
     round(
       sum(case
         when attendance.status in ('present', 'present_late') then attendance.daily_rate_snapshot
+        when attendance.status = 'half_day' then attendance.daily_rate_snapshot / 2
         else 0
       end)
       + coalesce(additions.holiday_regular_pay, 0)
@@ -1838,7 +1848,7 @@ begin
     v_late_minutes := coalesce((v_record->>'late_minutes')::integer, 0);
 
     if v_status is null or v_status not in (
-      'not_marked', 'present', 'present_late', 'absent',
+      'not_marked', 'present', 'present_late', 'half_day', 'absent',
       'maternity_leave', 'paternity_leave', 'authorized_leave',
       'birthday_leave', 'vl_with_pay', 'vl_without_pay', 'day_off'
     ) then
@@ -1851,11 +1861,11 @@ begin
     ) then
       raise exception 'Invalid shift for employee %', v_record->>'employee_code';
     end if;
-    if v_status in ('present', 'present_late') and v_shift is null then
+    if v_status in ('present', 'present_late', 'half_day') and v_shift is null then
       raise exception 'A shift is required for employee %', v_record->>'employee_code';
     end if;
-    if v_status not in ('present', 'present_late') and v_shift is not null then
-      raise exception 'A shift is only allowed for Present or Present (Late) attendance for employee %',
+    if v_status not in ('present', 'present_late', 'half_day') and v_shift is not null then
+      raise exception 'A shift is only allowed for Present, Present (Late), or Half Day attendance for employee %',
         v_record->>'employee_code';
     end if;
     if (v_status = 'present_late' and v_late_minutes < 1)

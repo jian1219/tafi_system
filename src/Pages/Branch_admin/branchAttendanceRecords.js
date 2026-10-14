@@ -10,6 +10,11 @@ export function getAttendanceRemark(rate) {
   return rate >= 60 ? 'Good attendance' : 'Poor attendance'
 }
 
+export function getAttendanceDayValue(status) {
+  if (status === 'half_day') return 0.5
+  return status === 'present' || status === 'present_late' ? 1 : 0
+}
+
 export function hasEarnedMonthlyCredit(presentDays, monthKey) {
   return presentDays >= (monthKey.endsWith('-02') ? 24 : 26)
 }

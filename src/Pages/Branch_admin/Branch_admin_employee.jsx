@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getBranchAdminEmployeePhoto, listBranchAttendanceHistory } from '../../lib/supabase'
 import { getBranchEmployees } from './branchEmployees'
-import { getAttendanceRemark, getLocalDateKey, hasEarnedMonthlyCredit } from './branchAttendanceRecords'
+import {
+	getAttendanceDayValue,
+	getAttendanceRemark,
+	getLocalDateKey,
+	hasEarnedMonthlyCredit
+} from './branchAttendanceRecords'
 
 const currentDate = new Date()
 const todayDateKey = getLocalDateKey(currentDate)
@@ -10,6 +15,7 @@ const currentMonthKey = todayDateKey.slice(0, 7)
 const attendanceStatusDetails = {
 	present: { label: 'Present', className: 'p' },
 	present_late: { label: 'Late', className: 'l' },
+	half_day: { label: 'Half Day', className: 'half-day' },
 	absent: { label: 'Absent', className: 'a' },
 	maternity_leave: { label: 'Leave', className: 'v' },
 	paternity_leave: { label: 'Leave', className: 'v' },
@@ -224,7 +230,7 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 		const firstWeekday = new Date(attendanceYear, attendanceMonthNumber - 1, 1).getDay()
 		const monthlyStatuses = [...recordsByDate.values()].map((record) => record.status)
 		const monthlyAttendance = {
-			present: monthlyStatuses.filter((status) => status === 'present' || status === 'present_late').length,
+			present: monthlyStatuses.reduce((total, status) => total + getAttendanceDayValue(status), 0),
 			late: monthlyStatuses.filter((status) => status === 'present_late').length,
 			absent: monthlyStatuses.filter((status) => status === 'absent').length,
 			leave: monthlyStatuses.filter((status) => attendanceStatusDetails[status]?.className === 'v').length

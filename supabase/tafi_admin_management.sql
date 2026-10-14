@@ -38,8 +38,26 @@ alter table public.employee_attendance
 
 update public.employee_attendance
 set shift = null
-where status not in ('present', 'present_late')
+where status not in ('present', 'present_late', 'half_day')
   and shift is not null;
+
+alter table public.employee_attendance
+  drop constraint if exists employee_attendance_status_check;
+alter table public.employee_attendance
+  add constraint employee_attendance_status_check check (status in (
+    'not_marked',
+    'present',
+    'present_late',
+    'half_day',
+    'absent',
+    'maternity_leave',
+    'paternity_leave',
+    'authorized_leave',
+    'birthday_leave',
+    'vl_with_pay',
+    'vl_without_pay',
+    'day_off'
+  ));
 
 create table if not exists public.employee_profile_photo (
   employee_id uuid primary key references public.employee(id) on delete cascade,
@@ -737,7 +755,7 @@ begin
     v_late_minutes := coalesce((v_record->>'late_minutes')::integer, 0);
 
     if v_status is null or v_status not in (
-      'not_marked', 'present', 'present_late', 'absent',
+      'not_marked', 'present', 'present_late', 'half_day', 'absent',
       'maternity_leave', 'paternity_leave', 'authorized_leave',
       'birthday_leave', 'vl_with_pay', 'vl_without_pay', 'day_off'
     ) then
@@ -750,11 +768,11 @@ begin
     ) then
       raise exception 'Invalid shift for employee %', v_employee_code;
     end if;
-    if v_status in ('present', 'present_late') and v_shift is null then
+    if v_status in ('present', 'present_late', 'half_day') and v_shift is null then
       raise exception 'A shift is required for employee %', v_employee_code;
     end if;
-    if v_status not in ('present', 'present_late') and v_shift is not null then
-      raise exception 'A shift is only allowed for Present or Present (Late) attendance for employee %',
+    if v_status not in ('present', 'present_late', 'half_day') and v_shift is not null then
+      raise exception 'A shift is only allowed for Present, Present (Late), or Half Day attendance for employee %',
         v_employee_code;
     end if;
     if (v_status = 'present_late' and v_late_minutes < 1)
@@ -1049,7 +1067,7 @@ begin
     v_late_minutes := coalesce((v_record->>'late_minutes')::integer, 0);
 
     if v_status is null or v_status not in (
-      'not_marked', 'present', 'present_late', 'absent',
+      'not_marked', 'present', 'present_late', 'half_day', 'absent',
       'maternity_leave', 'paternity_leave', 'authorized_leave',
       'birthday_leave', 'vl_with_pay', 'vl_without_pay', 'day_off'
     ) then
@@ -1062,11 +1080,11 @@ begin
     ) then
       raise exception 'Invalid shift for employee %', v_employee_code;
     end if;
-    if v_status in ('present', 'present_late') and v_shift is null then
+    if v_status in ('present', 'present_late', 'half_day') and v_shift is null then
       raise exception 'A shift is required for employee %', v_employee_code;
     end if;
-    if v_status not in ('present', 'present_late') and v_shift is not null then
-      raise exception 'A shift is only allowed for Present or Present (Late) attendance for employee %',
+    if v_status not in ('present', 'present_late', 'half_day') and v_shift is not null then
+      raise exception 'A shift is only allowed for Present, Present (Late), or Half Day attendance for employee %',
         v_employee_code;
     end if;
     if (v_status = 'present_late' and v_late_minutes < 1)
