@@ -10,6 +10,7 @@ import {
 } from '../../lib/supabase'
 import { getBranchEmployees } from './branchEmployees'
 import { getLocalDateKey } from './branchAttendanceRecords'
+import { getPayrollPeriods } from '../../lib/payrollPeriods'
 
 const today = new Date()
 const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
@@ -50,17 +51,7 @@ const formatWeekdayDate = (dateKey) => new Date(`${dateKey}T12:00:00`).toLocaleD
 })
 
 const getPayrollWeeks = (monthKey) => {
-  const [year, month] = monthKey.split('-').map(Number)
-  const dayCount = new Date(year, month, 0).getDate()
-  return Array.from({ length: Math.ceil(dayCount / 7) }, (_, index) => {
-    const startDay = index * 7 + 1
-    const endDay = Math.min((index + 1) * 7, dayCount)
-    return {
-      index,
-      startDate: getLocalDateKey(new Date(year, month - 1, startDay)),
-      endDate: getLocalDateKey(new Date(year, month - 1, endDay))
-    }
-  })
+  return getPayrollPeriods(monthKey)
 }
 
 const getAdditionKey = (employeeCode, periodStart, additionType) =>
@@ -466,7 +457,7 @@ export default function BranchOtherAdditionPay({ branchName = 'Bansasi Branch', 
             </label>
           )}
           <label>
-            <span>Payroll week</span>
+            <span>Payroll period</span>
             <select
               value={weekIndex}
               onChange={(event) => {
@@ -477,7 +468,7 @@ export default function BranchOtherAdditionPay({ branchName = 'Bansasi Branch', 
             >
               {payrollWeeks.map((week) => (
                 <option key={week.startDate} value={week.index}>
-                  Week {week.index + 1} · {formatDate(week.startDate)}–{formatDate(week.endDate)}
+                  {week.label} · {formatDate(week.startDate)}–{formatDate(week.endDate)}
                 </option>
               ))}
             </select>
@@ -661,7 +652,7 @@ export default function BranchOtherAdditionPay({ branchName = 'Bansasi Branch', 
         <div className="other-deduction-table-wrap" role="region" aria-label="Overtime hours history" tabIndex="0">
           <table className="other-deduction-table">
             <thead>
-              <tr><th>Employee</th><th>Payroll week</th><th>Daily overtime hours</th><th>Total hours</th></tr>
+              <tr><th>Employee</th><th>Payroll period</th><th>Daily overtime hours</th><th>Total hours</th></tr>
             </thead>
             <tbody>
               {overtimeHistoryGroups.map((group) => (
@@ -688,7 +679,7 @@ export default function BranchOtherAdditionPay({ branchName = 'Bansasi Branch', 
       <div className="other-deduction-table-wrap" role="region" aria-label={`${selectedType.label} entries`} tabIndex="0">
         <table className="other-deduction-table">
           <thead>
-            <tr><th>Employee</th><th>Payroll week</th><th>Added amount</th><th>Last updated</th></tr>
+            <tr><th>Employee</th><th>Payroll period</th><th>Added amount</th><th>Last updated</th></tr>
           </thead>
           <tbody>
             {visibleAdditions.map((addition) => (

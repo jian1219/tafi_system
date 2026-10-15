@@ -13,6 +13,7 @@ import {
   getLocalDateKey,
   hasEarnedMonthlyCredit
 } from './branchAttendanceRecords'
+import { getPayrollPeriods } from '../../lib/payrollPeriods'
 import { recordLegend, statusCodeClassNames, statusCodes } from '../attendanceStatusDisplay'
 
 const attendanceOptions = [
@@ -249,9 +250,8 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
   const totalAbsent = employees.filter((employee) => employee.status === 'Absent').length
 
   const weeklyRecords = useMemo(() => {
-    return Array.from({ length: Math.ceil(daysInMonth / 7) }, (_, weekIndex) => {
-      const firstDay = weekIndex * 7 + 1
-      const lastDay = Math.min(firstDay + 6, daysInMonth)
+    return getPayrollPeriods(monthKey).map((period) => {
+      const { startDay: firstDay, endDay: lastDay } = period
       const weekDays = Array.from({ length: lastDay - firstDay + 1 }, (_, dayIndex) => {
         const day = firstDay + dayIndex
         return { day, date: new Date(recordsYear, recordsMonthIndex, day) }
@@ -263,7 +263,7 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
           && day <= lastDay
       })
       return {
-        label: `Week ${weekIndex + 1}`,
+        label: period.label,
         firstDay,
         lastDay,
         days: weekDays,
@@ -275,7 +275,7 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
         absent: weekAttendance.filter((record) => record.status === 'absent').length
       }
     })
-  }, [attendanceRecords, recordsYear, recordsMonthIndex, daysInMonth, monthKey])
+  }, [attendanceRecords, recordsYear, recordsMonthIndex, monthKey])
 
   const selectedWeek = weeklyRecords[selectedWeekIndex] ?? weeklyRecords[0]
   const weeklySummary = selectedWeek ? {

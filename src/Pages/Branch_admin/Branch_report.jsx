@@ -9,10 +9,12 @@ import {
   listBranchOtherDeductions,
   listBranchUndertimeDeductions,
   listBranchPayrollAdditions,
+  getBranchAdminContributionPeriodEnabled,
   listBranchWeeklyPayrollSnapshots,
   saveBranchWeeklyPayrollSnapshot
 } from '../../lib/supabase'
 import { getBranchEmployees } from './branchEmployees'
+import { getPayrollPeriods } from '../../lib/payrollPeriods'
 
 const getCurrentMonthValue = () => {
   const today = new Date()
@@ -62,24 +64,25 @@ const groupAttendanceByWeek = (records) => {
 
   for (const record of records) {
     const [year, month, day] = record.attendance_date.split('-').map(Number)
-    const weekNumber = Math.ceil(day / 7)
     const monthKey = `${year}-${String(month).padStart(2, '0')}`
-    const key = `${monthKey}-week-${weekNumber}`
+    const period = getPayrollPeriods(monthKey).find(
+      (candidate) => day >= candidate.startDay && day <= candidate.endDay
+    )
+    if (!period) continue
+
+    const key = `${monthKey}-period-${String(period.index).padStart(2, '0')}`
     const monthDate = new Date(year, month - 1, 1)
-    const monthDayCount = new Date(year, month, 0).getDate()
-    const startDay = (weekNumber - 1) * 7 + 1
-    const endDay = Math.min(weekNumber * 7, monthDayCount)
 
     if (!weeks.has(key)) {
       weeks.set(key, {
         key,
-        label: `${monthDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })} · Week ${weekNumber} (${monthDate.toLocaleDateString(undefined, { month: 'long' })} ${startDay}–${endDay})`,
-        startDay,
-        endDay,
+        label: `${monthDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })} · ${period.label} (${monthDate.toLocaleDateString(undefined, { month: 'long' })} ${period.startDay}–${period.endDay})`,
+        startDay: period.startDay,
+        endDay: period.endDay,
         monthKey,
         records: [],
-        dates: Array.from({ length: endDay - startDay + 1 }, (_, index) =>
-          `${monthKey}-${String(startDay + index).padStart(2, '0')}`
+        dates: Array.from({ length: period.endDay - period.startDay + 1 }, (_, index) =>
+          `${monthKey}-${String(period.startDay + index).padStart(2, '0')}`
         )
       })
     }
@@ -100,10 +103,13 @@ const createCsv = (rows) => `\uFEFF${rows.map((row) => row.map(csvCell).join(','
 
 const getPeriod = (periodType, weekIndex, monthValue) => {
   const { monthStart, monthDayCount } = getMonthDetails(monthValue)
-  const startDay = periodType === 'weekly' ? weekIndex * 7 + 1 : 1
-  const endDay = periodType === 'weekly'
-    ? Math.min((weekIndex + 1) * 7, monthDayCount)
-    : monthDayCount
+  if (periodType === 'weekly') {
+    const periods = getPayrollPeriods(monthValue)
+    return periods[weekIndex] ?? periods[0]
+  }
+
+  const startDay = 1
+  const endDay = monthDayCount
 
   return {
     startDay,
@@ -114,10 +120,10 @@ const getPeriod = (periodType, weekIndex, monthValue) => {
 }
 
 const periodDescription = (periodType, weekIndex, monthValue) => {
-  const { startDay, endDay } = getPeriod(periodType, weekIndex, monthValue)
+  const period = getPeriod(periodType, weekIndex, monthValue)
   const { monthName, reportYear } = getMonthDetails(monthValue)
   return periodType === 'weekly'
-    ? `Week ${weekIndex + 1} (${monthName} ${startDay}-${endDay}, ${reportYear})`
+    ? `${period.label} (${monthName} ${period.startDay}-${period.endDay}, ${reportYear})`
     : `${monthName} ${reportYear}`
 }
 
@@ -142,8 +148,8 @@ function PeriodControls({
   onMonthChange,
   id
 }) {
-  const { monthName, monthDayCount, reportYear } = getMonthDetails(monthValue)
-  const weekCount = Math.ceil(monthDayCount / 7)
+  const { monthName, reportYear } = getMonthDetails(monthValue)
+  const weeklyPeriods = getPayrollPeriods(monthValue)
   return (
     <div className="report-controls">
       <label>
@@ -165,19 +171,16 @@ function PeriodControls({
       </label>
       {periodType === 'weekly' && (
         <label>
-          <span>Week</span>
+          <span>Weekly period</span>
           <select
             value={weekIndex}
             onChange={(event) => onWeekChange(Number(event.target.value))}
           >
-            {Array.from({ length: weekCount }, (_, index) => {
-              const period = getPeriod('weekly', index, monthValue)
-              return (
-                <option key={`${id}-week-${index}`} value={index}>
-                  Week {index + 1}: {monthName} {period.startDay}-{period.endDay}
-                </option>
-              )
-            })}
+            {weeklyPeriods.map((period, index) => (
+              <option key={`${id}-week-${index}`} value={index}>
+                {period.label}: {monthName} {period.startDay}-{period.endDay}
+              </option>
+            ))}
           </select>
         </label>
       )}
@@ -377,6 +380,23 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
       const selectedMonth = getMonthDetails(payrollMonthValue)
       const period = getPeriod(payrollPeriodType, payrollWeekIndex, payrollMonthValue)
       const { employees, attendance, contributions, cashAdvancePayments, hdmfPayments, undertimeDeductions, otherDeductions, payrollAdditions } = await loadPeriodData(period)
+      const contributionPeriods = payrollPeriodType === 'weekly'
+        ? [period]
+        : getPayrollPeriods(payrollMonthValue)
+      const contributionSettings = await Promise.all(contributionPeriods.map(
+        (contributionPeriod) => getBranchAdminContributionPeriodEnabled(
+          branchAdmin?.session_token,
+          contributionPeriod.startDate
+        )
+      ))
+      const contributionSettingError = contributionSettings.find(({ error }) => error)?.error
+      if (contributionSettingError) throw contributionSettingError
+      if (contributionSettings.some(({ data }) => typeof data !== 'boolean')) {
+        throw new Error('The contribution period service returned invalid data.')
+      }
+      const enabledContributionPeriodStarts = new Set(contributionPeriods
+        .filter((_, index) => contributionSettings[index].data)
+        .map((contributionPeriod) => contributionPeriod.startDate))
       const attendanceByEmployee = new Map()
       for (const record of attendance) {
         const records = attendanceByEmployee.get(record.employee_code) ?? []
@@ -423,9 +443,11 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
         totals[addition.addition_type] += Number(addition.amount)
         payrollAdditionsByEmployee.set(addition.employee_code, totals)
       }
-      const periodWeeks = payrollPeriodType === 'weekly'
-        ? 1
-        : Math.ceil((period.endDay - period.startDay + 1) / 7)
+      const periodWeeks = contributionPeriods.filter((contributionPeriod) =>
+        contributionPeriod.startDate >= period.startDate
+        && contributionPeriod.endDate <= period.endDate
+        && enabledContributionPeriodStarts.has(contributionPeriod.startDate)
+      ).length
       const rows = [[
         'Employee ID', 'Employee Name', 'Employment Status', 'Monthly Rate (PHP)',
         'Daily Rate (PHP)', 'Working Days (Present)', 'Absent', 'Total Number of Days',
@@ -450,9 +472,10 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
         const monthlyRate = dailyRate === null ? null : dailyRate * 26
         const basicSalary = hasAttendance && dailyRate !== null ? presentDays * dailyRate : null
         const contribution = contributionsByEmployee.get(employee.id)
-        const sss = contribution ? Number(contribution.sss) * periodWeeks : null
-        const philhealth = contribution ? Number(contribution.philhealth) * periodWeeks : null
-        const pagibig = contribution ? Number(contribution.pagibig) * periodWeeks : null
+        const hasContribution = periodWeeks === 0 || Boolean(contribution)
+        const sss = periodWeeks === 0 ? 0 : contribution ? Number(contribution.sss) * periodWeeks : null
+        const philhealth = periodWeeks === 0 ? 0 : contribution ? Number(contribution.philhealth) * periodWeeks : null
+        const pagibig = periodWeeks === 0 ? 0 : contribution ? Number(contribution.pagibig) * periodWeeks : null
         const cashAdvanceDeduction = cashAdvanceDeductionByEmployee.get(employee.id) ?? 0
         const hdmfLoanDeduction = hdmfDeductionByEmployee.get(employee.id) ?? 0
         const additions = payrollAdditionsByEmployee.get(employee.id) ?? {
@@ -471,13 +494,10 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
           : Math.round((dailyRate / 8 / 60 * lateMinutes) * 100) / 100
         const undertimeDeduction = undertimeDeductionByEmployee.get(employee.id) ?? 0
         let otherDeduction = 0
-        for (let weekStartDay = period.startDay; weekStartDay <= period.endDay; weekStartDay += 7) {
-          const weekStart = getLocalDateKey(new Date(
-            selectedMonth.monthStart.getFullYear(),
-            selectedMonth.monthStart.getMonth(),
-            weekStartDay
-          ))
-          const manualKey = `${employee.id}:${weekStart}`
+        for (const payrollPeriod of contributionPeriods) {
+          if (payrollPeriod.startDate < period.startDate
+            || payrollPeriod.endDate > period.endDate) continue
+          const manualKey = `${employee.id}:${payrollPeriod.startDate}`
           otherDeduction += otherDeductionByEmployeeAndWeek.get(manualKey) ?? 0
         }
         const deductionTotal = sss === null
@@ -518,7 +538,7 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
           otherDeduction,
           deductionTotal ?? '',
           net ?? '',
-          basicSalary === null ? 'Needs rate or attendance' : !contribution ? 'Needs contributions' : 'Estimated'
+          basicSalary === null ? 'Needs rate or attendance' : !hasContribution ? 'Needs contributions' : 'Estimated'
         ])
       }
 
@@ -527,7 +547,11 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
       rows.push(['Calculation', 'Monthly rate = daily rate × 26. Working days include Present and Present (Late) as 1 day each and Half Day as 0.5 day; basic salary = daily rate × weighted working days. Salary credit = basic salary + Regular Holiday + Overtime + Special Non-working Holiday. Late = daily rate ÷ 8 ÷ 60 × recorded late minutes. Others are employee-specific deductions entered with a description. Total deduction = SSS + PhilHealth + Pag-IBIG + HDMF loan + CA + Late + Und + Others. Final net pay = Salary credit − Total deduction.'])
 
       const description = periodDescription(payrollPeriodType, payrollWeekIndex, payrollMonthValue)
-      const suffix = payrollPeriodType === 'weekly' ? `week-${payrollWeekIndex + 1}` : 'monthly'
+      const suffix = payrollPeriodType === 'weekly'
+        ? period.type === 'week'
+          ? `week-${period.weekNumber}`
+          : `covered-${period.startDay}-${period.endDay}`
+        : 'monthly'
       downloadCsv(`payroll-${suffix}-${selectedMonth.monthName.toLowerCase()}-${selectedMonth.reportYear}.csv`, rows)
       setPayrollMessage(`Downloaded payroll report for ${description}.`)
     } catch (error) {
@@ -549,7 +573,7 @@ export default function BranchReport({ branchName = 'Bansasi Branch', branchAdmi
         <div className="report-section-heading">
           <div>
             <h4>Weekly report history</h4>
-            <p>Saved attendance is grouped by month and week. Save a payroll snapshot to preserve that week’s pay and deductions.</p>
+            <p>Saved attendance is grouped by calendar week and covered period. Save a payroll snapshot to preserve that period’s pay and deductions.</p>
           </div>
         </div>
 

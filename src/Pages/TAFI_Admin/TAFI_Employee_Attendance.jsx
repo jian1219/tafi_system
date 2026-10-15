@@ -14,6 +14,7 @@ import {
 	getLocalDateKey,
 	hasEarnedMonthlyCredit
 } from '../Branch_admin/branchAttendanceRecords'
+import { getPayrollPeriods } from '../../lib/payrollPeriods'
 import { recordLegend, statusCodeClassNames, statusCodes } from '../attendanceStatusDisplay'
 
 const attendanceOptions = [
@@ -325,11 +326,9 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 		monthDates.days
 	])
 
-	const weeklyRecords = useMemo(() => Array.from(
-		{ length: Math.ceil(monthDates.days / 7) },
-		(_, weekIndex) => {
-			const firstDay = weekIndex * 7 + 1
-			const lastDay = Math.min(firstDay + 6, monthDates.days)
+	const weeklyRecords = useMemo(() => getPayrollPeriods(selectedRecordsMonth).map(
+		(period) => {
+			const { startDay: firstDay, endDay: lastDay } = period
 			const days = Array.from({ length: lastDay - firstDay + 1 }, (_, dayIndex) => {
 				const day = firstDay + dayIndex
 				return {
@@ -345,7 +344,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 			})
 
 			return {
-				label: `Week ${weekIndex + 1}`,
+				label: period.label,
 				days,
 				present: records.reduce(
 					(total, record) => total + getAttendanceDayValue(record.status),
@@ -356,7 +355,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 				records
 			}
 		}
-	), [attendanceRecords, selectedRecordsMonth, monthDates])
+	), [attendanceRecords, selectedRecordsMonth, monthDates.year, monthDates.monthIndex])
 
 	const selectedWeek = weeklyRecords[selectedWeekIndex] ?? weeklyRecords[0]
 	const weeklySummary = selectedWeek ? {
@@ -737,6 +736,9 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 							))}
 						</div>
 					</div>
+					<div className="monitoring-toolbar">
+						{recordsMonthSelector}
+					</div>
 					<div className="weekly-summary-grid">
 						{weeklyRecords.map((week, weekIndex) => (
 							<button
@@ -765,7 +767,6 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 					{selectedWeek && (
 						<>
 							<div className="monitoring-toolbar">
-								{recordsMonthSelector}
 								<div className="summary-inline">
 									<span>Present: <strong>{weeklySummary.present}</strong></span>
 									<span>Late: <strong>{weeklySummary.late}</strong></span>

@@ -1058,6 +1058,62 @@ button {
   font-weight: 700;
 }
 
+.contribution-schedule-panel {
+  padding: 20px 24px 24px;
+}
+
+.contribution-schedule-note {
+  max-width: 900px;
+  margin: 0 0 18px;
+  color: #475569;
+  line-height: 1.55;
+}
+
+.contribution-period-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.contribution-period-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #dbe4f0;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.contribution-period-option input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: #1d4ed8;
+  flex: 0 0 auto;
+}
+
+.contribution-period-option input:disabled {
+  cursor: not-allowed;
+}
+
+.contribution-period-details {
+  display: grid;
+  gap: 5px;
+  color: #475569;
+  font-size: 0.86rem;
+}
+
+.contribution-period-details strong {
+  color: #0f172a;
+  font-size: 0.98rem;
+}
+
+.contribution-schedule-save {
+  margin-top: 18px;
+}
+
 .contribution-message,
 .payroll-contribution-message {
   margin: 0;

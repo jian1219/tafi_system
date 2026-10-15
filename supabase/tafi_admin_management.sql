@@ -26,6 +26,18 @@ create table if not exists public.tafi_admin_session (
 alter table public.tafi_admin_session enable row level security;
 revoke all on table public.tafi_admin_session from public, anon, authenticated;
 
+create table if not exists public.tafi_admin_contribution_month_schedule (
+  month_start date primary key check (
+    month_start = date_trunc('month', month_start)::date
+  ),
+  enabled_period_starts date[] not null default '{}'::date[],
+  updated_by_tafi_admin_id uuid references public.tafi_admin(id) on delete set null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.tafi_admin_contribution_month_schedule enable row level security;
+revoke all on table public.tafi_admin_contribution_month_schedule from public, anon, authenticated;
+
 alter table public.employee_attendance
   add column if not exists submitted_by_tafi_admin_id uuid
   references public.tafi_admin(id) on delete set null;
@@ -313,6 +325,145 @@ begin
     updated_at = now();
 
   return true;
+end;
+$$;
+
+create or replace function public.tafi_admin_get_contribution_period_settings(
+  p_session_token uuid,
+  p_month_start date
+)
+returns table (
+  enabled_period_starts date[]
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1 from public.tafi_admin_session as admin_session
+    where admin_session.session_token = p_session_token
+      and admin_session.expires_at > now()
+  ) then
+    raise exception 'Invalid or expired TAFI Admin session' using errcode = '28000';
+  end if;
+
+  if p_month_start is null
+    or p_month_start <> date_trunc('month', p_month_start)::date then
+    raise exception 'Choose a valid month';
+  end if;
+
+  return query
+  select schedule.enabled_period_starts
+  from public.tafi_admin_contribution_month_schedule as schedule
+  where schedule.month_start = p_month_start;
+end;
+$$;
+
+create or replace function public.tafi_admin_save_contribution_period_settings(
+  p_session_token uuid,
+  p_month_start date,
+  p_enabled_period_starts date[]
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_tafi_admin_id uuid;
+begin
+  select admin_session.tafi_admin_id
+  into v_tafi_admin_id
+  from public.tafi_admin_session as admin_session
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now()
+  limit 1;
+
+  if v_tafi_admin_id is null then
+    raise exception 'Invalid or expired TAFI Admin session' using errcode = '28000';
+  end if;
+
+  if p_month_start is null
+    or p_month_start <> date_trunc('month', p_month_start)::date
+    or p_enabled_period_starts is null then
+    raise exception 'Choose a valid month and contribution schedule';
+  end if;
+
+  if exists (
+    select 1
+    from unnest(p_enabled_period_starts) as enabled_period(period_start)
+    where enabled_period.period_start is null
+      or enabled_period.period_start < p_month_start
+      or enabled_period.period_start >= (p_month_start + interval '1 month')::date
+      or (
+        enabled_period.period_start <> p_month_start
+        and extract(dow from enabled_period.period_start) <> 0
+      )
+  ) then
+    raise exception 'Contribution periods must start on the first of the month or a Sunday within that month';
+  end if;
+
+  if cardinality(p_enabled_period_starts) <> (
+    select count(distinct enabled_period.period_start)::integer
+    from unnest(p_enabled_period_starts) as enabled_period(period_start)
+  ) then
+    raise exception 'Contribution periods cannot be duplicated';
+  end if;
+
+  insert into public.tafi_admin_contribution_month_schedule (
+    month_start, enabled_period_starts, updated_by_tafi_admin_id, updated_at
+  )
+  values (
+    p_month_start, p_enabled_period_starts, v_tafi_admin_id, now()
+  )
+  on conflict (month_start) do update
+  set enabled_period_starts = excluded.enabled_period_starts,
+    updated_by_tafi_admin_id = excluded.updated_by_tafi_admin_id,
+    updated_at = now();
+
+  return true;
+end;
+$$;
+
+create or replace function public.branch_admin_is_contribution_period_enabled(
+  p_session_token uuid,
+  p_period_start date
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_period_enabled boolean;
+begin
+  if not exists (
+    select 1
+    from public.branch_admin_session as admin_session
+    where admin_session.session_token = p_session_token
+      and admin_session.expires_at > now()
+  ) then
+    raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
+  end if;
+
+  if p_period_start is null then
+    raise exception 'Choose a valid payroll period';
+  end if;
+
+  select not exists (
+    select 1
+    from public.tafi_admin_contribution_month_schedule as schedule
+    where schedule.month_start = date_trunc('month', p_period_start)::date
+  ) or exists (
+    select 1
+    from public.tafi_admin_contribution_month_schedule as schedule
+    where schedule.month_start = date_trunc('month', p_period_start)::date
+      and p_period_start = any(schedule.enabled_period_starts)
+  )
+  into v_period_enabled;
+
+  return v_period_enabled;
 end;
 $$;
 
@@ -1521,6 +1672,7 @@ set search_path = ''
 as $$
 declare
   payroll_data jsonb;
+  v_mandatory_contributions_enabled boolean;
 begin
   if not exists (
     select 1 from public.tafi_admin_session as admin_session
@@ -1541,6 +1693,18 @@ begin
   if not exists (select 1 from public.branch where id = p_branch_id) then
     raise exception 'Selected branch was not found';
   end if;
+
+  select not exists (
+    select 1
+    from public.tafi_admin_contribution_month_schedule as schedule
+    where schedule.month_start = date_trunc('month', p_period_start)::date
+  ) or exists (
+    select 1
+    from public.tafi_admin_contribution_month_schedule as schedule
+    where schedule.month_start = date_trunc('month', p_period_start)::date
+      and p_period_start = any(schedule.enabled_period_starts)
+  )
+  into v_mandatory_contributions_enabled;
 
   select jsonb_build_object(
     'employees', coalesce((
@@ -1569,13 +1733,21 @@ begin
     ), '[]'::jsonb),
     'contributions', coalesce((
       select jsonb_agg(jsonb_build_object(
-        'employee_code', contribution.employee_code,
-        'sss', contribution.sss,
-        'philhealth', contribution.philhealth,
-        'pagibig', contribution.pagibig
-      ) order by contribution.employee_code)
-      from public.branch_employee_contribution as contribution
-      where contribution.branch_id = p_branch_id
+        'employee_code', employee.employee_code,
+        'sss', case when v_mandatory_contributions_enabled then contribution.sss else 0 end,
+        'philhealth', case when v_mandatory_contributions_enabled then contribution.philhealth else 0 end,
+        'pagibig', case when v_mandatory_contributions_enabled then contribution.pagibig else 0 end
+      ) order by employee.employee_code)
+      from public.employee as employee
+      left join public.branch_employee_contribution as contribution
+        on contribution.branch_id = employee.branch_id
+        and contribution.employee_code = employee.employee_code
+      where employee.branch_id = p_branch_id
+        and employee.employment_status = 'active'
+        and (
+          not v_mandatory_contributions_enabled
+          or contribution.employee_code is not null
+        )
     ), '[]'::jsonb),
     'cash_advance_payments', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -1685,6 +1857,9 @@ revoke all on function public.tafi_admin_save_employee_photo(uuid, uuid, text, t
 revoke all on function public.tafi_admin_get_employee_photo(uuid, uuid) from public;
 revoke all on function public.tafi_admin_list_employee_contributions(uuid, uuid) from public;
 revoke all on function public.tafi_admin_save_employee_contribution(uuid, uuid, text, numeric, numeric, numeric) from public;
+revoke all on function public.tafi_admin_get_contribution_period_settings(uuid, date) from public;
+revoke all on function public.tafi_admin_save_contribution_period_settings(uuid, date, date[]) from public;
+revoke all on function public.branch_admin_is_contribution_period_enabled(uuid, date) from public;
 revoke all on function public.tafi_admin_list_employees(uuid) from public;
 revoke all on function public.tafi_admin_list_attendance(uuid, uuid, date, date) from public;
 revoke all on function public.tafi_admin_list_employee_leave_credits(uuid, uuid) from public;
@@ -1710,6 +1885,9 @@ grant execute on function public.tafi_admin_save_employee_photo(uuid, uuid, text
 grant execute on function public.tafi_admin_get_employee_photo(uuid, uuid) to anon, authenticated;
 grant execute on function public.tafi_admin_list_employee_contributions(uuid, uuid) to anon, authenticated;
 grant execute on function public.tafi_admin_save_employee_contribution(uuid, uuid, text, numeric, numeric, numeric) to anon, authenticated;
+grant execute on function public.tafi_admin_get_contribution_period_settings(uuid, date) to anon, authenticated;
+grant execute on function public.tafi_admin_save_contribution_period_settings(uuid, date, date[]) to anon, authenticated;
+grant execute on function public.branch_admin_is_contribution_period_enabled(uuid, date) to anon, authenticated;
 grant execute on function public.tafi_admin_list_employees(uuid) to anon, authenticated;
 grant execute on function public.tafi_admin_list_attendance(uuid, uuid, date, date) to anon, authenticated;
 grant execute on function public.tafi_admin_list_employee_leave_credits(uuid, uuid) to anon, authenticated;

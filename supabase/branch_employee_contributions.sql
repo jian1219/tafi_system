@@ -1574,6 +1574,7 @@ as $$
 declare
   v_admin_id uuid;
   v_branch_id uuid;
+  v_mandatory_contributions_enabled boolean;
 begin
   select ba.id, ba.branch_id into v_admin_id, v_branch_id
   from public.branch_admin_session as admin_session
@@ -1589,6 +1590,17 @@ begin
     or p_period_end > p_period_start + 6 then
     raise exception 'A valid payroll week of seven days or fewer is required';
   end if;
+  select not exists (
+    select 1
+    from public.tafi_admin_contribution_month_schedule as schedule
+    where schedule.month_start = date_trunc('month', p_period_start)::date
+  ) or exists (
+    select 1
+    from public.tafi_admin_contribution_month_schedule as schedule
+    where schedule.month_start = date_trunc('month', p_period_start)::date
+      and p_period_start = any(schedule.enabled_period_starts)
+  )
+  into v_mandatory_contributions_enabled;
   if not exists (
     select 1
     from public.employee_attendance as attendance
@@ -1630,9 +1642,9 @@ begin
       when attendance.status = 'half_day' then attendance.daily_rate_snapshot / 2
       else 0
     end), 2),
-    coalesce(contribution.sss, 0),
-    coalesce(contribution.philhealth, 0),
-    coalesce(contribution.pagibig, 0),
+    case when v_mandatory_contributions_enabled then coalesce(contribution.sss, 0) else 0 end,
+    case when v_mandatory_contributions_enabled then coalesce(contribution.philhealth, 0) else 0 end,
+    case when v_mandatory_contributions_enabled then coalesce(contribution.pagibig, 0) else 0 end,
     coalesce(cash_advance.weekly_deduction, 0),
     coalesce(hdmf_payment.amount, 0),
     coalesce(undertime.amount, 0) + round(sum(case
@@ -1652,9 +1664,9 @@ begin
       + coalesce(additions.holiday_regular_pay, 0)
       + coalesce(additions.overtime_pay, 0)
       + coalesce(additions.special_nonworking_holiday_pay, 0)
-      - coalesce(contribution.sss, 0)
-      - coalesce(contribution.philhealth, 0)
-      - coalesce(contribution.pagibig, 0)
+      - case when v_mandatory_contributions_enabled then coalesce(contribution.sss, 0) else 0 end
+      - case when v_mandatory_contributions_enabled then coalesce(contribution.philhealth, 0) else 0 end
+      - case when v_mandatory_contributions_enabled then coalesce(contribution.pagibig, 0) else 0 end
       - coalesce(cash_advance.weekly_deduction, 0)
       - coalesce(hdmf_payment.amount, 0)
       - coalesce(undertime.amount, 0)

@@ -7,6 +7,7 @@ import {
 } from '../../lib/supabase'
 import { getBranchEmployees } from './branchEmployees'
 import { getLocalDateKey } from './branchAttendanceRecords'
+import { getPayrollPeriods } from '../../lib/payrollPeriods'
 
 const today = new Date()
 const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
@@ -21,20 +22,6 @@ const formatDate = (dateKey) => new Date(`${dateKey}T12:00:00`).toLocaleDateStri
   day: 'numeric',
   year: 'numeric'
 })
-
-const getPayrollWeeks = (monthKey) => {
-  const [year, month] = monthKey.split('-').map(Number)
-  const dayCount = new Date(year, month, 0).getDate()
-  return Array.from({ length: Math.ceil(dayCount / 7) }, (_, index) => {
-    const startDay = index * 7 + 1
-    const endDay = Math.min((index + 1) * 7, dayCount)
-    return {
-      index,
-      startDate: getLocalDateKey(new Date(year, month - 1, startDay)),
-      endDate: getLocalDateKey(new Date(year, month - 1, endDay))
-    }
-  })
-}
 
 const getPaymentKey = (loanId, periodStart) => `${loanId}:${periodStart}`
 
@@ -52,7 +39,7 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
   const [isSaving, setIsSaving] = useState(false)
   const [savingAdvanceId, setSavingAdvanceId] = useState('')
   const sessionToken = branchAdmin?.session_token
-  const payrollWeeks = useMemo(() => getPayrollWeeks(selectedMonth), [selectedMonth])
+  const payrollWeeks = useMemo(() => getPayrollPeriods(selectedMonth), [selectedMonth])
 
   const fetchData = useCallback(async (monthKey) => {
     if (!sessionToken) return { employees: [], advances: [], payments: [], error: null }
@@ -290,7 +277,7 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
               <th>Date cash advance</th>
               <th>Cash advance amount</th>
               {payrollWeeks.map((week) => (
-                <th key={week.startDate}>Week {week.index + 1}<small>{formatDate(week.startDate)}–{formatDate(week.endDate)}</small></th>
+                <th key={week.startDate}>{week.label}<small>{formatDate(week.startDate)}–{formatDate(week.endDate)}</small></th>
               ))}
               <th>Total deducted</th>
               <th>Remaining balance</th>
@@ -321,7 +308,7 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
                           ...current,
                           [key]: event.target.value
                         }))}
-                        aria-label={`Week ${week.index + 1} cash advance deduction for ${advance.employee_name}`}
+                        aria-label={`${week.label} cash advance deduction for ${advance.employee_name}`}
                         disabled={Number(advance.balance) <= 0 || Boolean(savingAdvanceId)}
                       />
                     </td>

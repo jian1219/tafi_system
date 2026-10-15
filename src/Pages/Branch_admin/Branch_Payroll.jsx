@@ -7,11 +7,13 @@ import {
   listBranchHdmfPayments,
   listBranchOtherDeductions,
   listBranchUndertimeDeductions,
-  listBranchPayrollAdditions
+  listBranchPayrollAdditions,
+  getBranchAdminContributionPeriodEnabled
 } from '../../lib/supabase'
 import { getBranchEmployees } from './branchEmployees'
 import { getLocalDateKey } from './branchAttendanceRecords'
 import { downloadPayrollWorkbook } from '../TAFI_Admin/payrollXlsxExport'
+import { getPayrollPeriods } from '../../lib/payrollPeriods'
 
 const formatCurrency = (amount) => amount.toLocaleString('en-PH', {
   style: 'currency',
@@ -33,6 +35,7 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
   const [undertimeDeductions, setUndertimeDeductions] = useState({})
   const [otherDeductions, setOtherDeductions] = useState({})
   const [payrollAdditions, setPayrollAdditions] = useState({})
+  const [mandatoryContributionsEnabled, setMandatoryContributionsEnabled] = useState(true)
   const [contributionStatus, setContributionStatus] = useState('loading')
   const [contributionError, setContributionError] = useState('')
   const [isDownloadingXlsx, setIsDownloadingXlsx] = useState(false)
@@ -41,40 +44,23 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
     const [year, month] = selectedMonth.split('-').map(Number)
     return new Date(year, month - 1, 1)
   }, [selectedMonth])
-  const attendanceMonthLength = new Date(
-    payrollMonthStart.getFullYear(),
-    payrollMonthStart.getMonth() + 1,
-    0
-  ).getDate()
   const payrollMonthLabel = payrollMonthStart.toLocaleDateString(undefined, {
     month: 'long',
     year: 'numeric'
   })
-  const payrollWeeks = useMemo(() => Array.from(
-    { length: Math.max(1, Math.ceil(attendanceMonthLength / 7)) },
-    (_, index) => ({
-      index,
-      startDay: index * 7 + 1,
-      endDay: Math.min((index + 1) * 7, attendanceMonthLength)
-    })
-  ), [attendanceMonthLength])
+  const payrollWeeks = useMemo(() => getPayrollPeriods(selectedMonth), [selectedMonth])
   const selectedWeek = payrollWeeks[selectedWeekIndex] ?? payrollWeeks[0]
   const sessionToken = branchAdmin?.session_token
-  const selectedStartDate = getLocalDateKey(new Date(
-    payrollMonthStart.getFullYear(),
-    payrollMonthStart.getMonth(),
-    selectedWeek.startDay
-  ))
-  const selectedEndDate = getLocalDateKey(new Date(
-    payrollMonthStart.getFullYear(),
-    payrollMonthStart.getMonth(),
-    selectedWeek.endDay
-  ))
+  const selectedStartDate = selectedWeek?.startDate ?? getLocalDateKey(payrollMonthStart)
+  const selectedEndDate = selectedWeek?.endDate ?? selectedStartDate
 
   useEffect(() => {
     let isCurrent = true
 
     const loadContributions = async () => {
+      setContributionStatus('loading')
+      setContributionError('')
+      setMandatoryContributionsEnabled(true)
       if (!sessionToken) {
         setContributionError('Apply the Supabase contribution SQL, then sign out and sign in again to calculate take-home pay.')
         setContributionStatus('error')
@@ -84,6 +70,7 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
       const [
         { employees: loadedEmployees, error: employeeError },
         { data: contributionData, error: contributionLoadError },
+        { data: periodContributionsEnabled, error: periodContributionError },
         { data: loadedAttendance, error: attendanceError },
         { data: loadedCashAdvancePayments, error: cashAdvanceError },
         { data: loadedHdmfPayments, error: hdmfPaymentError },
@@ -93,6 +80,7 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
       ] = await Promise.all([
         getBranchEmployees(sessionToken),
         listBranchEmployeeContributions(sessionToken),
+        getBranchAdminContributionPeriodEnabled(sessionToken, selectedStartDate),
         listBranchAttendance(sessionToken, selectedStartDate, selectedEndDate),
         listBranchCashAdvancePayments(sessionToken, selectedStartDate, selectedEndDate),
         listBranchHdmfPayments(sessionToken, selectedStartDate, selectedEndDate),
@@ -103,13 +91,20 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
       if (!isCurrent) return
 
       const error = employeeError ?? contributionLoadError ?? attendanceError ?? cashAdvanceError
-        ?? hdmfPaymentError ?? undertimeError ?? otherDeductionsError ?? additionsError
+        ?? periodContributionError ?? hdmfPaymentError ?? undertimeError ?? otherDeductionsError ?? additionsError
       if (error) {
         setContributionError(error.message)
         setContributionStatus('error')
         return
       }
 
+      if (typeof periodContributionsEnabled !== 'boolean') {
+        setContributionError('The contribution period service returned invalid data.')
+        setContributionStatus('error')
+        return
+      }
+
+      setMandatoryContributionsEnabled(periodContributionsEnabled)
       setEmployees(loadedEmployees)
       setAttendanceRecords(loadedAttendance ?? [])
       setCashAdvances(Object.fromEntries(
@@ -199,9 +194,9 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
       ? paidDays * dailyRate
       : null
     const contribution = contributions[employee.id]
-    const sss = contribution?.sss ?? 0
-    const philhealth = contribution?.philhealth ?? 0
-    const pagibig = contribution?.pagibig ?? 0
+    const sss = mandatoryContributionsEnabled ? contribution?.sss ?? 0 : 0
+    const philhealth = mandatoryContributionsEnabled ? contribution?.philhealth ?? 0 : 0
+    const pagibig = mandatoryContributionsEnabled ? contribution?.pagibig ?? 0 : 0
     const cashAdvanceDeduction = cashAdvances[employee.id] ?? 0
     const hdmfLoanDeduction = hdmfPayments[employee.id] ?? 0
     const additions = payrollAdditions[employee.id] ?? {
@@ -236,7 +231,8 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
       monthlyRate,
       basicSalary,
       salaryCredit,
-      hasContributions: Boolean(contribution),
+      hasContributions: !mandatoryContributionsEnabled || Boolean(contribution),
+      mandatoryContributionsEnabled,
       sss,
       philhealth,
       pagibig,
@@ -248,11 +244,11 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
       totalDeductions,
       ...additions,
       totalAdditions,
-      weeklyNet: contributionStatus === 'ready' && contribution && salaryCredit !== null
+      weeklyNet: contributionStatus === 'ready' && (!mandatoryContributionsEnabled || contribution) && salaryCredit !== null
         ? salaryCredit - totalDeductions
         : null
     }
-  }), [employees, attendanceRecords, selectedStartDate, selectedEndDate, contributions, cashAdvances, hdmfPayments, undertimeDeductions, otherDeductions, payrollAdditions, contributionStatus])
+  }), [employees, attendanceRecords, selectedStartDate, selectedEndDate, contributions, cashAdvances, hdmfPayments, undertimeDeductions, otherDeductions, payrollAdditions, contributionStatus, mandatoryContributionsEnabled])
 
   const estimatedTotal = payrollRows.reduce((total, employee) =>
     total + (employee.salaryCredit ?? 0), 0)
@@ -277,7 +273,6 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
         payrollRows,
         branchName,
         selectedMonth,
-        selectedWeekIndex,
         selectedWeek,
         payrollMonthLabel,
         selectedStartDate,
@@ -314,14 +309,14 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
             />
           </label>
           <label className="payroll-period-control">
-            <span>Payroll week</span>
+            <span>Payroll period</span>
             <select
               value={selectedWeekIndex}
               onChange={(event) => setSelectedWeekIndex(Number(event.target.value))}
             >
               {payrollWeeks.map((week) => (
                 <option key={week.index} value={week.index}>
-                  Week {week.index + 1} · {payrollMonthLabel.split(' ')[0]} {week.startDay}–{week.endDay}
+                  {week.label} · {payrollMonthLabel.split(' ')[0]} {week.startDay}–{week.endDay}
                 </option>
               ))}
             </select>
@@ -349,7 +344,7 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
       <div className="payroll-summary-grid">
         <div className="payroll-summary-card">
           <span>Selected period</span>
-          <strong>{payrollMonthLabel.split(' ')[0]} {selectedWeek.startDay}–{selectedWeek.endDay}</strong>
+          <strong>{selectedWeek.label} · {payrollMonthLabel.split(' ')[0]} {selectedWeek.startDay}–{selectedWeek.endDay}</strong>
         </div>
         <div className="payroll-summary-card">
           <span>Estimated salary credit</span>
@@ -453,6 +448,8 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
                       ? 'Needs data'
                       : contributionStatus !== 'ready'
                         ? 'Needs contributions'
+                        : !employee.mandatoryContributionsEnabled
+                          ? 'No mandatory contribution'
                         : !employee.hasContributions
                           ? 'Set contributions'
                           : 'Calculated'}

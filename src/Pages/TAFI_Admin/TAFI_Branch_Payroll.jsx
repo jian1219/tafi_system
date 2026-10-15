@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getTafiAdminWeeklyPayrollData, listTafiAdminBranches } from '../../lib/supabase'
 import { getAttendanceDayValue, getLocalDateKey } from '../Branch_admin/branchAttendanceRecords'
 import { downloadPayrollWorkbook, getBranchDriveFolder } from './payrollXlsxExport'
+import { getPayrollPeriods } from '../../lib/payrollPeriods'
 
 const formatCurrency = (amount) => amount.toLocaleString('en-PH', {
   style: 'currency',
@@ -45,34 +46,14 @@ export default function TafiBranchPayroll({ sessionToken }) {
     const [year, month] = selectedMonth.split('-').map(Number)
     return new Date(year, month - 1, 1)
   }, [selectedMonth])
-  const attendanceMonthLength = new Date(
-    payrollMonthStart.getFullYear(),
-    payrollMonthStart.getMonth() + 1,
-    0
-  ).getDate()
   const payrollMonthLabel = payrollMonthStart.toLocaleDateString(undefined, {
     month: 'long',
     year: 'numeric'
   })
-  const payrollWeeks = useMemo(() => Array.from(
-    { length: Math.max(1, Math.ceil(attendanceMonthLength / 7)) },
-    (_, index) => ({
-      index,
-      startDay: index * 7 + 1,
-      endDay: Math.min((index + 1) * 7, attendanceMonthLength)
-    })
-  ), [attendanceMonthLength])
+  const payrollWeeks = useMemo(() => getPayrollPeriods(selectedMonth), [selectedMonth])
   const selectedWeek = payrollWeeks[selectedWeekIndex] ?? payrollWeeks[0]
-  const selectedStartDate = getLocalDateKey(new Date(
-    payrollMonthStart.getFullYear(),
-    payrollMonthStart.getMonth(),
-    selectedWeek.startDay
-  ))
-  const selectedEndDate = getLocalDateKey(new Date(
-    payrollMonthStart.getFullYear(),
-    payrollMonthStart.getMonth(),
-    selectedWeek.endDay
-  ))
+  const selectedStartDate = selectedWeek?.startDate ?? getLocalDateKey(payrollMonthStart)
+  const selectedEndDate = selectedWeek?.endDate ?? selectedStartDate
   const selectedBranch = branches.find((branch) => branch.branch_id === selectedBranchId)
 
   useEffect(() => {
@@ -287,7 +268,6 @@ export default function TafiBranchPayroll({ sessionToken }) {
         payrollRows,
         branchName: selectedBranch?.branch_name ?? 'Branch',
         selectedMonth,
-        selectedWeekIndex,
         selectedWeek,
         payrollMonthLabel,
         selectedStartDate,
@@ -351,14 +331,14 @@ export default function TafiBranchPayroll({ sessionToken }) {
             />
           </label>
           <label className="payroll-period-control">
-            <span>Payroll week</span>
+            <span>Payroll period</span>
             <select
               value={selectedWeekIndex}
               onChange={(event) => setSelectedWeekIndex(Number(event.target.value))}
             >
               {payrollWeeks.map((week) => (
                 <option key={week.index} value={week.index}>
-                  Week {week.index + 1} · {payrollMonthLabel.split(' ')[0]} {week.startDay}–{week.endDay}
+                  {week.label} · {payrollMonthLabel.split(' ')[0]} {week.startDay}–{week.endDay}
                 </option>
               ))}
             </select>
@@ -397,7 +377,7 @@ export default function TafiBranchPayroll({ sessionToken }) {
       <div className="payroll-summary-grid">
         <div className="payroll-summary-card">
           <span>Selected period</span>
-          <strong>{payrollMonthLabel.split(' ')[0]} {selectedWeek.startDay}–{selectedWeek.endDay}</strong>
+          <strong>{selectedWeek.label} · {payrollMonthLabel.split(' ')[0]} {selectedWeek.startDay}–{selectedWeek.endDay}</strong>
         </div>
         <div className="payroll-summary-card">
           <span>Estimated salary credit</span>

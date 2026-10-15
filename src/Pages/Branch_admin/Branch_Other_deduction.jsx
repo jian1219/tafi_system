@@ -11,6 +11,7 @@ import {
 } from '../../lib/supabase'
 import { getBranchEmployees } from './branchEmployees'
 import { getLocalDateKey } from './branchAttendanceRecords'
+import { getPayrollPeriods } from '../../lib/payrollPeriods'
 
 const today = new Date()
 const currentMonthKey = getLocalDateKey(today).slice(0, 7)
@@ -31,17 +32,10 @@ const getMonthRange = (monthKey) => {
 
 const getPayrollWeeks = (monthKey) => {
   const month = getMonthRange(monthKey)
-  return Array.from({ length: Math.ceil(month.dayCount / 7) }, (_, index) => {
-    const startDay = index * 7 + 1
-    const endDay = Math.min((index + 1) * 7, month.dayCount)
-    const [year, monthNumber] = monthKey.split('-').map(Number)
-    return {
-      index,
-      startDate: getLocalDateKey(new Date(year, monthNumber - 1, startDay)),
-      endDate: getLocalDateKey(new Date(year, monthNumber - 1, endDay)),
-      label: `Week ${index + 1} · ${month.shortName} ${startDay}–${endDay}`
-    }
-  })
+  return getPayrollPeriods(monthKey).map((period) => ({
+    ...period,
+    label: `${period.label} · ${month.shortName} ${period.startDay}–${period.endDay}`
+  }))
 }
 
 const formatCurrency = (amount) => Number(amount).toLocaleString('en-PH', {
@@ -454,7 +448,7 @@ export default function BranchOtherDeduction({
             </select>
           </label>
           <label>
-            <span>Payroll week</span>
+            <span>Payroll period</span>
             <select value={weekIndex} onChange={(event) => setWeekIndex(Number(event.target.value))}>
               {hdmfPayrollWeeks.map((week) => <option key={week.index} value={week.index}>{week.label}</option>)}
             </select>
@@ -542,7 +536,7 @@ export default function BranchOtherDeduction({
       <div className="other-deduction-table-wrap" role="region" aria-label="HDMF repayment history" tabIndex="0">
         <table className="other-deduction-table">
           <thead>
-            <tr><th>Employee</th><th>Payroll week</th><th>Repayment</th><th>Recorded</th></tr>
+            <tr><th>Employee</th><th>Payroll period</th><th>Repayment</th><th>Recorded</th></tr>
           </thead>
           <tbody>
             {payments.map((payment) => (
@@ -664,7 +658,7 @@ export default function BranchOtherDeduction({
                 </select>
               </label>
               <label>
-                <span>Payroll week</span>
+                <span>Payroll period</span>
                 <select
                   value={otherWeekIndex}
                   onChange={(event) => setOtherWeekIndex(Number(event.target.value))}
@@ -725,7 +719,7 @@ export default function BranchOtherDeduction({
           <div className="other-deduction-table-wrap" role="region" aria-label="Other deduction history" tabIndex="0">
             <table className="other-deduction-table">
               <thead>
-                <tr><th>Employee</th><th>Payroll week</th><th>Description</th><th>Deduction</th><th>Recorded</th></tr>
+                <tr><th>Employee</th><th>Payroll period</th><th>Description</th><th>Deduction</th><th>Recorded</th></tr>
               </thead>
               <tbody>
                 {otherDeductions.map((deduction) => (

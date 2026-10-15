@@ -95,6 +95,41 @@ export async function saveTafiAdminEmployeeContribution(sessionToken, branchId, 
   }
 }
 
+export async function getTafiAdminContributionPeriodSettings(sessionToken, monthStart) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_get_contribution_period_settings', {
+      p_session_token: sessionToken,
+      p_month_start: monthStart
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load contribution period settings.')
+    }
+  }
+}
+
+export async function saveTafiAdminContributionPeriodSettings(
+  sessionToken,
+  monthStart,
+  enabledPeriodStarts
+) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_save_contribution_period_settings', {
+      p_session_token: sessionToken,
+      p_month_start: monthStart,
+      p_enabled_period_starts: enabledPeriodStarts
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save contribution period settings.')
+    }
+  }
+}
+
 export async function getTafiAdminWeeklyPayrollData(sessionToken, branchId, periodStart, periodEnd) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -840,6 +875,21 @@ export async function listBranchEmployeeContributions(sessionToken) {
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to load employee contributions.')
+    }
+  }
+}
+
+export async function getBranchAdminContributionPeriodEnabled(sessionToken, periodStart) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_is_contribution_period_enabled', {
+      p_session_token: sessionToken,
+      p_period_start: periodStart
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the contribution period setting.')
     }
   }
 }

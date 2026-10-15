@@ -186,7 +186,6 @@ export async function downloadPayrollWorkbook({
   payrollRows,
   branchName,
   selectedMonth,
-  selectedWeekIndex,
   selectedWeek,
   payrollMonthLabel,
   selectedStartDate,
@@ -274,13 +273,16 @@ export async function downloadPayrollWorkbook({
     })
   }
 
-  const weekLabel = `Week ${selectedWeekIndex + 1} (${selectedWeek.startDay}-${selectedWeek.endDay})`
+  const weekLabel = `${selectedWeek.label} (${selectedWeek.startDay}-${selectedWeek.endDay})`
   const normalizedBranchName = branchName || 'Branch'
   const branchDetails = getBranchPayrollDetails(normalizedBranchName)
   const branchSlug = normalizedBranchName.toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '') || 'branch'
-  const fileName = `payroll-${branchSlug}-${selectedMonth}-week-${selectedWeekIndex + 1}.xlsx`
+  const periodFileName = selectedWeek.type === 'week'
+    ? `week-${selectedWeek.weekNumber}`
+    : `covered-${selectedWeek.startDay}-${selectedWeek.endDay}`
+  const fileName = `payroll-${branchSlug}-${selectedMonth}-${periodFileName}.xlsx`
   workbook.creator = 'TAFI Admin'
   workbook.title = `${normalizedBranchName} payroll - ${payrollMonthLabel} ${weekLabel}`
   workbook.subject = `Weekly payroll for ${normalizedBranchName}, ${payrollMonthLabel}, ${weekLabel}`
@@ -293,7 +295,7 @@ export async function downloadPayrollWorkbook({
       year: 'numeric'
     })
   }
-  const coveredPeriod = `Week ${selectedWeekIndex + 1} - Covered from ${formatDate(selectedStartDate)} - ${formatDate(selectedEndDate)}`
+  const coveredPeriod = `${selectedWeek.label} - Covered from ${formatDate(selectedStartDate)} - ${formatDate(selectedEndDate)}`
   const workbookBuffer = await workbook.xlsx.writeBuffer()
   const completeWorkbook = await restoreTemplateDrawings(
     templateBuffer,
