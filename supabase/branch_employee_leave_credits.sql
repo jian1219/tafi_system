@@ -543,7 +543,7 @@ begin
   end if;
   if nullif(trim(p_employee_code), '') is null
     or p_employment_classification is null
-    or p_employment_classification not in ('Regular', 'Probationary', 'Trainee')
+    or p_employment_classification not in ('Regular', 'Probationary', 'Trainee', 'OnCall')
     or (p_birthday is not null and p_birthday > current_date)
     or (p_hire_date is not null and p_hire_date > current_date)
     or (p_probationary_start_date is not null and p_probationary_start_date > current_date)

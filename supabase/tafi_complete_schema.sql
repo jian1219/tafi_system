@@ -88,7 +88,7 @@ create table if not exists public.employee (
   pagibig_number text,
   philhealth_number text,
   employment_classification text
-    check (employment_classification in ('Regular', 'Probationary', 'Trainee')),
+    check (employment_classification in ('Regular', 'Probationary', 'Trainee', 'OnCall')),
   daily_rate numeric(12, 2) not null default 0 check (daily_rate >= 0),
   employment_status text not null default 'active'
     check (employment_status in ('active', 'inactive')),

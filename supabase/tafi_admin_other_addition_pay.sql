@@ -489,7 +489,7 @@ begin
   if p_eligible_classifications is null
     or cardinality(p_eligible_classifications) = 0
     or array_position(p_eligible_classifications, null) is not null
-    or not (p_eligible_classifications <@ array['Regular', 'Probationary', 'Trainee']::text[]) then
+    or not (p_eligible_classifications <@ array['Regular', 'Probationary', 'Trainee', 'OnCall']::text[]) then
     raise exception 'Select at least one valid employee classification';
   end if;
 

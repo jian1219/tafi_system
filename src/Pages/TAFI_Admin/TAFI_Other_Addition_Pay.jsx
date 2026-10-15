@@ -18,7 +18,7 @@ const additionTypes = [
 	{ key: 'overtime_pay', label: 'Overtime Pay' },
 	{ key: 'special_nonworking_holiday', label: 'Special Non-working Holiday' }
 ]
-const employeeClassifications = ['Regular', 'Probationary', 'Trainee']
+const employeeClassifications = ['Regular', 'Probationary', 'Trainee', 'OnCall']
 const defaultHolidayClassifications = ['Regular', 'Probationary']
 const weekdays = [
 	{ key: 1, label: 'Monday' },

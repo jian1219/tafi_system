@@ -24,7 +24,12 @@ alter table public.employee add column if not exists pagibig_number text;
 alter table public.employee add column if not exists philhealth_number text;
 alter table public.employee
   add column if not exists employment_classification text
-  check (employment_classification in ('Regular', 'Probationary', 'Trainee'));
+  check (employment_classification in ('Regular', 'Probationary', 'Trainee', 'OnCall'));
+alter table public.employee
+  drop constraint if exists employee_employment_classification_check;
+alter table public.employee
+  add constraint employee_employment_classification_check
+  check (employment_classification in ('Regular', 'Probationary', 'Trainee', 'OnCall'));
 
 create table if not exists public.employee_profile_photo (
   employee_id uuid primary key references public.employee(id) on delete cascade,
@@ -457,7 +462,7 @@ begin
   end if;
   if nullif(trim(p_employee_code), '') is null
     or p_employment_classification is null
-    or p_employment_classification not in ('Regular', 'Probationary', 'Trainee')
+    or p_employment_classification not in ('Regular', 'Probationary', 'Trainee', 'OnCall')
     or (p_birthday is not null and p_birthday > current_date) then
     raise exception 'Enter a valid employee profile and employment status';
   end if;

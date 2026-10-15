@@ -20,6 +20,12 @@ const sumByEmployee = (records) => Object.fromEntries(
   }, new Map())
 )
 
+const getEmploymentStatusLabel = (classification) => (
+  typeof classification === 'string' && classification.trim()
+    ? classification.trim()
+    : 'Unspecified'
+)
+
 export default function TafiBranchPayroll({ sessionToken }) {
   const [branches, setBranches] = useState([])
   const [selectedBranchId, setSelectedBranchId] = useState('')
@@ -41,6 +47,8 @@ export default function TafiBranchPayroll({ sessionToken }) {
   const [payrollError, setPayrollError] = useState('')
   const [isDownloadingXlsx, setIsDownloadingXlsx] = useState(false)
   const [xlsxMessage, setXlsxMessage] = useState('')
+  const [isXlsxOptionsOpen, setIsXlsxOptionsOpen] = useState(false)
+  const [selectedXlsxClassifications, setSelectedXlsxClassifications] = useState([])
 
   const payrollMonthStart = useMemo(() => {
     const [year, month] = selectedMonth.split('-').map(Number)
@@ -245,6 +253,19 @@ export default function TafiBranchPayroll({ sessionToken }) {
     }
   }), [employees, attendanceRecords, selectedStartDate, selectedEndDate, contributions, cashAdvances, hdmfPayments, undertimeDeductions, otherDeductions, payrollAdditions, payrollStatus])
 
+  const xlsxEmploymentClassifications = useMemo(() => {
+    const availableClassifications = new Set(
+      payrollRows.map((employee) => getEmploymentStatusLabel(employee.employmentClassification))
+    )
+    const standardClassifications = ['Regular', 'Probationary', 'Trainee', 'OnCall', 'Unspecified']
+    return [
+      ...standardClassifications.filter((classification) => availableClassifications.has(classification)),
+      ...[...availableClassifications]
+        .filter((classification) => !standardClassifications.includes(classification))
+        .sort((first, second) => first.localeCompare(second))
+    ]
+  }, [payrollRows])
+
   const estimatedTotal = payrollRows.reduce((total, employee) =>
     total + (employee.salaryCredit ?? 0), 0)
   const incompleteCount = payrollRows.filter((employee) => employee.basicSalary === null).length
@@ -258,14 +279,27 @@ export default function TafiBranchPayroll({ sessionToken }) {
   ).length
   const estimatedNetTotal = payrollRows.reduce((total, employee) => total + (employee.weeklyNet ?? 0), 0)
 
+  const openPayrollXlsxOptions = () => {
+    if (payrollStatus !== 'ready' || !selectedBranchId || isDownloadingXlsx) return
+
+    setSelectedXlsxClassifications(xlsxEmploymentClassifications)
+    setIsXlsxOptionsOpen(true)
+  }
+
   const downloadPayrollXlsx = async () => {
     if (payrollStatus !== 'ready' || !selectedBranchId || isDownloadingXlsx) return
 
+    const selectedRows = payrollRows.filter((employee) =>
+      selectedXlsxClassifications.includes(getEmploymentStatusLabel(employee.employmentClassification))
+    )
+    if (selectedRows.length === 0) return
+
+    setIsXlsxOptionsOpen(false)
     setIsDownloadingXlsx(true)
     setXlsxMessage('')
     try {
       const fileName = await downloadPayrollWorkbook({
-        payrollRows,
+        payrollRows: selectedRows,
         branchName: selectedBranch?.branch_name ?? 'Branch',
         selectedMonth,
         selectedWeek,
@@ -293,7 +327,7 @@ export default function TafiBranchPayroll({ sessionToken }) {
     document.body.appendChild(link)
     link.click()
     link.remove()
-    void downloadPayrollXlsx()
+    openPayrollXlsxOptions()
   }
 
   return (
@@ -346,7 +380,7 @@ export default function TafiBranchPayroll({ sessionToken }) {
           <button
             type="button"
             className="report-download-button"
-            onClick={downloadPayrollXlsx}
+            onClick={openPayrollXlsxOptions}
             disabled={payrollStatus !== 'ready' || !selectedBranchId || isDownloadingXlsx}
           >
             {isDownloadingXlsx ? 'Preparing XLSX…' : 'Download payroll XLSX'}
@@ -372,6 +406,78 @@ export default function TafiBranchPayroll({ sessionToken }) {
         >
           {xlsxMessage}
         </p>
+      )}
+
+      {isXlsxOptionsOpen && (
+        <div
+          className="payroll-xlsx-dialog-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setIsXlsxOptionsOpen(false)
+          }}
+        >
+          <section
+            className="payroll-xlsx-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="payroll-xlsx-dialog-title"
+          >
+            <div className="payroll-xlsx-dialog-heading">
+              <div>
+                <h4 id="payroll-xlsx-dialog-title">Choose employment statuses</h4>
+                <p>Select which employees to include in this payroll XLSX.</p>
+              </div>
+              <button
+                type="button"
+                className="payroll-xlsx-dialog-close"
+                aria-label="Close employment status selection"
+                onClick={() => setIsXlsxOptionsOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            {xlsxEmploymentClassifications.length > 0 ? (
+              <fieldset className="payroll-xlsx-status-list">
+                <legend>Employment status</legend>
+                {xlsxEmploymentClassifications.map((classification) => (
+                  <label className="payroll-xlsx-status-option" key={classification}>
+                    <input
+                      type="checkbox"
+                      checked={selectedXlsxClassifications.includes(classification)}
+                      onChange={(event) => {
+                        setSelectedXlsxClassifications((current) => (
+                          event.target.checked
+                            ? [...current, classification]
+                            : current.filter((selected) => selected !== classification)
+                        ))
+                      }}
+                    />
+                    <span>{classification}</span>
+                  </label>
+                ))}
+              </fieldset>
+            ) : (
+              <p className="payroll-xlsx-empty">There are no employees in this payroll period.</p>
+            )}
+            <div className="payroll-xlsx-dialog-actions">
+              <button
+                type="button"
+                className="payroll-xlsx-cancel-button"
+                onClick={() => setIsXlsxOptionsOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="report-download-button"
+                onClick={downloadPayrollXlsx}
+                disabled={selectedXlsxClassifications.length === 0 || isDownloadingXlsx}
+              >
+                {isDownloadingXlsx ? 'Preparing XLSX…' : 'Download XLSX'}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
 
       <div className="payroll-summary-grid">

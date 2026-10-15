@@ -1036,6 +1036,7 @@ export default function TafiEmployee({ sessionToken }) {
 											<option value="Regular">Regular</option>
 											<option value="Probationary">Probationary</option>
 											<option value="Trainee">Trainee</option>
+											<option value="OnCall">OnCall</option>
 										</select>
 									</label>
 									<div className="employee-employment-history-form">

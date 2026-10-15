@@ -2342,6 +2342,11 @@ button {
   color: #1e40af;
 }
 
+.leave-employment-status.oncall {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
 .leave-request-status.pending {
   background: #fef3c7;
   color: #92400e;
@@ -2843,6 +2848,124 @@ button {
   background: #fff;
   border: 1px solid #d9dfe8;
   border-radius: 14px;
+}
+
+.payroll-xlsx-dialog-backdrop {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(15 23 42 / 62%);
+}
+
+.payroll-xlsx-dialog {
+  width: min(100%, 480px);
+  padding: 24px;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgb(15 23 42 / 24%);
+}
+
+.payroll-xlsx-dialog-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.payroll-xlsx-dialog-heading h4 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.1rem;
+}
+
+.payroll-xlsx-dialog-heading p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+.payroll-xlsx-dialog-close {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 50%;
+  background: #fff;
+  color: #475569;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.payroll-xlsx-status-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.payroll-xlsx-status-list legend {
+  margin-bottom: 10px;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.payroll-xlsx-status-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  color: #334155;
+  cursor: pointer;
+}
+
+.payroll-xlsx-status-option input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #1d4ed8;
+}
+
+.payroll-xlsx-empty {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.payroll-xlsx-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.payroll-xlsx-cancel-button {
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.payroll-xlsx-dialog-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .branch-payroll-header {

@@ -62,7 +62,7 @@ create table if not exists public.branch_employee_holiday_pay_rule (
   eligible_classifications text[] not null check (
     cardinality(eligible_classifications) > 0
     and array_position(eligible_classifications, null) is null
-    and eligible_classifications <@ array['Regular', 'Probationary', 'Trainee']::text[]
+    and eligible_classifications <@ array['Regular', 'Probationary', 'Trainee', 'OnCall']::text[]
   ),
   updated_by_branch_admin_id uuid not null,
   updated_at timestamptz not null default now(),
@@ -77,6 +77,16 @@ create table if not exists public.branch_employee_holiday_pay_rule (
     references public.branch_admin (id, branch_id) on delete restrict
 );
 
+alter table public.branch_employee_holiday_pay_rule
+  drop constraint if exists branch_employee_holiday_pay_rule_eligible_classifications_check;
+alter table public.branch_employee_holiday_pay_rule
+  add constraint branch_employee_holiday_pay_rule_eligible_classifications_check
+  check (
+    cardinality(eligible_classifications) > 0
+    and array_position(eligible_classifications, null) is null
+    and eligible_classifications <@ array['Regular', 'Probationary', 'Trainee', 'OnCall']::text[]
+  );
+
 insert into public.branch_employee_holiday_pay_rule (
   branch_id, period_start, period_end, holiday_date, addition_type,
   percentage, eligible_classifications, updated_by_branch_admin_id
@@ -89,7 +99,7 @@ select
   holiday.addition_type,
   max(holiday.percentage),
   array_agg(distinct employee.employment_classification)
-    filter (where employee.employment_classification in ('Regular', 'Probationary', 'Trainee')),
+    filter (where employee.employment_classification in ('Regular', 'Probationary', 'Trainee', 'OnCall')),
   (array_agg(holiday.created_by_branch_admin_id))[1]
 from public.branch_employee_holiday_pay as holiday
 join public.employee as employee
@@ -97,7 +107,7 @@ join public.employee as employee
   and employee.employee_code = holiday.employee_code
 group by holiday.branch_id, holiday.holiday_date, holiday.addition_type
 having count(*) filter (
-  where employee.employment_classification in ('Regular', 'Probationary', 'Trainee')
+  where employee.employment_classification in ('Regular', 'Probationary', 'Trainee', 'OnCall')
 ) > 0
 on conflict (branch_id, holiday_date, addition_type) do nothing;
 
@@ -252,7 +262,7 @@ begin
   if p_eligible_classifications is null
     or cardinality(p_eligible_classifications) = 0
     or array_position(p_eligible_classifications, null) is not null
-    or not (p_eligible_classifications <@ array['Regular', 'Probationary', 'Trainee']::text[]) then
+    or not (p_eligible_classifications <@ array['Regular', 'Probationary', 'Trainee', 'OnCall']::text[]) then
     raise exception 'Select at least one valid employee classification';
   end if;
 
