@@ -11,6 +11,7 @@ import {
 } from '../../lib/supabase'
 import { getBranchEmployees } from './branchEmployees'
 import { getLocalDateKey } from './branchAttendanceRecords'
+import { downloadPayrollWorkbook } from '../TAFI_Admin/payrollXlsxExport'
 
 const formatCurrency = (amount) => amount.toLocaleString('en-PH', {
   style: 'currency',
@@ -34,6 +35,8 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
   const [payrollAdditions, setPayrollAdditions] = useState({})
   const [contributionStatus, setContributionStatus] = useState('loading')
   const [contributionError, setContributionError] = useState('')
+  const [isDownloadingXlsx, setIsDownloadingXlsx] = useState(false)
+  const [xlsxMessage, setXlsxMessage] = useState('')
   const payrollMonthStart = useMemo(() => {
     const [year, month] = selectedMonth.split('-').map(Number)
     return new Date(year, month - 1, 1)
@@ -264,6 +267,31 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
   ).length
   const estimatedNetTotal = payrollRows.reduce((total, employee) => total + (employee.weeklyNet ?? 0), 0)
 
+  const downloadPayrollXlsx = async () => {
+    if (contributionStatus !== 'ready' || !sessionToken || isDownloadingXlsx) return
+
+    setIsDownloadingXlsx(true)
+    setXlsxMessage('')
+    try {
+      const fileName = await downloadPayrollWorkbook({
+        payrollRows,
+        branchName,
+        selectedMonth,
+        selectedWeekIndex,
+        selectedWeek,
+        payrollMonthLabel,
+        selectedStartDate,
+        selectedEndDate
+      })
+      setXlsxMessage(`Downloaded ${fileName}.`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error.'
+      setXlsxMessage(`Could not create the Excel file: ${message}`)
+    } finally {
+      setIsDownloadingXlsx(false)
+    }
+  }
+
   return (
     <section className="branch-payroll-shell">
       <header className="branch-payroll-header">
@@ -298,8 +326,25 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
               ))}
             </select>
           </label>
+          <button
+            type="button"
+            className="report-download-button"
+            onClick={downloadPayrollXlsx}
+            disabled={contributionStatus !== 'ready' || !sessionToken || isDownloadingXlsx}
+          >
+            {isDownloadingXlsx ? 'Preparing XLSX…' : 'Download payroll XLSX'}
+          </button>
         </div>
       </header>
+
+      {xlsxMessage && (
+        <p
+          className={`payroll-contribution-message${xlsxMessage.startsWith('Could not') ? ' error' : ''}`}
+          role={xlsxMessage.startsWith('Could not') ? 'alert' : 'status'}
+        >
+          {xlsxMessage}
+        </p>
+      )}
 
       <div className="payroll-summary-grid">
         <div className="payroll-summary-card">

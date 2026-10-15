@@ -684,7 +684,7 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
                         </th>
                       ))}
                       <th>Total Present</th>
-                      <th>Total Late</th>
+                      <th>Total Late (minutes)</th>
                       <th>Total Absent</th>
                       <th>Rate</th>
                     </tr>
@@ -693,7 +693,9 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
                     {monthRecords.map((employee) => {
                       const weekDays = employee.days.slice(selectedWeek.firstDay - 1, selectedWeek.lastDay)
                       const presentCount = weekDays.filter((value) => value === 'P' || value === 'L').length
-                      const lateCount = weekDays.filter((value) => value === 'L').length
+                      const lateMinutes = employee.lateMinutesByDay
+                        .slice(selectedWeek.firstDay - 1, selectedWeek.lastDay)
+                        .reduce((total, minutes) => total + minutes, 0)
                       const absentCount = weekDays.filter((value) => value === 'A').length
                       const employeeRate = Math.round((presentCount / selectedWeek.days.length) * 100)
 
@@ -712,7 +714,7 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
                             </td>
                           ))}
                           <td>{presentCount}</td>
-                          <td>{lateCount}</td>
+                          <td>{lateMinutes}</td>
                           <td>{absentCount}</td>
                           <td>{employeeRate}%</td>
                         </tr>

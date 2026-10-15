@@ -1,74 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getTafiAdminWeeklyPayrollData, listTafiAdminBranches } from '../../lib/supabase'
 import { getAttendanceDayValue, getLocalDateKey } from '../Branch_admin/branchAttendanceRecords'
-import payrollWorkbookTemplateUrl from './xlsl_format/Branch_per_week_payroll.xlsx?url'
+import { downloadPayrollWorkbook, getBranchDriveFolder } from './payrollXlsxExport'
 
 const formatCurrency = (amount) => amount.toLocaleString('en-PH', {
   style: 'currency',
   currency: 'PHP',
   minimumFractionDigits: 2
 })
-
-const csvCell = (value) => {
-  const text = String(value ?? '')
-  const safeText = typeof value === 'number' || !/^[=+\-@\t\r]/.test(text)
-    ? text
-    : `'${text}`
-  return `"${safeText.replaceAll('"', '""')}"`
-}
-
-const downloadFile = (fileName, blob) => {
-  const downloadUrl = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = downloadUrl
-  link.download = fileName
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(downloadUrl)
-}
-
-const downloadCsv = (fileName, rows) => {
-  const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(',')).join('\r\n')}`
-  downloadFile(fileName, new Blob([csv], { type: 'text/csv;charset=utf-8' }))
-}
-
-const restoreTemplateDrawings = async (templateBuffer, workbookBuffer, extraRows, coveredPeriod) => {
-  const { strFromU8, strToU8, unzipSync, zipSync } = await import('fflate')
-  const templateFiles = unzipSync(new Uint8Array(templateBuffer))
-  const workbookFiles = unzipSync(new Uint8Array(workbookBuffer))
-  const drawingPath = 'xl/drawings/drawing1.xml'
-  const drawingRelationshipsPath = 'xl/drawings/_rels/drawing1.xml.rels'
-  const drawing = templateFiles[drawingPath]
-  const drawingRelationships = templateFiles[drawingRelationshipsPath]
-
-  if (!drawing || !drawingRelationships || !workbookFiles[drawingPath]) {
-    throw new Error('The workbook template drawing files are missing.')
-  }
-
-  let drawingXml = strFromU8(drawing)
-  if (extraRows > 0) {
-    drawingXml = drawingXml.replace(
-      /<xdr:(twoCellAnchor|oneCellAnchor|absoluteAnchor)\b[\s\S]*?<\/xdr:\1>/g,
-      (anchor) => anchor.replace(/(<xdr:row>)(\d+)(<\/xdr:row>)/g, (match, open, row, close) => (
-        Number(row) >= 39 ? `${open}${Number(row) + extraRows}${close}` : match
-      ))
-    )
-  }
-
-  let hasCoveredPeriod = false
-  drawingXml = drawingXml.replace(/<a:t>Covered from [^<]*<\/a:t>/, () => {
-    hasCoveredPeriod = true
-    return `<a:t>${coveredPeriod}</a:t>`
-  })
-  if (!hasCoveredPeriod) {
-    throw new Error('The workbook template does not contain its covered-period label.')
-  }
-
-  workbookFiles[drawingPath] = strToU8(drawingXml)
-  workbookFiles[drawingRelationshipsPath] = drawingRelationships
-  return zipSync(workbookFiles)
-}
 
 const sumByEmployee = (records) => Object.fromEntries(
   (records ?? []).reduce((totals, record) => {
@@ -215,6 +154,7 @@ export default function TafiBranchPayroll({ sessionToken }) {
       setEmployees((data.employees ?? []).map((employee) => ({
         id: employee.employee_code,
         name: employee.employee_name,
+        position: employee.position ?? '',
         dailyRate: Number(employee.daily_rate),
         employmentClassification: employee.employment_classification ?? ''
       })))
@@ -337,184 +277,22 @@ export default function TafiBranchPayroll({ sessionToken }) {
   ).length
   const estimatedNetTotal = payrollRows.reduce((total, employee) => total + (employee.weeklyNet ?? 0), 0)
 
-  const downloadPayrollCsv = () => {
-    const headers = [
-      'Branch',
-      'Payroll month',
-      'Payroll week',
-      'Employee ID',
-      'Employee name',
-      'Employment status',
-      'Monthly rate',
-      'Daily rate',
-      'Present days',
-      'Leave with Pay',
-      'Total number of days',
-      'Basic salary',
-      'Regular holiday',
-      'Overtime',
-      'Special non-working holiday',
-      'Salary credit',
-      'SSS',
-      'PhilHealth',
-      'Pag-IBIG',
-      'HDMF loan',
-      'CA',
-      'Late',
-      'Und',
-      'Others',
-      'Total deduction',
-      'Final net pay',
-      'Record status'
-    ]
-    const rows = payrollRows.map((employee) => [
-      selectedBranch?.branch_name ?? '',
-      payrollMonthLabel,
-      `Week ${selectedWeekIndex + 1} (${selectedWeek.startDay}-${selectedWeek.endDay})`,
-      employee.id,
-      employee.name,
-      employee.employmentClassification,
-      employee.monthlyRate ?? '',
-      employee.dailyRate ?? '',
-      employee.hasAttendance ? employee.presentDays : '',
-      employee.hasAttendance ? employee.leaveWithPayDays : '',
-      employee.totalDays ?? '',
-      employee.basicSalary ?? '',
-      employee.holiday_regular_pay,
-      employee.overtime_pay,
-      employee.special_nonworking_holiday,
-      employee.salaryCredit ?? '',
-      employee.hasContributions ? employee.sss : '',
-      employee.hasContributions ? employee.philhealth : '',
-      employee.hasContributions ? employee.pagibig : '',
-      employee.hdmfLoanDeduction,
-      employee.cashAdvanceDeduction,
-      employee.lateDeduction,
-      employee.undertimeDeduction,
-      employee.otherDeduction,
-      employee.hasContributions ? employee.totalDeductions : '',
-      employee.weeklyNet ?? '',
-      employee.basicSalary === null
-        ? 'Needs data'
-        : !employee.hasContributions
-          ? 'Set contributions'
-          : 'Calculated'
-    ])
-    const branchSlug = (selectedBranch?.branch_name ?? 'branch')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-    downloadCsv(
-      `payroll-${branchSlug}-${selectedMonth}-week-${selectedWeekIndex + 1}.csv`,
-      [headers, ...rows]
-    )
-  }
-
   const downloadPayrollXlsx = async () => {
     if (payrollStatus !== 'ready' || !selectedBranchId || isDownloadingXlsx) return
 
     setIsDownloadingXlsx(true)
     setXlsxMessage('')
     try {
-      const response = await fetch(payrollWorkbookTemplateUrl)
-      if (!response.ok) {
-        throw new Error(`Could not load the workbook template (HTTP ${response.status}).`)
-      }
-      const templateBuffer = await response.arrayBuffer()
-
-      const { default: ExcelJS } = await import('exceljs')
-      const workbook = new ExcelJS.Workbook()
-      await workbook.xlsx.load(templateBuffer)
-      const worksheet = workbook.worksheets[0]
-      if (!worksheet) {
-        throw new Error('The workbook template does not contain a worksheet.')
-      }
-
-      const firstDataRow = 17
-      const initialDataRowCount = 22
-      const extraRows = Math.max(0, payrollRows.length - initialDataRowCount)
-      if (extraRows > 0) {
-        worksheet.unMergeCells('A40:Y43')
-        worksheet.insertRows(
-          39,
-          Array.from({ length: extraRows }, () => Array(25).fill(null)),
-          'i+'
-        )
-        worksheet.mergeCells(`A${40 + extraRows}:Y${43 + extraRows}`)
-      }
-
-      payrollRows.forEach((employee, index) => {
-        const values = [
-          index + 1,
-          employee.id,
-          employee.name,
-          employee.employmentClassification,
-          employee.monthlyRate,
-          employee.dailyRate,
-          employee.hasAttendance ? employee.presentDays : null,
-          employee.hasAttendance ? employee.leaveWithPayDays : null,
-          employee.totalDays,
-          employee.basicSalary,
-          employee.holiday_regular_pay,
-          employee.overtime_pay,
-          employee.special_nonworking_holiday,
-          employee.salaryCredit,
-          employee.hasContributions ? employee.sss : null,
-          employee.hasContributions ? employee.philhealth : null,
-          employee.hasContributions ? employee.pagibig : null,
-          employee.hdmfLoanDeduction,
-          employee.cashAdvanceDeduction,
-          employee.lateDeduction,
-          employee.undertimeDeduction,
-          null,
-          employee.hasContributions ? employee.totalDeductions : null,
-          employee.weeklyNet,
-          null
-        ]
-        values.forEach((value, columnIndex) => {
-          worksheet.getCell(firstDataRow + index, columnIndex + 1).value = value ?? null
-        })
+      const fileName = await downloadPayrollWorkbook({
+        payrollRows,
+        branchName: selectedBranch?.branch_name ?? 'Branch',
+        selectedMonth,
+        selectedWeekIndex,
+        selectedWeek,
+        payrollMonthLabel,
+        selectedStartDate,
+        selectedEndDate
       })
-
-      const totalRow = 39 + extraRows
-      const total = (getValue) => payrollRows.reduce((sum, employee) => {
-        const value = getValue(employee)
-        return sum + (typeof value === 'number' && Number.isFinite(value) ? value : 0)
-      }, 0)
-      worksheet.getCell(`J${totalRow}`).value = total((employee) => employee.basicSalary)
-      worksheet.getCell(`N${totalRow}`).value = total((employee) => employee.salaryCredit)
-      worksheet.getCell(`W${totalRow}`).value = total((employee) =>
-        employee.hasContributions ? employee.totalDeductions : null
-      )
-      worksheet.getCell(`X${totalRow}`).value = total((employee) => employee.weeklyNet)
-
-      const weekLabel = `Week ${selectedWeekIndex + 1} (${selectedWeek.startDay}-${selectedWeek.endDay})`
-      const branchName = selectedBranch?.branch_name ?? 'Branch'
-      const branchSlug = branchName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'branch'
-      const fileName = `payroll-${branchSlug}-${selectedMonth}-week-${selectedWeekIndex + 1}.xlsx`
-      workbook.creator = 'TAFI Admin'
-      workbook.title = `${branchName} payroll - ${payrollMonthLabel} ${weekLabel}`
-      workbook.subject = `Weekly payroll for ${branchName}, ${payrollMonthLabel}, ${weekLabel}`
-
-      const formatDate = (dateKey) => {
-        const [year, month, day] = dateKey.split('-').map(Number)
-        return new Date(year, month - 1, day).toLocaleDateString('en-US', {
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric'
-        })
-      }
-      const coveredPeriod = `Covered from ${formatDate(selectedStartDate)} - ${formatDate(selectedEndDate)}`
-      const workbookBuffer = await workbook.xlsx.writeBuffer()
-      const completeWorkbook = await restoreTemplateDrawings(
-        templateBuffer,
-        workbookBuffer,
-        extraRows,
-        coveredPeriod
-      )
-      downloadFile(fileName, new Blob([completeWorkbook], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      }))
       setXlsxMessage(`Downloaded ${fileName}.`)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error.'
@@ -522,6 +300,20 @@ export default function TafiBranchPayroll({ sessionToken }) {
     } finally {
       setIsDownloadingXlsx(false)
     }
+  }
+
+  const sendPayrollToGoogleDrive = () => {
+    const driveFolderUrl = getBranchDriveFolder(selectedBranch?.branch_name)
+    if (!driveFolderUrl) return
+
+    const link = document.createElement('a')
+    link.href = driveFolderUrl
+    link.target = '_blank'
+    link.rel = 'noopener noreferrer'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    void downloadPayrollXlsx()
   }
 
   return (
@@ -574,19 +366,22 @@ export default function TafiBranchPayroll({ sessionToken }) {
           <button
             type="button"
             className="report-download-button"
-            onClick={downloadPayrollCsv}
-            disabled={payrollStatus !== 'ready' || !selectedBranchId}
-          >
-            Download payroll CSV
-          </button>
-          <button
-            type="button"
-            className="report-download-button"
             onClick={downloadPayrollXlsx}
             disabled={payrollStatus !== 'ready' || !selectedBranchId || isDownloadingXlsx}
           >
             {isDownloadingXlsx ? 'Preparing XLSX…' : 'Download payroll XLSX'}
           </button>
+          {getBranchDriveFolder(selectedBranch?.branch_name) && (
+            <button
+              type="button"
+              className="report-download-button"
+              onClick={sendPayrollToGoogleDrive}
+              disabled={payrollStatus !== 'ready' || !selectedBranchId || isDownloadingXlsx}
+              title="Open the branch's Google Drive folder and download the XLSX for manual upload"
+            >
+              Send to Google Drive
+            </button>
+          )}
         </div>
       </header>
 

@@ -1547,6 +1547,7 @@ begin
       select jsonb_agg(jsonb_build_object(
         'employee_code', employee.employee_code,
         'employee_name', employee.name,
+        'position', employee.position,
         'daily_rate', employee.daily_rate,
         'employment_classification', employee.employment_classification
       ) order by employee.name, employee.employee_code)

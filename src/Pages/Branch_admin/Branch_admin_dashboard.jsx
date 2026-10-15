@@ -5,8 +5,8 @@ import logoImage from '../../images/Tafi logo transparent.png'
 import BranchAdminEmployee from './Branch_admin_employee'
 import BranchAttendanceMonitoring from './Branch_attendance_monitoring'
 import BranchPayroll from './Branch_Payroll'
-import BranchReport from './Branch_report'
-import BranchMandatoryContributionEmployee from './Branch_Mandatory_contribution_employee'
+//import BranchReport from './Branch_report'
+//import BranchMandatoryContributionEmployee from './Branch_Mandatory_contribution_employee'
 import BranchCashAdvance from './Branch_Cash_advance'
 import BranchOtherDeduction from './Branch_Other_deduction'
 import BranchOtherAdditionPay from './Branch_Other_Addition_pay'
@@ -16,13 +16,13 @@ import { revokeBranchAdminSession } from '../../lib/supabase'
 const tabs = [
   { name: 'Employee Info', component: BranchAdminEmployee },
   { name: 'Attendance monitoring', component: BranchAttendanceMonitoring },
-  { name: 'Mandatory Contribution Employee', component: BranchMandatoryContributionEmployee },
+  //{ name: 'Mandatory Contribution Employee', component: BranchMandatoryContributionEmployee },
   { name: 'Cash Advance Pay', component: BranchCashAdvance },
   { name: 'Employee Leave Credits', component: BranchEmployeeLeaveCredits },
   { name: 'Others Deduction Pay', component: BranchOtherDeduction },
   { name: 'Others Addition Pay', component: BranchOtherAdditionPay },
   { name: 'Branch payroll', component: BranchPayroll },
-  { name: 'Branch reports', component: BranchReport }
+  //{ name: 'Branch reports', component: BranchReport }
 ]
 
 export default function BranchAdminDashboard() {
