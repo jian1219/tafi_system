@@ -398,10 +398,9 @@ $$;
 
 revoke all on function public.branch_admin_list_holiday_pay(uuid, date, date) from public;
 revoke all on function public.branch_admin_list_holiday_pay_rules(uuid, date, date) from public;
-revoke all on function public.branch_admin_save_holiday_pay(uuid, date, date, date, text, numeric, text[]) from public;
+revoke all on function public.branch_admin_save_holiday_pay(uuid, date, date, date, text, numeric, text[]) from public, anon, authenticated;
 grant execute on function public.branch_admin_list_holiday_pay(uuid, date, date) to anon, authenticated;
 grant execute on function public.branch_admin_list_holiday_pay_rules(uuid, date, date) to anon, authenticated;
-grant execute on function public.branch_admin_save_holiday_pay(uuid, date, date, date, text, numeric, text[]) to anon, authenticated;
 
 comment on table public.branch_employee_holiday_pay is
   'Per-employee holiday pay calculated from a percentage of each eligible employee daily rate.';

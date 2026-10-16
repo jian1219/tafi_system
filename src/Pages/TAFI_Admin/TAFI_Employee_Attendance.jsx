@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
 	listTafiAdminAttendance,
+	listTafiAdminAttendancePeriodControls,
 	listTafiAdminAttendanceSubmissionHistory,
 	listTafiAdminBranches,
 	listTafiAdminEmployeeLeaveCredits,
 	listTafiAdminEmployees,
 	listTafiAdminOvertimeHours,
 	listTafiAdminUndertimeDeductions,
-	saveTafiAdminAttendance
+	saveTafiAdminAttendance,
+	setTafiAdminAttendancePeriodLock
 } from '../../lib/supabase'
 import {
 	getAttendanceDayValue,
@@ -114,6 +116,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 	const [undertimeRecords, setUndertimeRecords] = useState([])
 	const [leaveCreditBalances, setLeaveCreditBalances] = useState({})
 	const [submissionHistory, setSubmissionHistory] = useState([])
+	const [periodControls, setPeriodControls] = useState([])
 	const [historyOffset, setHistoryOffset] = useState(0)
 	const [historyReloadKey, setHistoryReloadKey] = useState(0)
 	const [hasMoreHistory, setHasMoreHistory] = useState(false)
@@ -121,16 +124,28 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 	const [isLoadingAttendance, setIsLoadingAttendance] = useState(false)
 	const [isLoadingLeaveCredits, setIsLoadingLeaveCredits] = useState(false)
 	const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+	const [isLoadingPeriodControls, setIsLoadingPeriodControls] = useState(false)
 	const [isSaving, setIsSaving] = useState(false)
 	const [selectedWeekIndex, setSelectedWeekIndex] = useState(0)
 	const [loadError, setLoadError] = useState('')
 	const [leaveCreditError, setLeaveCreditError] = useState('')
 	const [monthlyMetricsError, setMonthlyMetricsError] = useState('')
 	const [historyError, setHistoryError] = useState('')
+	const [periodControlsError, setPeriodControlsError] = useState('')
+	const [periodControlsMessage, setPeriodControlsMessage] = useState('')
+	const [periodControlAction, setPeriodControlAction] = useState('')
 	const [saveMessage, setSaveMessage] = useState('')
 	const [saveError, setSaveError] = useState('')
 
 	const monthDates = useMemo(() => getMonthDates(selectedRecordsMonth), [selectedRecordsMonth])
+	const controlPeriods = useMemo(
+		() => getPayrollPeriods(selectedRecordsMonth),
+		[selectedRecordsMonth]
+	)
+	const controlPeriodStarts = useMemo(
+		() => controlPeriods.map((period) => period.startDate),
+		[controlPeriods]
+	)
 	const selectedBranch = branches.find((branch) => branch.branch_id === selectedBranchId)
 	const branchEmployees = useMemo(() => directoryEmployees
 		.filter((employee) =>
@@ -222,6 +237,36 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 			isCurrent = false
 		}
 	}, [activeTab, sessionToken, historyReloadKey])
+
+	useEffect(() => {
+		if (activeTab !== 'access' || !sessionToken || !selectedBranchId) return undefined
+
+		let isCurrent = true
+		const loadPeriodControls = async () => {
+			setIsLoadingPeriodControls(true)
+			setPeriodControlsError('')
+			setPeriodControlsMessage('')
+			const { data, error } = await listTafiAdminAttendancePeriodControls(
+				sessionToken,
+				selectedBranchId,
+				controlPeriodStarts
+			)
+			if (!isCurrent) return
+
+			if (error) {
+				setPeriodControls([])
+				setPeriodControlsError(error.message)
+			} else {
+				setPeriodControls(data ?? [])
+			}
+			setIsLoadingPeriodControls(false)
+		}
+
+		loadPeriodControls()
+		return () => {
+			isCurrent = false
+		}
+	}, [activeTab, sessionToken, selectedBranchId, controlPeriodStarts])
 
 	useEffect(() => {
 		if (!sessionToken || !selectedBranchId) {
@@ -531,6 +576,42 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 		setSaveMessage('Shift, attendance, and late minutes saved.')
 	}
 
+	const updatePeriodLock = async (period) => {
+		const control = periodControls.find((item) => item.period_start === period.startDate)
+		const nextIsLocked = !control?.is_locked
+		setPeriodControlAction(period.startDate)
+		setPeriodControlsError('')
+		setPeriodControlsMessage('')
+		const { error } = await setTafiAdminAttendancePeriodLock(
+			sessionToken,
+			selectedBranchId,
+			period.startDate,
+			period.endDate,
+			nextIsLocked
+		)
+		setPeriodControlAction('')
+		if (error) {
+			setPeriodControlsError(error.message)
+			return
+		}
+
+		setPeriodControls((current) => current.map((item) =>
+			item.period_start === period.startDate
+				? {
+					...item,
+					is_locked: nextIsLocked,
+					is_automatic: false,
+					pending_request_id: null,
+					requested_by: null,
+					requested_at: null
+				}
+				: item
+		))
+		setPeriodControlsMessage(
+			`${period.label} ${nextIsLocked ? 'locked' : 'unlocked'} for ${selectedBranch?.branch_name ?? 'the selected branch'}.`
+		)
+	}
+
 	const loadOlderSubmissions = async () => {
 		if (isLoadingHistory || !hasMoreHistory) return
 
@@ -647,6 +728,13 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 					onClick={() => setActiveTab('history')}
 				>
 					Submitted History
+				</button>
+				<button
+					type="button"
+					className={activeTab === 'access' ? 'monitoring-tab active' : 'monitoring-tab'}
+					onClick={() => setActiveTab('access')}
+				>
+					Period Access
 				</button>
 			</div>
 
@@ -920,6 +1008,77 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 							</div>
 						</>
 					)}
+				</>
+			) : activeTab === 'access' ? (
+				<>
+					<div className="monitoring-toolbar">
+						{recordsMonthSelector}
+						<div className="summary-inline">
+							<span>{selectedBranch?.branch_name ?? 'Selected branch'}</span>
+							<span>Periods lock automatically after their end date.</span>
+						</div>
+					</div>
+					{periodControlsError && (
+						<p className="payroll-contribution-message error" role="alert">
+							Could not load attendance period controls: {periodControlsError}
+						</p>
+					)}
+					{periodControlsMessage && (
+						<p className="payroll-contribution-message" role="status">{periodControlsMessage}</p>
+					)}
+					{isLoadingPeriodControls ? (
+						<p className="payroll-contribution-message" role="status">Loading attendance period controls…</p>
+					) : !periodControlsError ? (
+						<div className="attendance-period-control-list">
+							{controlPeriods.map((period) => {
+								const control = periodControls.find((item) =>
+									item.period_start === period.startDate
+								)
+								if (!control) return null
+
+								return (
+									<section className="attendance-period-control" key={period.startDate}>
+										<div className="attendance-period-control-details">
+											<strong>{period.label}</strong>
+											<span>
+												{formatAttendanceDate(period.startDate)}
+												{' – '}
+												{formatAttendanceDate(period.endDate)}
+											</span>
+											<span className={control.is_locked ? 'period-lock-status locked' : 'period-lock-status open'}>
+												{control.is_locked ? 'Locked' : 'Open'}
+												{control.is_automatic
+													? ' · automatic after period end'
+													: ' · TAFI Admin override'}
+											</span>
+											{control.pending_request_id && (
+												<span className="period-unlock-request">
+													Unlock requested by {control.requested_by || 'Branch Admin'}
+													{control.requested_at
+														? ` on ${formatSubmittedAt(control.requested_at)}`
+														: ''}
+												</span>
+											)}
+										</div>
+										<button
+											type="button"
+											className="save-button"
+											onClick={() => updatePeriodLock(period)}
+											disabled={periodControlAction === period.startDate}
+										>
+											{periodControlAction === period.startDate
+												? 'Updating…'
+												: control.is_locked
+													? control.pending_request_id
+														? 'Approve & unlock'
+														: 'Unlock period'
+													: 'Lock period'}
+										</button>
+									</section>
+								)
+							})}
+						</div>
+					) : null}
 				</>
 			) : activeTab === 'history' ? (
 				<>

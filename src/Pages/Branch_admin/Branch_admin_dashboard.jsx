@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { LogOut } from 'lucide-react'
+import {
+  CalendarCheck,
+  CalendarDays,
+  CircleDollarSign,
+  LogOut,
+  MinusCircle,
+  PlusCircle,
+  Users,
+  Wallet
+} from 'lucide-react'
 import logoImage from '../../images/Tafi logo transparent.png'
 import BranchAdminEmployee from './Branch_admin_employee'
 import BranchAttendanceMonitoring from './Branch_attendance_monitoring'
@@ -14,21 +23,20 @@ import BranchEmployeeLeaveCredits from './Branch_employee_leave_credits'
 import { revokeBranchAdminSession } from '../../lib/supabase'
 
 const tabs = [
-  { name: 'Employee Info', component: BranchAdminEmployee },
-  { name: 'Attendance monitoring', component: BranchAttendanceMonitoring },
+  { name: 'Employee Info', component: BranchAdminEmployee, icon: Users },
+  { name: 'Attendance monitoring', component: BranchAttendanceMonitoring, icon: CalendarDays },
   //{ name: 'Mandatory Contribution Employee', component: BranchMandatoryContributionEmployee },
-  { name: 'Cash Advance Pay', component: BranchCashAdvance },
-  { name: 'Employee Leave Credits', component: BranchEmployeeLeaveCredits },
-  { name: 'Others Deduction Pay', component: BranchOtherDeduction },
-  { name: 'Others Addition Pay', component: BranchOtherAdditionPay },
-  { name: 'Branch payroll', component: BranchPayroll },
+  { name: 'Cash Advance Pay', component: BranchCashAdvance, icon: CircleDollarSign },
+  { name: 'Employee Leave Credits', component: BranchEmployeeLeaveCredits, icon: CalendarCheck },
+  { name: 'Others Deduction Pay', component: BranchOtherDeduction, icon: MinusCircle },
+  { name: 'Others Addition Pay', component: BranchOtherAdditionPay, icon: PlusCircle },
+  { name: 'Branch payroll', component: BranchPayroll, icon: Wallet },
   //{ name: 'Branch reports', component: BranchReport }
 ]
 
 export default function BranchAdminDashboard() {
   const location = useLocation()
   const [activeTab, setActiveTab] = useState('Employee Info')
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [currentDateTime, setCurrentDateTime] = useState(() => new Date())
   const [branchAdmin] = useState(() => {
     if (location.state?.branchAdmin) return location.state.branchAdmin
@@ -63,40 +71,27 @@ export default function BranchAdminDashboard() {
 
   return (
     <div className="dashboard-page">
-      <div className={`dashboard-layout ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-        <aside className={`dashboard-sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
-          <button
-            type="button"
-            className="sidebar-toggle"
-            onClick={() => setIsSidebarCollapsed((current) => !current)}
-            aria-label={isSidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-          >
-            {isSidebarCollapsed ? 'Show' : 'Hide'}
-          </button>
-
+      <div className="dashboard-layout">
+        <aside className="dashboard-sidebar">
           <div className="dashboard-brand">
             <img src={logoImage} alt="TAFI logo" />
-            {!isSidebarCollapsed && <h3>TAFI</h3>}
           </div>
 
-          {!isSidebarCollapsed && (
-            <>
-              <div className="sidebar-section">
-                <div className="sidebar-label">Quick actions</div>
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.name}
-                    type="button"
-                    className={`sidebar-action ${activeTab === tab.name ? 'active' : ''}`}
-                    onClick={() => setActiveTab(tab.name)}
-                    aria-current={activeTab === tab.name ? 'page' : undefined}
-                  >
-                    {tab.name}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
+          <div className="sidebar-section">
+            <div className="sidebar-label">Quick actions</div>
+            {tabs.map(({ name, icon: Icon }) => (
+              <button
+                key={name}
+                type="button"
+                className={`sidebar-action ${activeTab === name ? 'active' : ''}`}
+                onClick={() => setActiveTab(name)}
+                aria-current={activeTab === name ? 'page' : undefined}
+              >
+                <Icon size={18} strokeWidth={2} aria-hidden="true" />
+                <span>{name}</span>
+              </button>
+            ))}
+          </div>
         </aside>
 
         <main className="dashboard-main">

@@ -273,8 +273,7 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
 
   const estimatedTotal = payrollRows.reduce((total, employee) =>
     total + (employee.salaryCredit ?? 0), 0)
-  const incompleteCount = payrollRows.filter((employee) => employee.basicSalary === null).length
-  const calculatedCount = payrollRows.length - incompleteCount
+  const calculatedCount = payrollRows.filter((employee) => employee.basicSalary !== null).length
   const estimatedDeductions = payrollRows.reduce(
     (total, employee) => total + (employee.basicSalary === null || !employee.hasContributions ? 0 : employee.totalDeductions),
     0
@@ -455,10 +454,6 @@ export default function BranchPayroll({ branchName = 'Bansasi Branch', branchAdm
         <div className="payroll-summary-card">
           <span>Estimated salary credit</span>
           <strong>{calculatedCount === 0 ? 'Awaiting data' : formatCurrency(estimatedTotal)}</strong>
-        </div>
-        <div className="payroll-summary-card">
-          <span>Needs rate or attendance</span>
-          <strong>{incompleteCount} employees</strong>
         </div>
         <div className="payroll-summary-card">
           <span>Total weekly deductions</span>

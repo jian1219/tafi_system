@@ -1602,9 +1602,7 @@ begin
     or p_period_start is null or p_period_end is null
     or p_period_end < p_period_start or p_period_end > p_period_start + 6
     or p_amount is null or p_amount < 0 or p_addition_type is null
-    or p_addition_type not in (
-      'holiday_regular_pay', 'overtime_pay', 'special_nonworking_holiday'
-    ) then
+    or p_addition_type <> 'overtime_pay' then
     raise exception 'Enter a valid employee, payroll week, addition type, and non-negative amount';
   end if;
   if not exists (

@@ -194,6 +194,46 @@ export async function listTafiAdminAttendanceSubmissionHistory(sessionToken, off
   }
 }
 
+export async function listTafiAdminAttendancePeriodControls(sessionToken, branchId, periodStarts) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_attendance_period_controls', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_period_starts: periodStarts
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load attendance period controls.')
+    }
+  }
+}
+
+export async function setTafiAdminAttendancePeriodLock(
+  sessionToken,
+  branchId,
+  periodStart,
+  periodEnd,
+  isLocked
+) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_set_attendance_period_lock', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_period_start: periodStart,
+      p_period_end: periodEnd,
+      p_is_locked: isLocked
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the attendance period lock.')
+    }
+  }
+}
+
 export async function listTafiAdminOvertimeHours(sessionToken, branchId, startDate, endDate) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -1729,6 +1769,37 @@ export async function listBranchAttendance(sessionToken, startDate, endDate) {
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to load attendance records.')
+    }
+  }
+}
+
+export async function getBranchAttendancePeriodControl(sessionToken, attendanceDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const { data, error } = await supabaseClient.rpc('branch_admin_get_attendance_period_control', {
+      p_session_token: sessionToken,
+      p_attendance_date: attendanceDate
+    })
+    return { data: data?.[0] ?? null, error }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to check the attendance period lock.')
+    }
+  }
+}
+
+export async function requestBranchAttendancePeriodUnlock(sessionToken, attendanceDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_request_attendance_period_unlock', {
+      p_session_token: sessionToken,
+      p_attendance_date: attendanceDate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to request an attendance period unlock.')
     }
   }
 }

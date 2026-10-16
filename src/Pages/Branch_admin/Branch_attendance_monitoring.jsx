@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   listBranchAttendance,
+  getBranchAttendancePeriodControl,
   listBranchEmployeeLeaveCredits,
   listBranchOvertimeHours,
   listBranchUndertimeDeductions,
+  requestBranchAttendancePeriodUnlock,
   saveBranchAttendance
 } from '../../lib/supabase'
 import { getBranchEmployees } from './branchEmployees'
@@ -93,8 +95,14 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
   const [undertimeRecords, setUndertimeRecords] = useState([])
   const [monthlyMetricsError, setMonthlyMetricsError] = useState('')
   const [isLoading, setIsLoading] = useState(Boolean(branchAdmin?.session_token))
+  const [attendancePeriodControl, setAttendancePeriodControl] = useState(null)
+  const [isLoadingPeriodControl, setIsLoadingPeriodControl] = useState(Boolean(sessionToken))
+  const [isRequestingUnlock, setIsRequestingUnlock] = useState(false)
+  const [periodControlError, setPeriodControlError] = useState('')
   const [saveMessage, setSaveMessage] = useState('')
   const [saveError, setSaveError] = useState('')
+  const isAttendancePeriodLocked = attendancePeriodControl?.is_locked === true
+  const hasPendingUnlockRequest = Boolean(attendancePeriodControl?.pending_request_id)
 
   useEffect(() => {
     let isCurrent = true
@@ -185,6 +193,34 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
     monthStart,
     monthEnd
   ])
+
+  useEffect(() => {
+    if (!sessionToken) return undefined
+
+    let isCurrent = true
+    const loadPeriodControl = async () => {
+      setIsLoadingPeriodControl(true)
+      setPeriodControlError('')
+      const { data, error } = await getBranchAttendancePeriodControl(
+        sessionToken,
+        dailyAttendanceDateKey
+      )
+      if (!isCurrent) return
+
+      if (error) {
+        setAttendancePeriodControl(null)
+        setPeriodControlError(error.message)
+      } else {
+        setAttendancePeriodControl(data)
+      }
+      setIsLoadingPeriodControl(false)
+    }
+
+    loadPeriodControl()
+    return () => {
+      isCurrent = false
+    }
+  }, [sessionToken, dailyAttendanceDateKey])
 
   const monthRecords = useMemo(() => employees.map((employee, index) => {
     const recordsForEmployee = new Map(
@@ -333,6 +369,12 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
   })
 
   const saveAttendance = async () => {
+    if (isAttendancePeriodLocked) {
+      setSaveError('This attendance period is locked. Request TAFI Admin to unlock it before making changes.')
+      setSaveMessage('')
+      return
+    }
+
     const missingShift = employees.find((employee) =>
       shiftEligibleStatuses.includes(employee.status) && !employee.shift
     )
@@ -372,6 +414,46 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
     ])
     setSaveError('')
     setSaveMessage('Shift, attendance, and late minutes saved.')
+  }
+
+  const requestAttendancePeriodUnlock = async () => {
+    setIsRequestingUnlock(true)
+    setSaveError('')
+    setSaveMessage('')
+    const { data, error } = await requestBranchAttendancePeriodUnlock(
+      sessionToken,
+      dailyAttendanceDateKey
+    )
+    setIsRequestingUnlock(false)
+    if (error) {
+      setSaveError(error.message)
+      return
+    }
+
+    setAttendancePeriodControl((current) => ({
+      ...current,
+      pending_request_id: data ?? true
+    }))
+    setSaveMessage('Unlock request sent to TAFI Admin.')
+  }
+
+  const checkAttendancePeriodUnlock = async () => {
+    setIsRequestingUnlock(true)
+    const { data, error } = await getBranchAttendancePeriodControl(
+      sessionToken,
+      dailyAttendanceDateKey
+    )
+    setIsRequestingUnlock(false)
+    if (error) {
+      setSaveError(error.message)
+      return
+    }
+
+    setAttendancePeriodControl(data)
+    setSaveError('')
+    setSaveMessage(data?.is_locked
+      ? 'The attendance period is still locked. The unlock request is pending with TAFI Admin.'
+      : 'TAFI Admin unlocked this period. You can now update attendance.')
   }
 
   const summary = useMemo(() => {
@@ -503,6 +585,22 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
             <p className="late-deduction-formula">
               Late deduction = daily rate ÷ 8 ÷ 60 × minutes late
             </p>
+            {periodControlError && (
+              <p className="payroll-contribution-message error" role="alert">
+                Could not verify whether this period is editable: {periodControlError}
+              </p>
+            )}
+            {!periodControlError && isLoadingPeriodControl && (
+              <p className="payroll-contribution-message" role="status">
+                Checking whether this attendance period is editable…
+              </p>
+            )}
+            {!periodControlError && !isLoadingPeriodControl && isAttendancePeriodLocked && (
+              <p className="payroll-contribution-message error" role="status">
+                This covered attendance period is locked. Attendance cannot be changed until TAFI Admin unlocks it.
+                {hasPendingUnlockRequest && ' An unlock request is pending with TAFI Admin.'}
+              </p>
+            )}
 
             <div className="attendance-submit-list">
               {isLoading ? (
@@ -526,6 +624,11 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
                           onChange={(event) => updateShift(employee.id, event.target.value)}
                           className="shift-select"
                           aria-label={`Shift for ${employee.name}`}
+                          disabled={
+                            isAttendancePeriodLocked
+                            || isLoadingPeriodControl
+                            || Boolean(periodControlError)
+                          }
                         >
                           <option value="">Select shift</option>
                           {shiftOptions.map((shift) => (
@@ -542,6 +645,11 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
                         setSaveError('')
                       }}
                       className="status-select"
+                      disabled={
+                        isAttendancePeriodLocked
+                        || isLoadingPeriodControl
+                        || Boolean(periodControlError)
+                      }
                     >
                       {attendanceOptions.map((option) => {
                         const leavePayUnavailable = option === 'Leave with Pay'
@@ -570,6 +678,11 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
                             step="1"
                             required
                             value={employee.lateMinutes || ''}
+                            disabled={
+                              isAttendancePeriodLocked
+                              || isLoadingPeriodControl
+                              || Boolean(periodControlError)
+                            }
                             onChange={(event) => {
                               updateLateMinutes(employee.id, event.target.value)
                               setSaveMessage('')
@@ -598,8 +711,29 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
                 {saveError && <span className="attendance-save-error" role="alert">{saveError}</span>}
                 {saveMessage && <span className="attendance-save-success" role="status">{saveMessage}</span>}
               </div>
-              <button type="button" className="save-button" onClick={saveAttendance} disabled={isLoading || employees.length === 0}>
-                Save attendance
+              <button
+                type="button"
+                className="save-button"
+                onClick={isAttendancePeriodLocked
+                  ? hasPendingUnlockRequest
+                    ? checkAttendancePeriodUnlock
+                    : requestAttendancePeriodUnlock
+                  : saveAttendance}
+                disabled={
+                  isLoading
+                  || isLoadingPeriodControl
+                  || Boolean(periodControlError)
+                  || isRequestingUnlock
+                  || employees.length === 0
+                }
+              >
+                {isRequestingUnlock
+                  ? 'Requesting…'
+                  : isAttendancePeriodLocked
+                    ? hasPendingUnlockRequest
+                      ? 'Check unlock status'
+                      : 'Request TAFI Admin to unlock'
+                    : 'Save attendance'}
               </button>
             </div>
           </div>

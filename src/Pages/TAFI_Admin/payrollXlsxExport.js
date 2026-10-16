@@ -25,6 +25,48 @@ const getBranchPayrollDetails = (branchName = '') => {
     .find((details) => normalizedName.includes(details.match))
 }
 
+const roundPeso = (amount) => {
+  if (typeof amount !== 'number' || !Number.isFinite(amount)) return amount
+  return Math.sign(amount) * Math.floor(Math.abs(amount) + 0.5)
+}
+
+const roundPayrollRow = (employee) => {
+  const monetaryFields = [
+    'monthlyRate',
+    'dailyRate',
+    'basicSalary',
+    'holiday_regular_pay',
+    'overtime_pay',
+    'special_nonworking_holiday',
+    'sss',
+    'philhealth',
+    'pagibig',
+    'hdmfLoanDeduction',
+    'cashAdvanceDeduction',
+    'lateDeduction',
+    'undertimeDeduction',
+    'otherDeduction'
+  ]
+  const rounded = { ...employee }
+  monetaryFields.forEach((field) => {
+    rounded[field] = roundPeso(employee[field])
+  })
+
+  rounded.salaryCredit = employee.salaryCredit === null
+    ? null
+    : rounded.basicSalary + rounded.holiday_regular_pay
+      + rounded.overtime_pay + rounded.special_nonworking_holiday
+  rounded.totalDeductions = monetaryFields.slice(6).reduce(
+    (total, field) => total + (rounded[field] ?? 0),
+    0
+  )
+  rounded.weeklyNet = employee.weeklyNet === null
+    ? null
+    : rounded.salaryCredit - rounded.totalDeductions
+
+  return rounded
+}
+
 export const getBranchDriveFolder = (branchName = '') => (
   getBranchPayrollDetails(branchName)?.driveFolderUrl ?? ''
 )
@@ -219,7 +261,8 @@ export async function downloadPayrollWorkbook({
     worksheet.mergeCells(`A${40 + extraRows}:Z${43 + extraRows}`)
   }
 
-  payrollRows.forEach((employee, index) => {
+  const roundedPayrollRows = payrollRows.map(roundPayrollRow)
+  roundedPayrollRows.forEach((employee, index) => {
     const values = [
       index + 1,
       employee.id,
@@ -243,7 +286,7 @@ export async function downloadPayrollWorkbook({
       employee.cashAdvanceDeduction,
       employee.lateDeduction,
       employee.undertimeDeduction,
-      null,
+      employee.otherDeduction,
       employee.hasContributions ? employee.totalDeductions : null,
       employee.weeklyNet,
       null
@@ -254,7 +297,7 @@ export async function downloadPayrollWorkbook({
   })
 
   const totalRow = 39 + extraRows
-  const total = (getValue) => payrollRows.reduce((sum, employee) => {
+  const total = (getValue) => roundedPayrollRows.reduce((sum, employee) => {
     const value = getValue(employee)
     return sum + (typeof value === 'number' && Number.isFinite(value) ? value : 0)
   }, 0)
@@ -265,7 +308,7 @@ export async function downloadPayrollWorkbook({
   )
   worksheet.getCell(`Y${totalRow}`).value = total((employee) => employee.weeklyNet)
 
-  const pesoNumberFormat = '"₱"#,##0.00;-"₱"#,##0.00;"₱" -'
+  const pesoNumberFormat = '"₱"#,##0;-"₱"#,##0;"₱" -'
   const monetaryColumns = [6, 7, ...Array.from({ length: 15 }, (_, index) => index + 11)]
   for (let row = firstDataRow; row <= totalRow; row += 1) {
     monetaryColumns.forEach((column) => {

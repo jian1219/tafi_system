@@ -578,89 +578,40 @@ button {
 .dashboard-page {
   min-height: 100vh;
   background: linear-gradient(135deg, #f8fafc 0%, #dbeafe 100%);
-  padding: 32px;
+  padding: 0;
 }
 
 .dashboard-layout {
   width: 100%;
   max-width: none;
+  min-height: 100vh;
   margin: 0;
   background: rgba(255, 255, 255, 0.9);
-  border-radius: 28px;
-  box-shadow: 0 22px 50px rgba(15, 23, 42, 0.12);
+  border-radius: 0;
+  box-shadow: none;
   display: grid;
   grid-template-columns: 320px 1fr;
-  transition: grid-template-columns 0.25s ease;
   overflow: hidden;
-}
-
-.dashboard-layout.sidebar-collapsed {
-  grid-template-columns: 110px 1fr;
 }
 
 .dashboard-sidebar {
   background: linear-gradient(180deg, #0f172a 0%, #1d4ed8 100%);
   color: white;
   padding: 28px 22px;
-  transition: padding 0.25s ease;
   position: relative;
 }
 
-.dashboard-sidebar.collapsed {
-  padding: 18px 12px;
-}
-
-.sidebar-toggle {
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.08);
-  color: white;
-  border-radius: 999px;
-  padding: 8px 12px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  cursor: pointer;
-  margin-bottom: 18px;
-  width: 100%;
-  transition: all 0.2s ease;
-}
-
-.sidebar-toggle:hover {
-  background: rgba(255, 255, 255, 0.14);
-}
-
 .dashboard-brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 28px;
-}
-
-.dashboard-sidebar.collapsed .dashboard-brand {
-  justify-content: center;
-  margin-bottom: 18px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 32px;
 }
 
 .dashboard-brand img {
-  width: 54px;
-  height: 54px;
+  width: 140px;
+  height: 140px;
+  max-width: 100%;
   object-fit: contain;
-}
-
-.dashboard-sidebar.collapsed .dashboard-brand img {
-  width: 42px;
-  height: 42px;
-}
-
-.dashboard-brand h3 {
-  margin: 0;
-  font-size: 1.1rem;
-}
-
-.dashboard-sidebar.collapsed .dashboard-brand h3,
-.dashboard-sidebar.collapsed .sidebar-section,
-.dashboard-sidebar.collapsed .sidebar-label,
-.dashboard-sidebar.collapsed .sidebar-card {
-  display: none;
 }
 
 .sidebar-section {
@@ -690,7 +641,9 @@ button {
 }
 
 .sidebar-action {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   width: 100%;
   margin-bottom: 8px;
   padding: 12px 14px;
@@ -704,6 +657,14 @@ button {
   font-weight: 650;
   cursor: pointer;
   transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.sidebar-action svg {
+  flex: 0 0 18px;
+}
+
+.sidebar-action span {
+  min-width: 0;
 }
 
 .sidebar-action:hover,
@@ -2097,6 +2058,53 @@ button {
   outline-offset: 2px;
 }
 
+.attendance-period-control-list {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  background: #f8fafc;
+}
+
+.attendance-period-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.attendance-period-control-details {
+  display: grid;
+  gap: 5px;
+  color: #475569;
+  font-size: 0.88rem;
+}
+
+.attendance-period-control-details > strong {
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.period-lock-status {
+  font-weight: 700;
+}
+
+.period-lock-status.locked {
+  color: #b91c1c;
+}
+
+.period-lock-status.open {
+  color: #15803d;
+}
+
+.period-unlock-request {
+  color: #1d4ed8;
+  font-weight: 650;
+}
+
 .week-label {
   color: #0f172a;
   font-size: 0.92rem;
@@ -3011,7 +3019,7 @@ button {
 
 .payroll-summary-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   padding: 18px 24px;
   border-bottom: 1px solid #e2e8f0;
@@ -4108,7 +4116,7 @@ button {
   }
 
   .dashboard-page {
-    padding: 18px;
+    padding: 0;
   }
 
   .dashboard-header {
@@ -4999,6 +5007,15 @@ button {
   color: #1d4ed8;
 }
 
+.tafi-admin-content .attendance-period-control-list {
+  background: #f8fafc;
+}
+
+.tafi-admin-content .attendance-period-control {
+  border-color: #e2e8f0;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
 .tafi-admin-content .submit-panel {
   background: #fff;
 }
@@ -5126,6 +5143,15 @@ button {
   .tafi-admin-content .branch-title {
     padding: 16px;
     font-size: 1.1rem;
+  }
+
+  .attendance-period-control {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .attendance-period-control > .save-button {
+    width: 100%;
   }
 
   .tafi-admin-content .attendance-monitoring-tabs {
