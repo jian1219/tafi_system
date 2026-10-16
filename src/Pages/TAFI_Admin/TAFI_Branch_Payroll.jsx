@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getTafiAdminWeeklyPayrollData, listTafiAdminBranches } from '../../lib/supabase'
 import { getAttendanceDayValue, getLocalDateKey } from '../Branch_admin/branchAttendanceRecords'
-import { downloadPayrollWorkbook, getBranchDriveFolder } from './payrollXlsxExport'
+import { downloadPayrollWorkbook } from './payrollXlsxExport'
 import { getPayrollPeriods } from '../../lib/payrollPeriods'
 
 const formatCurrency = (amount) => amount.toLocaleString('en-PH', {
@@ -316,20 +316,6 @@ export default function TafiBranchPayroll({ sessionToken }) {
     }
   }
 
-  const sendPayrollToGoogleDrive = () => {
-    const driveFolderUrl = getBranchDriveFolder(selectedBranch?.branch_name)
-    if (!driveFolderUrl) return
-
-    const link = document.createElement('a')
-    link.href = driveFolderUrl
-    link.target = '_blank'
-    link.rel = 'noopener noreferrer'
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    openPayrollXlsxOptions()
-  }
-
   return (
     <section className="branch-payroll-shell">
       <header className="branch-payroll-header">
@@ -385,17 +371,6 @@ export default function TafiBranchPayroll({ sessionToken }) {
           >
             {isDownloadingXlsx ? 'Preparing XLSX…' : 'Download payroll XLSX'}
           </button>
-          {getBranchDriveFolder(selectedBranch?.branch_name) && (
-            <button
-              type="button"
-              className="report-download-button"
-              onClick={sendPayrollToGoogleDrive}
-              disabled={payrollStatus !== 'ready' || !selectedBranchId || isDownloadingXlsx}
-              title="Open the branch's Google Drive folder and download the XLSX for manual upload"
-            >
-              Send to Google Drive
-            </button>
-          )}
         </div>
       </header>
 

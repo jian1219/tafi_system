@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
 	listTafiAdminAttendance,
+	listTafiAdminAttendanceSubmissionHistory,
 	listTafiAdminBranches,
 	listTafiAdminEmployeeLeaveCredits,
 	listTafiAdminEmployees,
@@ -39,6 +40,7 @@ const shiftOptions = [
 ]
 
 const shiftEligibleStatuses = ['Present', 'Present (Late)', 'Half Day']
+const attendanceHistoryPageSize = 100
 
 const statusFromDatabase = {
 	not_marked: 'Not marked',
@@ -80,6 +82,24 @@ function formatCurrency(amount) {
 	})
 }
 
+function formatAttendanceDate(dateKey) {
+	return new Date(`${dateKey}T12:00:00`).toLocaleDateString(undefined, {
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric'
+	})
+}
+
+function formatSubmittedAt(timestamp) {
+	return new Date(timestamp).toLocaleString(undefined, {
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric',
+		hour: 'numeric',
+		minute: '2-digit'
+	})
+}
+
 export default function TafiEmployeeAttendance({ sessionToken }) {
 	const [attendanceDateKey] = useState(() => getLocalDateKey(new Date()))
 	const [activeTab, setActiveTab] = useState('daily')
@@ -93,14 +113,20 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 	const [overtimeRecords, setOvertimeRecords] = useState([])
 	const [undertimeRecords, setUndertimeRecords] = useState([])
 	const [leaveCreditBalances, setLeaveCreditBalances] = useState({})
+	const [submissionHistory, setSubmissionHistory] = useState([])
+	const [historyOffset, setHistoryOffset] = useState(0)
+	const [historyReloadKey, setHistoryReloadKey] = useState(0)
+	const [hasMoreHistory, setHasMoreHistory] = useState(false)
 	const [isLoadingDirectory, setIsLoadingDirectory] = useState(Boolean(sessionToken))
 	const [isLoadingAttendance, setIsLoadingAttendance] = useState(false)
 	const [isLoadingLeaveCredits, setIsLoadingLeaveCredits] = useState(false)
+	const [isLoadingHistory, setIsLoadingHistory] = useState(false)
 	const [isSaving, setIsSaving] = useState(false)
 	const [selectedWeekIndex, setSelectedWeekIndex] = useState(0)
 	const [loadError, setLoadError] = useState('')
 	const [leaveCreditError, setLeaveCreditError] = useState('')
 	const [monthlyMetricsError, setMonthlyMetricsError] = useState('')
+	const [historyError, setHistoryError] = useState('')
 	const [saveMessage, setSaveMessage] = useState('')
 	const [saveError, setSaveError] = useState('')
 
@@ -162,6 +188,40 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 			isCurrent = false
 		}
 	}, [sessionToken])
+
+	useEffect(() => {
+		if (activeTab !== 'history' || !sessionToken) return undefined
+
+		let isCurrent = true
+		const loadSubmissionHistory = async () => {
+			setIsLoadingHistory(true)
+			setHistoryError('')
+			const { data, error } = await listTafiAdminAttendanceSubmissionHistory(
+				sessionToken,
+				0,
+				attendanceHistoryPageSize
+			)
+			if (!isCurrent) return
+
+			if (error) {
+				setHistoryError(error.message)
+				setSubmissionHistory([])
+				setHistoryOffset(0)
+				setHasMoreHistory(false)
+			} else {
+				const records = data ?? []
+				setSubmissionHistory(records)
+				setHistoryOffset(records.length)
+				setHasMoreHistory(records.length === attendanceHistoryPageSize)
+			}
+			setIsLoadingHistory(false)
+		}
+
+		loadSubmissionHistory()
+		return () => {
+			isCurrent = false
+		}
+	}, [activeTab, sessionToken, historyReloadKey])
 
 	useEffect(() => {
 		if (!sessionToken || !selectedBranchId) {
@@ -471,6 +531,34 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 		setSaveMessage('Shift, attendance, and late minutes saved.')
 	}
 
+	const loadOlderSubmissions = async () => {
+		if (isLoadingHistory || !hasMoreHistory) return
+
+		setIsLoadingHistory(true)
+		setHistoryError('')
+		const { data, error } = await listTafiAdminAttendanceSubmissionHistory(
+			sessionToken,
+			historyOffset,
+			attendanceHistoryPageSize
+		)
+		if (error) {
+			setHistoryError(error.message)
+		} else {
+			const records = data ?? []
+			setSubmissionHistory((current) => [...current, ...records])
+			setHistoryOffset((current) => current + records.length)
+			setHasMoreHistory(records.length === attendanceHistoryPageSize)
+		}
+		setIsLoadingHistory(false)
+	}
+
+	const refreshSubmissionHistory = () => {
+		setSubmissionHistory([])
+		setHistoryOffset(0)
+		setHasMoreHistory(false)
+		setHistoryReloadKey((current) => current + 1)
+	}
+
 	const updateRecordsMonth = (month) => {
 		if (!month) return
 		setSelectedWeekIndex(0)
@@ -552,6 +640,13 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 					onClick={() => setActiveTab('monthly')}
 				>
 					All Month Records
+				</button>
+				<button
+					type="button"
+					className={activeTab === 'history' ? 'monitoring-tab active' : 'monitoring-tab'}
+					onClick={() => setActiveTab('history')}
+				>
+					Submitted History
 				</button>
 			</div>
 
@@ -824,6 +919,74 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 								</table>
 							</div>
 						</>
+					)}
+				</>
+			) : activeTab === 'history' ? (
+				<>
+					<div className="monitoring-toolbar">
+						<div className="summary-inline">
+							<span>Daily attendance submissions from all branches</span>
+						</div>
+						<button
+							type="button"
+							className="save-button"
+							onClick={refreshSubmissionHistory}
+							disabled={isLoadingHistory}
+						>
+							Refresh
+						</button>
+					</div>
+					{historyError && (
+						<p className="payroll-contribution-message error" role="alert">
+							Could not load submitted attendance history: {historyError}
+						</p>
+					)}
+					{isLoadingHistory && submissionHistory.length === 0 ? (
+						<p className="payroll-contribution-message" role="status">Loading submitted attendance history…</p>
+					) : (
+						<div className="attendance-grid-wrap" role="region" aria-label="Submitted attendance history" tabIndex="0">
+							<table className="attendance-table">
+								<thead>
+									<tr>
+										<th>Branch</th>
+										<th>Branch Admin / TAFI Admin</th>
+										<th>Attendance Date</th>
+										<th>Submitted Date &amp; Time</th>
+										<th>Employees</th>
+									</tr>
+								</thead>
+								<tbody>
+									{submissionHistory.map((submission) => (
+										<tr key={submission.id}>
+											<td>{submission.branch_name}</td>
+											<td>{submission.submitted_by_role}: {submission.submitted_by_name}</td>
+											<td>{formatAttendanceDate(submission.attendance_date)}</td>
+											<td>{formatSubmittedAt(submission.submitted_at)}</td>
+											<td>{submission.employee_count}</td>
+										</tr>
+									))}
+									{!isLoadingHistory && !historyError && submissionHistory.length === 0 && (
+										<tr>
+											<td className="employee-empty-state" colSpan="5">
+												No branch attendance submissions have been recorded yet.
+											</td>
+										</tr>
+									)}
+								</tbody>
+							</table>
+						</div>
+					)}
+					{hasMoreHistory && (
+						<div className="submit-action-row">
+							<button
+								type="button"
+								className="save-button"
+								onClick={loadOlderSubmissions}
+								disabled={isLoadingHistory}
+							>
+								{isLoadingHistory ? 'Loading…' : 'Load older submissions'}
+							</button>
+						</div>
 					)}
 				</>
 			) : (

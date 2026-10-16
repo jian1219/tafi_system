@@ -178,6 +178,22 @@ export async function listTafiAdminAttendance(sessionToken, branchId, startDate,
   }
 }
 
+export async function listTafiAdminAttendanceSubmissionHistory(sessionToken, offset = 0, limit = 100) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_attendance_submission_history', {
+      p_session_token: sessionToken,
+      p_offset: offset,
+      p_limit: limit
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load attendance submission history.')
+    }
+  }
+}
+
 export async function listTafiAdminOvertimeHours(sessionToken, branchId, startDate, endDate) {
   try {
     const supabaseClient = await getSupabaseClient()

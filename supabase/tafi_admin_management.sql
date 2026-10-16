@@ -648,6 +648,50 @@ begin
 end;
 $$;
 
+drop function if exists public.tafi_admin_list_attendance_submission_history(uuid, integer, integer);
+
+create function public.tafi_admin_list_attendance_submission_history(
+  p_session_token uuid,
+  p_offset integer default 0,
+  p_limit integer default 100
+)
+returns table (
+  id bigint,
+  branch_name text,
+  submitted_by_role text,
+  submitted_by_name text,
+  attendance_date date,
+  submitted_at timestamptz,
+  employee_count integer
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1 from public.tafi_admin_session as admin_session
+    where admin_session.session_token = p_session_token
+      and admin_session.expires_at > now()
+  ) then
+    raise exception 'Invalid or expired TAFI Admin session' using errcode = '28000';
+  end if;
+  if p_offset is null or p_offset < 0
+    or p_limit is null or p_limit < 1 or p_limit > 500 then
+    raise exception 'Attendance history page offset and limit are invalid';
+  end if;
+
+  return query
+  select submission.id, submission.branch_name,
+    submission.submitted_by_role, submission.submitted_by_name,
+    submission.attendance_date, submission.submitted_at, submission.employee_count
+  from public.branch_employee_attendance_submission as submission
+  order by submission.submitted_at desc, submission.id desc
+  offset p_offset
+  limit p_limit;
+end;
+$$;
+
 create or replace function public.tafi_admin_list_employee_leave_credits(
   p_session_token uuid,
   p_branch_id uuid
@@ -1335,6 +1379,16 @@ begin
       updated_at = now();
   end loop;
 
+  insert into public.branch_employee_attendance_submission (
+    branch_id, branch_name, submitted_by_role, submitted_by_id,
+    submitted_by_name, attendance_date, employee_count
+  )
+  select branch.id, branch.name, 'TAFI Admin', admin.id, admin.name,
+    p_attendance_date, jsonb_array_length(p_records)
+  from public.branch as branch
+  join public.tafi_admin as admin on admin.id = v_admin_id
+  where branch.id = p_branch_id;
+
   return true;
 end;
 $$;
@@ -1655,6 +1709,16 @@ begin
       updated_at = now();
   end loop;
 
+  insert into public.branch_employee_attendance_submission (
+    branch_id, branch_name, submitted_by_role, submitted_by_id,
+    submitted_by_name, attendance_date, employee_count
+  )
+  select branch.id, branch.name, 'TAFI Admin', admin.id, admin.name,
+    p_attendance_date, jsonb_array_length(p_records)
+  from public.branch as branch
+  join public.tafi_admin as admin on admin.id = v_admin_id
+  where branch.id = p_branch_id;
+
   return true;
 end;
 $$;
@@ -1862,6 +1926,7 @@ revoke all on function public.tafi_admin_save_contribution_period_settings(uuid,
 revoke all on function public.branch_admin_is_contribution_period_enabled(uuid, date) from public;
 revoke all on function public.tafi_admin_list_employees(uuid) from public;
 revoke all on function public.tafi_admin_list_attendance(uuid, uuid, date, date) from public;
+revoke all on function public.tafi_admin_list_attendance_submission_history(uuid, integer, integer) from public;
 revoke all on function public.tafi_admin_list_employee_leave_credits(uuid, uuid) from public;
 revoke all on function public.tafi_admin_list_overtime_hours(uuid, uuid, date, date) from public;
 revoke all on function public.tafi_admin_list_undertime_deductions(uuid, uuid, date, date) from public;
@@ -1890,6 +1955,7 @@ grant execute on function public.tafi_admin_save_contribution_period_settings(uu
 grant execute on function public.branch_admin_is_contribution_period_enabled(uuid, date) to anon, authenticated;
 grant execute on function public.tafi_admin_list_employees(uuid) to anon, authenticated;
 grant execute on function public.tafi_admin_list_attendance(uuid, uuid, date, date) to anon, authenticated;
+grant execute on function public.tafi_admin_list_attendance_submission_history(uuid, integer, integer) to anon, authenticated;
 grant execute on function public.tafi_admin_list_employee_leave_credits(uuid, uuid) to anon, authenticated;
 grant execute on function public.tafi_admin_list_overtime_hours(uuid, uuid, date, date) to anon, authenticated;
 grant execute on function public.tafi_admin_list_undertime_deductions(uuid, uuid, date, date) to anon, authenticated;
