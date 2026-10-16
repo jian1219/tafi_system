@@ -9,6 +9,7 @@ import TafiLeaveCredits from './TAFI_Leave_Credits'
 import TafiBranchPayroll from './TAFI_Branch_Payroll'
 const TafiOtherAdditionPay = lazy(() => import('./TAFI_Other_Addition_Pay'))
 const TafiOtherDeductionPay = lazy(() => import('./TAFI_Other_Deduction_Pay'))
+const TafiCashAdvance = lazy(() => import('./TAFI_Cash_Advance'))
 import logoImage from '../../images/Tafi logo transparent.png'
 
 const navigationItems = [
@@ -18,6 +19,7 @@ const navigationItems = [
 	{ id: 'contributions', label: 'Mandatory Contributions', icon: CircleDollarSign },
 	{ id: 'other-additions', label: 'Other Addition Pay', icon: PlusCircle },
 	{ id: 'other-deductions', label: 'Other Deduction Pay', icon: MinusCircle },
+	{ id: 'cash-advance', label: 'Cash Advance', icon: CircleDollarSign },
 	{ id: 'payroll', label: 'Branch Payroll', icon: Wallet }
 ]
 
@@ -110,6 +112,12 @@ export default function TafiDashboard() {
 												<TafiOtherDeductionPay sessionToken={tafiAdmin.session_token} />
 											</Suspense>
 											)
+											: activePage === 'cash-advance'
+												? (
+												<Suspense fallback={<p className="cash-advance-message" role="status">Loading cash advance tools…</p>}>
+													<TafiCashAdvance sessionToken={tafiAdmin.session_token} />
+												</Suspense>
+												)
 											: <TafiBranchPayroll sessionToken={tafiAdmin.session_token} />}
 				</section>
 			</main>

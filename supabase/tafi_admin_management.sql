@@ -26,6 +26,46 @@ create table if not exists public.tafi_admin_session (
 alter table public.tafi_admin_session enable row level security;
 revoke all on table public.tafi_admin_session from public, anon, authenticated;
 
+alter table public.branch_employee_cash_advance_loan
+  add column if not exists created_by_tafi_admin_id uuid
+    references public.tafi_admin(id) on delete restrict,
+  alter column created_by_branch_admin_id drop not null;
+
+alter table public.branch_employee_cash_advance_payment
+  add column if not exists created_by_tafi_admin_id uuid
+    references public.tafi_admin(id) on delete restrict,
+  alter column created_by_branch_admin_id drop not null;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'branch_employee_cash_advance_loan_one_creator'
+      and conrelid = 'public.branch_employee_cash_advance_loan'::regclass
+  ) then
+    alter table public.branch_employee_cash_advance_loan
+      add constraint branch_employee_cash_advance_loan_one_creator
+      check (
+        (created_by_branch_admin_id is not null)
+        <> (created_by_tafi_admin_id is not null)
+      );
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'branch_employee_cash_advance_payment_one_creator'
+      and conrelid = 'public.branch_employee_cash_advance_payment'::regclass
+  ) then
+    alter table public.branch_employee_cash_advance_payment
+      add constraint branch_employee_cash_advance_payment_one_creator
+      check (
+        (created_by_branch_admin_id is not null)
+        <> (created_by_tafi_admin_id is not null)
+      );
+  end if;
+end;
+$$;
+
 create table if not exists public.tafi_admin_contribution_month_schedule (
   month_start date primary key check (
     month_start = date_trunc('month', month_start)::date
@@ -595,6 +635,282 @@ begin
   from public.employee as e
   join public.branch as b on b.id = e.branch_id
   order by b.name, e.name;
+end;
+$$;
+
+create or replace function public.tafi_admin_create_cash_advance_loan(
+  p_session_token uuid,
+  p_branch_id uuid,
+  p_employee_code text,
+  p_advance_date date,
+  p_advance_amount numeric
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_admin_id uuid;
+  v_advance_id uuid;
+begin
+  select admin_session.tafi_admin_id into v_admin_id
+  from public.tafi_admin_session as admin_session
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now();
+
+  if not found then
+    raise exception 'Invalid or expired TAFI Admin session' using errcode = '28000';
+  end if;
+  if p_branch_id is null or not exists (
+    select 1 from public.branch where id = p_branch_id
+  ) then
+    raise exception 'Selected branch was not found';
+  end if;
+  if nullif(trim(p_employee_code), '') is null or p_advance_date is null
+    or p_advance_amount is null or p_advance_amount <= 0 then
+    raise exception 'Employee, cash advance date, and amount greater than zero are required';
+  end if;
+  if not exists (
+    select 1 from public.employee as employee
+    where employee.branch_id = p_branch_id
+      and employee.employee_code = trim(p_employee_code)
+      and employee.employment_status = 'active'
+  ) then
+    raise exception 'Active employee was not found in this branch';
+  end if;
+
+  insert into public.branch_employee_cash_advance_loan (
+    branch_id, employee_code, advance_date, advance_amount,
+    created_by_branch_admin_id, created_by_tafi_admin_id
+  )
+  values (
+    p_branch_id, trim(p_employee_code), p_advance_date, p_advance_amount,
+    null, v_admin_id
+  )
+  returning id into v_advance_id;
+
+  return v_advance_id;
+end;
+$$;
+
+create or replace function public.tafi_admin_list_cash_advance_loans(
+  p_session_token uuid,
+  p_branch_id uuid,
+  p_offset integer default 0,
+  p_limit integer default 500
+)
+returns table (
+  id uuid,
+  employee_code text,
+  employee_name text,
+  advance_date date,
+  advance_amount numeric,
+  amount_paid numeric,
+  balance numeric,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1 from public.tafi_admin_session as admin_session
+    where admin_session.session_token = p_session_token
+      and admin_session.expires_at > now()
+  ) then
+    raise exception 'Invalid or expired TAFI Admin session' using errcode = '28000';
+  end if;
+  if p_branch_id is null or not exists (
+    select 1 from public.branch as branch where branch.id = p_branch_id
+  ) then
+    raise exception 'Selected branch was not found';
+  end if;
+  if p_offset is null or p_offset < 0
+    or p_limit is null or p_limit < 1 or p_limit > 500 then
+    raise exception 'Cash advance history page offset and limit are invalid';
+  end if;
+
+  return query
+  select loan.id, loan.employee_code, employee.name, loan.advance_date,
+    loan.advance_amount, coalesce(payment_totals.amount_paid, 0),
+    greatest(loan.advance_amount - coalesce(payment_totals.amount_paid, 0), 0),
+    loan.created_at
+  from public.branch_employee_cash_advance_loan as loan
+  join public.employee as employee
+    on employee.branch_id = loan.branch_id
+    and employee.employee_code = loan.employee_code
+  left join lateral (
+    select sum(payment.amount) as amount_paid
+    from public.branch_employee_cash_advance_payment as payment
+    where payment.advance_id = loan.id
+      and payment.branch_id = loan.branch_id
+  ) as payment_totals on true
+  where loan.branch_id = p_branch_id
+  order by loan.advance_date desc, employee.name, loan.created_at desc, loan.id
+  offset p_offset
+  limit p_limit;
+end;
+$$;
+
+create or replace function public.tafi_admin_list_cash_advance_payments(
+  p_session_token uuid,
+  p_branch_id uuid,
+  p_period_start date default null,
+  p_period_end date default null,
+  p_offset integer default 0,
+  p_limit integer default 500
+)
+returns table (
+  id uuid,
+  advance_id uuid,
+  employee_code text,
+  period_start date,
+  period_end date,
+  amount numeric
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1 from public.tafi_admin_session as admin_session
+    where admin_session.session_token = p_session_token
+      and admin_session.expires_at > now()
+  ) then
+    raise exception 'Invalid or expired TAFI Admin session' using errcode = '28000';
+  end if;
+  if p_branch_id is null or not exists (
+    select 1 from public.branch as branch where branch.id = p_branch_id
+  ) then
+    raise exception 'Selected branch was not found';
+  end if;
+  if p_offset is null or p_offset < 0
+    or p_limit is null or p_limit < 1 or p_limit > 500 then
+    raise exception 'Cash advance payment page offset and limit are invalid';
+  end if;
+  if (p_period_start is null) <> (p_period_end is null)
+    or (p_period_start is not null and p_period_end < p_period_start) then
+    raise exception 'Both cash advance period dates must be provided and valid';
+  end if;
+
+  return query
+  select payment.id, payment.advance_id, payment.employee_code,
+    payment.period_start, payment.period_end, payment.amount
+  from public.branch_employee_cash_advance_payment as payment
+  where payment.branch_id = p_branch_id
+    and (p_period_start is null or payment.period_start >= p_period_start)
+    and (p_period_end is null or payment.period_end <= p_period_end)
+  order by payment.period_start, payment.employee_code, payment.advance_id
+  offset p_offset
+  limit p_limit;
+end;
+$$;
+
+create or replace function public.tafi_admin_save_cash_advance_weekly_deductions(
+  p_session_token uuid,
+  p_branch_id uuid,
+  p_advance_id uuid,
+  p_payments jsonb
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_admin_id uuid;
+  v_advance public.branch_employee_cash_advance_loan%rowtype;
+  v_payment jsonb;
+  v_period_start date;
+  v_period_end date;
+  v_amount numeric;
+  v_period_starts date[] := array[]::date[];
+  v_total_paid numeric;
+begin
+  select admin_session.tafi_admin_id into v_admin_id
+  from public.tafi_admin_session as admin_session
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now();
+
+  if not found then
+    raise exception 'Invalid or expired TAFI Admin session' using errcode = '28000';
+  end if;
+  if p_branch_id is null or not exists (
+    select 1 from public.branch where id = p_branch_id
+  ) then
+    raise exception 'Selected branch was not found';
+  end if;
+  if p_advance_id is null or jsonb_typeof(p_payments) is distinct from 'array' then
+    raise exception 'A cash advance and weekly deduction array are required';
+  end if;
+  if jsonb_array_length(p_payments) < 1 or jsonb_array_length(p_payments) > 6 then
+    raise exception 'A cash advance and one to six weekly deduction entries are required';
+  end if;
+
+  select loan.* into v_advance
+  from public.branch_employee_cash_advance_loan as loan
+  where loan.id = p_advance_id and loan.branch_id = p_branch_id
+  for update;
+  if not found then
+    raise exception 'Cash advance was not found in this branch';
+  end if;
+
+  for v_payment in select value from jsonb_array_elements(p_payments)
+  loop
+    if jsonb_typeof(v_payment) is distinct from 'object'
+      or nullif(v_payment->>'period_start', '') is null
+      or nullif(v_payment->>'period_end', '') is null
+      or nullif(v_payment->>'amount', '') is null then
+      raise exception 'Each weekly deduction must include dates and an amount';
+    end if;
+
+    v_period_start := (v_payment->>'period_start')::date;
+    v_period_end := (v_payment->>'period_end')::date;
+    v_amount := (v_payment->>'amount')::numeric;
+    if v_period_end < v_period_start or v_period_end > v_period_start + 6
+      or v_amount < 0 then
+      raise exception 'Weekly deduction dates or amount are invalid';
+    end if;
+    if v_period_start = any(v_period_starts) then
+      raise exception 'A payroll week may only be listed once';
+    end if;
+    v_period_starts := array_append(v_period_starts, v_period_start);
+
+    if v_amount = 0 then
+      delete from public.branch_employee_cash_advance_payment
+      where advance_id = v_advance.id
+        and branch_id = p_branch_id
+        and period_start = v_period_start;
+    else
+      insert into public.branch_employee_cash_advance_payment (
+        branch_id, advance_id, employee_code, period_start, period_end,
+        amount, created_by_branch_admin_id, created_by_tafi_admin_id
+      )
+      values (
+        p_branch_id, v_advance.id, v_advance.employee_code,
+        v_period_start, v_period_end, v_amount, null, v_admin_id
+      )
+      on conflict (advance_id, period_start) do update
+      set period_end = excluded.period_end,
+        amount = excluded.amount,
+        created_by_branch_admin_id = null,
+        created_by_tafi_admin_id = excluded.created_by_tafi_admin_id,
+        updated_at = now();
+    end if;
+  end loop;
+
+  select coalesce(sum(payment.amount), 0) into v_total_paid
+  from public.branch_employee_cash_advance_payment as payment
+  where payment.advance_id = v_advance.id
+    and payment.branch_id = p_branch_id;
+  if v_total_paid > v_advance.advance_amount then
+    raise exception 'Weekly deductions cannot exceed the remaining cash advance balance';
+  end if;
+
+  return true;
 end;
 $$;
 
@@ -1925,6 +2241,10 @@ revoke all on function public.tafi_admin_get_contribution_period_settings(uuid, 
 revoke all on function public.tafi_admin_save_contribution_period_settings(uuid, date, date[]) from public;
 revoke all on function public.branch_admin_is_contribution_period_enabled(uuid, date) from public;
 revoke all on function public.tafi_admin_list_employees(uuid) from public;
+revoke all on function public.tafi_admin_create_cash_advance_loan(uuid, uuid, text, date, numeric) from public;
+revoke all on function public.tafi_admin_list_cash_advance_loans(uuid, uuid, integer, integer) from public;
+revoke all on function public.tafi_admin_list_cash_advance_payments(uuid, uuid, date, date, integer, integer) from public;
+revoke all on function public.tafi_admin_save_cash_advance_weekly_deductions(uuid, uuid, uuid, jsonb) from public;
 revoke all on function public.tafi_admin_list_attendance(uuid, uuid, date, date) from public;
 revoke all on function public.tafi_admin_list_attendance_submission_history(uuid, integer, integer) from public;
 revoke all on function public.tafi_admin_list_employee_leave_credits(uuid, uuid) from public;
@@ -1954,6 +2274,10 @@ grant execute on function public.tafi_admin_get_contribution_period_settings(uui
 grant execute on function public.tafi_admin_save_contribution_period_settings(uuid, date, date[]) to anon, authenticated;
 grant execute on function public.branch_admin_is_contribution_period_enabled(uuid, date) to anon, authenticated;
 grant execute on function public.tafi_admin_list_employees(uuid) to anon, authenticated;
+grant execute on function public.tafi_admin_create_cash_advance_loan(uuid, uuid, text, date, numeric) to anon, authenticated;
+grant execute on function public.tafi_admin_list_cash_advance_loans(uuid, uuid, integer, integer) to anon, authenticated;
+grant execute on function public.tafi_admin_list_cash_advance_payments(uuid, uuid, date, date, integer, integer) to anon, authenticated;
+grant execute on function public.tafi_admin_save_cash_advance_weekly_deductions(uuid, uuid, uuid, jsonb) to anon, authenticated;
 grant execute on function public.tafi_admin_list_attendance(uuid, uuid, date, date) to anon, authenticated;
 grant execute on function public.tafi_admin_list_attendance_submission_history(uuid, integer, integer) to anon, authenticated;
 grant execute on function public.tafi_admin_list_employee_leave_credits(uuid, uuid) to anon, authenticated;

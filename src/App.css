@@ -3123,8 +3123,21 @@ button {
 }
 
 .branch-cash-advance-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
   padding: 18px 0;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.tafi-admin-content .branch-cash-advance-header .tafi-cash-advance-branch-select {
+  width: 280px;
+  max-width: 100%;
+  min-width: 0;
+  flex: 0 1 280px;
+  margin-left: auto;
+  padding: 0;
 }
 
 .branch-cash-advance-header h3 {

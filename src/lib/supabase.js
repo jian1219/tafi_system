@@ -1201,6 +1201,119 @@ export async function saveBranchCashAdvanceWeeklyDeductions(sessionToken, advanc
   }
 }
 
+export async function createTafiAdminCashAdvanceLoan(sessionToken, branchId, cashAdvance) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_create_cash_advance_loan', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_employee_code: cashAdvance.employeeCode,
+      p_advance_date: cashAdvance.advanceDate,
+      p_advance_amount: cashAdvance.advanceAmount
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the cash advance.')
+    }
+  }
+}
+
+export async function listTafiAdminCashAdvanceLoans(sessionToken, branchId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const advances = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('tafi_admin_list_cash_advance_loans', {
+        p_session_token: sessionToken,
+        p_branch_id: branchId,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      advances.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: advances, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load cash advance records.')
+    }
+  }
+}
+
+export async function listTafiAdminCashAdvancePayments(
+  sessionToken,
+  branchId,
+  periodStart = null,
+  periodEnd = null
+) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const payments = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('tafi_admin_list_cash_advance_payments', {
+        p_session_token: sessionToken,
+        p_branch_id: branchId,
+        p_period_start: periodStart,
+        p_period_end: periodEnd,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      payments.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: payments, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load cash advance repayments.')
+    }
+  }
+}
+
+export async function saveTafiAdminCashAdvanceWeeklyDeductions(
+  sessionToken,
+  branchId,
+  advanceId,
+  payments
+) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_save_cash_advance_weekly_deductions', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_advance_id: advanceId,
+      p_payments: payments.map((payment) => ({
+        period_start: payment.periodStart,
+        period_end: payment.periodEnd,
+        amount: payment.amount
+      }))
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save weekly cash advance deductions.')
+    }
+  }
+}
+
 export async function createBranchHdmfLoan(sessionToken, loan) {
   try {
     const supabaseClient = await getSupabaseClient()
