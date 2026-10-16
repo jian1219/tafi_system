@@ -4410,6 +4410,215 @@ button {
   color: #64748b;
 }
 
+.accountant-inventory-section {
+  padding-bottom: 0;
+}
+
+.accountant-inventory-tabs {
+  display: flex;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.accountant-inventory-tab {
+  padding: 12px 16px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: #64748b;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+}
+
+.accountant-inventory-tab.active {
+  border-bottom-color: #1e40af;
+  color: #1e40af;
+}
+
+.accountant-inventory-panel {
+  padding: 20px 0;
+}
+
+.accountant-inventory-heading,
+.accountant-inventory-list-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.accountant-inventory-heading h2,
+.accountant-inventory-list-heading h2 {
+  margin: 0 0 5px;
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.accountant-inventory-heading p,
+.accountant-inventory-list-heading p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.84rem;
+}
+
+.accountant-inventory-add-toggle {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 13px;
+  border: 0;
+  border-radius: 8px;
+  color: white;
+  background: #1d4ed8;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.accountant-inventory-add-toggle:hover:not(:disabled) {
+  background: #1e40af;
+}
+
+.accountant-inventory-add-toggle.open {
+  color: #334155;
+  background: #e2e8f0;
+}
+
+.accountant-inventory-add-toggle.open:hover {
+  background: #cbd5e1;
+}
+
+.accountant-inventory-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.accountant-inventory-form label {
+  display: grid;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.accountant-inventory-form input,
+.accountant-inventory-form textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #0f172a;
+  background: white;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.accountant-inventory-form textarea {
+  resize: vertical;
+}
+
+.accountant-inventory-form input:focus-visible,
+.accountant-inventory-form textarea:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.accountant-inventory-description,
+.accountant-inventory-submit {
+  grid-column: 1 / -1;
+}
+
+.accountant-inventory-submit {
+  justify-self: start;
+  min-height: 42px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 8px;
+  color: white;
+  background: #1d4ed8;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.accountant-inventory-submit:hover:not(:disabled) {
+  background: #1e40af;
+}
+
+.accountant-inventory-submit:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.accountant-inventory-error,
+.accountant-inventory-notice,
+.accountant-inventory-empty {
+  margin: 12px 0;
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+.accountant-inventory-error {
+  color: #b91c1c;
+}
+
+.accountant-inventory-notice {
+  color: #047857;
+}
+
+.accountant-inventory-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.accountant-inventory-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.86rem;
+}
+
+.accountant-inventory-table th,
+.accountant-inventory-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: top;
+}
+
+.accountant-inventory-table th {
+  color: #475569;
+  background: #f8fafc;
+  font-size: 0.76rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.accountant-inventory-table td {
+  color: #1e293b;
+}
+
+.accountant-inventory-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+@media (max-width: 720px) {
+  .accountant-inventory-form {
+    grid-template-columns: 1fr;
+  }
+
+  .accountant-inventory-description,
+  .accountant-inventory-submit {
+    grid-column: auto;
+  }
+}
+
 @media (max-width: 720px) {
   .tafi-admin-layout {
     grid-template-columns: 1fr;

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Building2, Crown, LogOut, Plus, ShieldCheck } from 'lucide-react'
-import { createBranchWithAdmin, createTafiAdmin, listSuperAdminBranches, listTafiAdmins } from '../../lib/supabase'
+import { Building2, Calculator, Crown, LogOut, Plus, ShieldCheck } from 'lucide-react'
+import { createAccountant, createBranchWithAdmin, createTafiAdmin, listAccountants, listSuperAdminBranches, listTafiAdmins } from '../../lib/supabase'
 import logoImage from '../../images/Tafi logo transparent.png'
 
 export default function SuperAdminDashboard() {
@@ -22,19 +22,29 @@ export default function SuperAdminDashboard() {
 	const [tafiAdminName, setTafiAdminName] = useState('')
 	const [tafiAdminEmail, setTafiAdminEmail] = useState('')
 	const [tafiAdminPassword, setTafiAdminPassword] = useState('')
+	const [accountants, setAccountants] = useState([])
+	const [accountantName, setAccountantName] = useState('')
+	const [accountantEmail, setAccountantEmail] = useState('')
+	const [accountantPassword, setAccountantPassword] = useState('')
 
 	const loadBranches = async (event) => {
 		event.preventDefault()
 		setIsLoading(true)
 		setNotice('')
 		const { data, error } = await listSuperAdminBranches(superAdminEmail, superAdminPassword)
-		const { data: adminData } = error ? { data: null } : await listTafiAdmins(superAdminEmail, superAdminPassword)
+		const [adminsResult, accountantsResult] = error
+			? [{ data: null }, { data: null }]
+			: await Promise.all([
+				listTafiAdmins(superAdminEmail, superAdminPassword),
+				listAccountants(superAdminEmail, superAdminPassword)
+			])
 		setIsLoading(false)
 
 		if (error) {
 			setIsAuthorized(false)
 			setBranches([])
 			setTafiAdmins([])
+			setAccountants([])
 			setNotice(error.message)
 			setNoticeType('error')
 			return
@@ -42,9 +52,13 @@ export default function SuperAdminDashboard() {
 
 		setIsAuthorized(true)
 		setBranches(data ?? [])
-		setTafiAdmins(adminData ?? [])
-		setNotice('Super Admin verified. Branch management is unlocked for this page session.')
-		setNoticeType('success')
+		setTafiAdmins(adminsResult.data ?? [])
+		setAccountants(accountantsResult.data ?? [])
+		const accountError = adminsResult.error || accountantsResult.error
+		setNotice(accountError
+			? `Super Admin verified, but account lists could not be loaded: ${accountError.message}`
+			: 'Super Admin verified. Management is unlocked for this page session.')
+		setNoticeType(accountError ? 'error' : 'success')
 	}
 
 	const addBranch = async (event) => {
@@ -108,6 +122,37 @@ export default function SuperAdminDashboard() {
 		setTafiAdminEmail('')
 		setTafiAdminPassword('')
 		setNotice('TAFI Admin account created successfully.')
+		setNoticeType('success')
+	}
+
+	const addAccountant = async (event) => {
+		event.preventDefault()
+		setIsLoading(true)
+		setNotice('')
+		const { error } = await createAccountant({
+			superAdminEmail,
+			superAdminPassword,
+			accountantName,
+			accountantEmail,
+			accountantPassword
+		})
+
+		if (error) {
+			setIsLoading(false)
+			setNotice(error.message)
+			setNoticeType('error')
+			return
+		}
+
+		const { data, error: refreshError } = await listAccountants(superAdminEmail, superAdminPassword)
+		setIsLoading(false)
+		if (!refreshError) setAccountants(data ?? [])
+		setAccountantName('')
+		setAccountantEmail('')
+		setAccountantPassword('')
+		setNotice(refreshError
+			? 'Accountant account created. Reload the account list to view it.'
+			: 'TAFI Accountant account created successfully.')
 		setNoticeType('success')
 	}
 
@@ -209,6 +254,59 @@ export default function SuperAdminDashboard() {
 									{isLoading ? 'Creating...' : 'Create branch and admin'}
 								</button>
 							</form>
+						</section>
+
+						<section className="super-admin-management-panel">
+							<div className="super-admin-panel-heading">
+								<Calculator size={19} aria-hidden="true" />
+								<div>
+									<h2>Create TAFI Accountant</h2>
+									<p>Add an Accountant with a name, email, and password.</p>
+								</div>
+							</div>
+
+							<form className="super-admin-branch-form" onSubmit={addAccountant}>
+								<label>
+									<span>Name</span>
+									<input value={accountantName} onChange={(event) => setAccountantName(event.target.value)} autoComplete="name" required />
+								</label>
+								<label>
+									<span>Email</span>
+									<input type="email" value={accountantEmail} onChange={(event) => setAccountantEmail(event.target.value)} autoComplete="off" required />
+								</label>
+								<label className="super-admin-full-width">
+									<span>Password (minimum 8 characters)</span>
+									<input type="password" value={accountantPassword} onChange={(event) => setAccountantPassword(event.target.value)} minLength="8" autoComplete="new-password" required />
+								</label>
+								<button type="submit" className="super-admin-action-button super-admin-full-width" disabled={isLoading}>
+									<Plus size={17} aria-hidden="true" />
+									{isLoading ? 'Creating...' : 'Create TAFI Accountant'}
+								</button>
+							</form>
+						</section>
+
+						<section className="super-admin-management-panel">
+							<div className="super-admin-panel-heading">
+								<Calculator size={19} aria-hidden="true" />
+								<div>
+									<h2>TAFI Accountants</h2>
+									<p>{accountants.length} account{accountants.length === 1 ? '' : 's'} registered</p>
+								</div>
+							</div>
+							{accountants.length ? (
+								<div className="super-admin-branch-list">
+									{accountants.map((accountant) => (
+										<article className="super-admin-branch-item" key={accountant.accountant_id}>
+											<div>
+												<strong>{accountant.accountant_name}</strong>
+												<span>{accountant.accountant_email}</span>
+											</div>
+										</article>
+									))}
+								</div>
+							) : (
+								<p className="super-admin-empty-state">No TAFI Accountant accounts have been created yet.</p>
+							)}
 						</section>
 
 						<section className="super-admin-management-panel">

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import { ArrowRight, Calculator, Crown, ShieldCheck, Store } from 'lucide-react'
 import AccountantLogin from './Pages/Accountant/Accountant_login'
+import AccountantDashboard from './Pages/Accountant/Accountant_Dashboard'
 import AdminLogin from './Pages/TAFI_Admin/TAFI_Admin_login'
 import TafiDashboard from './Pages/TAFI_Admin/TAFI_Dashboard'
 import BranchAdminLogin from './Pages/Branch_admin/Branch_admin_login'
@@ -98,6 +99,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/accountant-login" element={<AccountantLogin />} />
+        <Route path="/accountant-dashboard" element={<AccountantDashboard />} />
         <Route path="/tafi-admin-login" element={<AdminLogin />} />
         <Route path="/tafi-dashboard" element={<TafiDashboard />} />
         <Route path="/branch-admin-login" element={<BranchAdminLogin />} />

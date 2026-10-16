@@ -864,6 +864,108 @@ export async function createTafiAdmin({
   }
 }
 
+export async function listAccountants(email, password) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('super_admin_list_accountants', {
+      p_super_admin_email: email.trim(),
+      p_super_admin_password: password
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load Accountant accounts.')
+    }
+  }
+}
+
+export async function createAccountant({
+  superAdminEmail,
+  superAdminPassword,
+  accountantName,
+  accountantEmail,
+  accountantPassword
+}) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('super_admin_create_accountant', {
+      p_super_admin_email: superAdminEmail.trim(),
+      p_super_admin_password: superAdminPassword,
+      p_accountant_name: accountantName,
+      p_accountant_email: accountantEmail,
+      p_accountant_password: accountantPassword
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to create the Accountant account.')
+    }
+  }
+}
+
+export async function verifyAccountantCredentials(email, password) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const { data, error } = await supabaseClient.rpc('accountant_login', {
+      p_email: email.trim(),
+      p_password: password
+    })
+
+    return { profile: data?.[0] ?? null, error }
+  } catch (error) {
+    return {
+      profile: null,
+      error: error instanceof Error ? error : new Error('Unable to connect to the Accountant login service.')
+    }
+  }
+}
+
+export async function revokeAccountantSession(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_logout', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error : new Error('Unable to end the Accountant session.')
+    }
+  }
+}
+
+export async function listAccountantInventoryInformation(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_list_inventory_information', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load inventory information.')
+    }
+  }
+}
+
+export async function createAccountantInventoryInformation(sessionToken, item) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_create_inventory_information', {
+      p_session_token: sessionToken,
+      p_stock_no: item.stockNo,
+      p_category: item.category,
+      p_item_description: item.itemDescription,
+      p_unit_of_measure: item.unitOfMeasure,
+      p_supplier: item.supplier
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the inventory item.')
+    }
+  }
+}
+
 export async function verifyBranchAdminCredentials(email, password) {
   try {
     const supabaseClient = await getSupabaseClient()

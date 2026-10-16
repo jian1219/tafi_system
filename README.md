@@ -1,5 +1,13 @@
 # React + Vite
 
+## TAFI Accountant accounts
+
+Run `supabase/accountant_management.sql` in the Supabase SQL Editor after
+`supabase/super_admin_login.sql` and `supabase/tafi_admin_management.sql`.
+This sets up TAFI Accountant accounts and their inventory information table.
+Super Admins can create Accountant accounts; signed-in Accountants can add and
+view inventory entries in the Accountant Dashboard.
+
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
 Currently, two official plugins are available:

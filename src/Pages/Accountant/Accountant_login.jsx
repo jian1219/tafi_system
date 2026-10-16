@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, Calculator, LockKeyhole, UserRound } from 'lucide-react'
-import { signInWithEmailPassword } from '../../lib/supabase'
+import { verifyAccountantCredentials } from '../../lib/supabase'
 import logoImage from '../../images/Tafi logo transparent.png'
 
 export default function AccountantLogin() {
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loginMessage, setLoginMessage] = useState('')
@@ -14,11 +15,14 @@ export default function AccountantLogin() {
     event.preventDefault()
     setLoginMessage('')
     setIsSubmitting(true)
-    const { error } = await signInWithEmailPassword(email, password)
+    const { profile, error } = await verifyAccountantCredentials(email, password)
     setIsSubmitting(false)
-    setLoginMessage(error
-      ? error.message
-      : 'Signed in successfully. The Accountant workspace is not configured yet.')
+    if (error || !profile) {
+      setLoginMessage(error ? error.message : 'Email or password is incorrect.')
+      return
+    }
+
+    navigate('/accountant-dashboard', { state: { accountant: profile } })
   }
 
   return (
