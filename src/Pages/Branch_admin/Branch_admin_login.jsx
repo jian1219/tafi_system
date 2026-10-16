@@ -35,24 +35,29 @@ export default function BranchAdminLogin() {
   }
 
   return (
-    <div className="login-page">
-      <div className="brand-panel">
+    <div className="login-page role-login-page">
+      <aside className="brand-panel role-login-brand">
         <div className="brand-badge">
-          <img src={logoImage} alt="TAFI logo" className="brand-logo" />
+          <img src={logoImage} alt="Triton ACCE Food Inc. logo" className="brand-logo" />
         </div>
-        <p className="eyebrow">Branch operations</p>
-        <h1>TAFI</h1>
-        <p className="brand-copy">
-          Track branch performance, staff activity, and operational coordination.
-        </p>
-      </div>
+        <div className="login-brand-message">
+          <p className="eyebrow">TRITON ACCE FOOD INC. · BRANCH OPERATIONS</p>
+          <h1>Your branch, in view.</h1>
+          <p className="brand-copy">
+            Keep daily attendance, team activity, and branch operations moving together.
+          </p>
+        </div>
+        <p className="brand-reserve">One workspace. Every team in sync.</p>
+      </aside>
 
-      <div className="login-panel">
+      <main className="login-main">
+        <section className="login-panel role-login-panel">
         <p className="role-tag admin-role-tag">
           <Store size={16} aria-hidden="true" />
           Branch Admin
         </p>
-        <h2>Login</h2>
+        <h2>Welcome back</h2>
+        <p className="login-description">Sign in to manage your branch workspace.</p>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="input-group">
@@ -97,7 +102,8 @@ export default function BranchAdminLogin() {
         <Link to="/" className="back-link">
           ← Back to role selection
         </Link>
-      </div>
+        </section>
+      </main>
     </div>
   )
 }

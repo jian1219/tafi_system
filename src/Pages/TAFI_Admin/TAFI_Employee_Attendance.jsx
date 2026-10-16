@@ -740,17 +740,6 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 
 			{activeTab === 'daily' ? (
 				<>
-					<div className="attendance-legend-box">
-						<div className="legend-title">Attendance for selected date:</div>
-						<div className="legend-items">
-							<span className="legend-item"><i className="legend-box present" /> Present</span>
-							<span className="legend-item"><i className="legend-box late" /> Present (Late)</span>
-							<span className="legend-item"><i className="legend-box half-day" /> Half Day</span>
-							<span className="legend-item"><i className="legend-box absent" /> Absent</span>
-							<span className="legend-item"><i className="legend-box leave" /> Leave</span>
-						</div>
-					</div>
-
 					<div className="daily-summary-grid">
 						<div className="summary-box compact">
 							<span>Total Staff</span>

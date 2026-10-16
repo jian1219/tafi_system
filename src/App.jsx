@@ -32,12 +32,6 @@ const roles = [
     path: '/branch-admin-login',
     icon: Store,
     description: 'Coordinate branch operations and team performance.'
-  },
-  {
-    name: 'SYSTEM Admin',
-    path: '/super-admin-login',
-    icon: Crown,
-    description: 'Manage company systems and configurations.'
   }
 ]
 
@@ -52,43 +46,73 @@ function Home() {
 
   return (
     <div className="home-page">
-      <div className="brand-panel">
+      <aside className="brand-panel">
         <div className="brand-badge">
-          <img src={logoImage} alt="TAFI logo" className="brand-logo" />
+          <img src={logoImage} alt="Triton ACCE Food Inc. logo" className="brand-logo" />
         </div>
-        <p className="eyebrow">Workspace portal</p>
-        <h1>TAFI</h1>
-        <p className="brand-copy">
-          Select your role to access the responsibilities assigned to your team.
-        </p>
-        <p className="brand-reserve">2026 Reserve • Triton ACCE Food Inc.</p>
-      </div>
-
-      <div className="role-panel">
-        <p className="role-title">Login as</p>
-
-        <div className="role-list">
-          {roles.map((role) => {
-            const RoleIcon = role.icon
-            return (
-              <button
-                key={role.name}
-                type="button"
-                className={`role-card ${selectedRole === role.name ? 'selected' : ''}`}
-                onClick={() => handleSelectRole(role)}
-              >
-                <span className="role-heading">
-                  <span className="role-icon"><RoleIcon size={20} aria-hidden="true" /></span>
-                  <span className="role-name">{role.name}</span>
-                  <ArrowRight className="role-arrow" size={18} aria-hidden="true" />
-                </span>
-                <span className="role-description">{role.description}</span>
-              </button>
-            )
-          })}
+        <div className="home-brand-message">
+          <p className="eyebrow">TRITON ACCE FOOD INC.</p>
+          <h2>One workspace.<br />Every team in sync.</h2>
+          <p className="brand-copy">
+            A connected hub for the people and operations that keep your business moving.
+          </p>
         </div>
+        <p className="brand-reserve">A better way to work, together.</p>
+      </aside>
 
-      </div>
+      <main className="workspace-main">
+        <div className="workspace-content">
+          <header className="workspace-header">
+            <div className="workspace-header-label">
+              <span className="workspace-status-dot" />
+              Company workspace
+            </div>
+            <span className="workspace-header-note">Secure team access</span>
+          </header>
+
+          <section className="workspace-welcome" aria-labelledby="workspace-title">
+            <p className="workspace-kicker">WELCOME</p>
+            <h1 id="workspace-title">Choose your workspace</h1>
+            <p>Sign in to the space that matches your role and responsibilities.</p>
+          </section>
+
+          <section className="role-panel" aria-labelledby="role-panel-title">
+            <div className="role-panel-heading">
+              <div>
+                <h2 className="role-title" id="role-panel-title">Continue as</h2>
+                <p className="role-subtitle">Select a team workspace to sign in.</p>
+              </div>
+              <span className="role-count">03 WORKSPACES</span>
+            </div>
+
+            <div className="role-list">
+              {roles.map((role) => {
+                const RoleIcon = role.icon
+                return (
+                  <button
+                    key={role.name}
+                    type="button"
+                    className={`role-card ${selectedRole === role.name ? 'selected' : ''}`}
+                    onClick={() => handleSelectRole(role)}
+                  >
+                    <span className="role-heading">
+                      <span className="role-icon"><RoleIcon size={21} aria-hidden="true" /></span>
+                      <span className="role-name">{role.name}</span>
+                      <ArrowRight className="role-arrow" size={19} aria-hidden="true" />
+                    </span>
+                    <span className="role-description">{role.description}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+
+          <footer className="workspace-footer">
+            <span>© 2026 Triton ACCE Food Inc.</span>
+            <span><ShieldCheck size={16} aria-hidden="true" /> Authorized team members only</span>
+          </footer>
+        </div>
+      </main>
     </div>
   )
 }

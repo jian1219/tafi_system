@@ -26,24 +26,29 @@ export default function AccountantLogin() {
   }
 
   return (
-    <div className="login-page">
-      <div className="brand-panel">
+    <div className="login-page role-login-page">
+      <aside className="brand-panel role-login-brand">
         <div className="brand-badge">
-          <img src={logoImage} alt="TAFI logo" className="brand-logo" />
+          <img src={logoImage} alt="Triton ACCE Food Inc. logo" className="brand-logo" />
         </div>
-        <p className="eyebrow">Finance workspace</p>
-        <h1>TAFI</h1>
-        <p className="brand-copy">
-          Manage accounting records, approvals, and financial operations securely.
-        </p>
-      </div>
+        <div className="login-brand-message">
+          <p className="eyebrow">TRITON ACCE FOOD INC. · FINANCE</p>
+          <h1>Clarity for every number.</h1>
+          <p className="brand-copy">
+            Bring accounting records, approvals, and financial operations into focus.
+          </p>
+        </div>
+        <p className="brand-reserve">One workspace. Every team in sync.</p>
+      </aside>
 
-      <div className="login-panel">
+      <main className="login-main">
+        <section className="login-panel role-login-panel">
         <p className="role-tag admin-role-tag">
           <Calculator size={16} aria-hidden="true" />
           Accountant
         </p>
-        <h2>Login</h2>
+        <h2>Welcome back</h2>
+        <p className="login-description">Sign in to your finance workspace.</p>
 
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="input-group">
@@ -92,7 +97,8 @@ export default function AccountantLogin() {
         <Link to="/" className="back-link">
           ← Back to role selection
         </Link>
-      </div>
+        </section>
+      </main>
     </div>
   )
 }

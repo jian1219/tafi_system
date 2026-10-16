@@ -74,7 +74,7 @@ export default function BranchAdminDashboard() {
       <div className="dashboard-layout">
         <aside className="dashboard-sidebar">
           <div className="dashboard-brand">
-            <img src={logoImage} alt="TAFI logo" />
+            <img src={logoImage} alt="Triton ACCE Food Inc. logo" />
           </div>
 
           <div className="sidebar-section">

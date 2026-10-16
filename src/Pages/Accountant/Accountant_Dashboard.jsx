@@ -28,7 +28,7 @@ export default function AccountantDashboard() {
 		<div className="tafi-admin-layout">
 			<aside className="tafi-admin-sidebar">
 				<div className="tafi-admin-sidebar-brand">
-					<img src={logoImage} alt="TAFI logo" />
+					<img src={logoImage} alt="Triton ACCE Food Inc. logo" />
 					<div>
 						<strong>TAFI Accountant</strong>
 						<span>Finance workspace</span>
