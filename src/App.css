@@ -2065,6 +2065,61 @@ button {
   background: #f8fafc;
 }
 
+.attendance-period-mode {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.attendance-period-mode > strong {
+  color: #0f172a;
+  font-size: 0.92rem;
+}
+
+.attendance-period-mode-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.attendance-period-mode-options label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 9px;
+  row-gap: 4px;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.attendance-period-mode-options label.selected {
+  border-color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.attendance-period-mode-options input {
+  grid-row: span 2;
+  accent-color: #1d4ed8;
+}
+
+.attendance-period-mode-options span {
+  color: #0f172a;
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+.attendance-period-mode-options small {
+  color: #64748b;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
 .attendance-period-control {
   display: flex;
   align-items: center;
@@ -5148,6 +5203,10 @@ button {
   .attendance-period-control {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .attendance-period-mode-options {
+    grid-template-columns: 1fr;
   }
 
   .attendance-period-control > .save-button {

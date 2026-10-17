@@ -586,7 +586,7 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
             )}
             {!periodControlError && !isLoadingPeriodControl && isAttendancePeriodLocked && (
               <p className="payroll-contribution-message error" role="status">
-                This covered attendance period is locked. Attendance cannot be changed until TAFI Admin unlocks it.
+                This attendance period is locked. Attendance cannot be changed until TAFI Admin unlocks it.
                 {hasPendingUnlockRequest && ' An unlock request is pending with TAFI Admin.'}
               </p>
             )}

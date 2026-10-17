@@ -8,6 +8,13 @@ This sets up TAFI Accountant accounts and their inventory information table.
 Super Admins can create Accountant accounts; signed-in Accountants can add and
 view inventory entries in the Accountant Dashboard.
 
+## Attendance period access mode
+
+Run `supabase/attendance_period_access_mode.sql` after
+`supabase/attendance_period_controls.sql`. TAFI Admins can then choose weekly
+or daily attendance access for each branch in the Period Access section. Daily
+periods open for the current day and lock automatically after the day ends.
+
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
 Currently, two official plugins are available:

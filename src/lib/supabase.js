@@ -234,6 +234,37 @@ export async function setTafiAdminAttendancePeriodLock(
   }
 }
 
+export async function getTafiAdminAttendancePeriodAccessMode(sessionToken, branchId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_get_attendance_period_access_mode', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the attendance access mode.')
+    }
+  }
+}
+
+export async function setTafiAdminAttendancePeriodAccessMode(sessionToken, branchId, accessMode) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_set_attendance_period_access_mode', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_access_mode: accessMode
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the attendance access mode.')
+    }
+  }
+}
+
 export async function listTafiAdminOvertimeHours(sessionToken, branchId, startDate, endDate) {
   try {
     const supabaseClient = await getSupabaseClient()

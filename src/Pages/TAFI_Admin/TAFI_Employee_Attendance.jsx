@@ -9,6 +9,8 @@ import {
 	listTafiAdminOvertimeHours,
 	listTafiAdminUndertimeDeductions,
 	saveTafiAdminAttendance,
+	getTafiAdminAttendancePeriodAccessMode,
+	setTafiAdminAttendancePeriodAccessMode,
 	setTafiAdminAttendancePeriodLock
 } from '../../lib/supabase'
 import {
@@ -117,6 +119,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 	const [leaveCreditBalances, setLeaveCreditBalances] = useState({})
 	const [submissionHistory, setSubmissionHistory] = useState([])
 	const [periodControls, setPeriodControls] = useState([])
+	const [periodAccessMode, setPeriodAccessMode] = useState('weekly')
 	const [historyOffset, setHistoryOffset] = useState(0)
 	const [historyReloadKey, setHistoryReloadKey] = useState(0)
 	const [hasMoreHistory, setHasMoreHistory] = useState(false)
@@ -125,6 +128,8 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 	const [isLoadingLeaveCredits, setIsLoadingLeaveCredits] = useState(false)
 	const [isLoadingHistory, setIsLoadingHistory] = useState(false)
 	const [isLoadingPeriodControls, setIsLoadingPeriodControls] = useState(false)
+	const [isLoadingPeriodAccessMode, setIsLoadingPeriodAccessMode] = useState(false)
+	const [isSavingPeriodAccessMode, setIsSavingPeriodAccessMode] = useState(false)
 	const [isSaving, setIsSaving] = useState(false)
 	const [selectedWeekIndex, setSelectedWeekIndex] = useState(0)
 	const [loadError, setLoadError] = useState('')
@@ -138,10 +143,23 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 	const [saveError, setSaveError] = useState('')
 
 	const monthDates = useMemo(() => getMonthDates(selectedRecordsMonth), [selectedRecordsMonth])
-	const controlPeriods = useMemo(
+	const weeklyControlPeriods = useMemo(
 		() => getPayrollPeriods(selectedRecordsMonth),
 		[selectedRecordsMonth]
 	)
+	const dailyControlPeriods = useMemo(
+		() => Array.from({ length: monthDates.days }, (_, index) => {
+			const day = index + 1
+			const startDate = `${selectedRecordsMonth}-${String(day).padStart(2, '0')}`
+			return {
+				label: `Daily · ${formatAttendanceDate(startDate)}`,
+				startDate,
+				endDate: startDate
+			}
+		}),
+		[selectedRecordsMonth, monthDates.days]
+	)
+	const controlPeriods = periodAccessMode === 'daily' ? dailyControlPeriods : weeklyControlPeriods
 	const controlPeriodStarts = useMemo(
 		() => controlPeriods.map((period) => period.startDate),
 		[controlPeriods]
@@ -242,9 +260,44 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 		if (activeTab !== 'access' || !sessionToken || !selectedBranchId) return undefined
 
 		let isCurrent = true
+		const loadPeriodAccessMode = async () => {
+			setIsLoadingPeriodAccessMode(true)
+			setPeriodControlsError('')
+			setPeriodControlsMessage('')
+			const { data, error } = await getTafiAdminAttendancePeriodAccessMode(
+				sessionToken,
+				selectedBranchId
+			)
+			if (!isCurrent) return
+
+			if (error) {
+				setPeriodControlsError(error.message)
+			} else if (data !== 'weekly' && data !== 'daily') {
+				setPeriodControlsError('The attendance access mode service returned invalid data.')
+			} else {
+				setPeriodAccessMode(data)
+			}
+			setIsLoadingPeriodAccessMode(false)
+		}
+
+		loadPeriodAccessMode()
+		return () => {
+			isCurrent = false
+		}
+	}, [activeTab, sessionToken, selectedBranchId])
+
+	useEffect(() => {
+		if (
+			activeTab !== 'access'
+			|| !sessionToken
+			|| !selectedBranchId
+			|| isLoadingPeriodAccessMode
+			|| periodControlsError
+		) return undefined
+
+		let isCurrent = true
 		const loadPeriodControls = async () => {
 			setIsLoadingPeriodControls(true)
-			setPeriodControlsError('')
 			setPeriodControlsMessage('')
 			const { data, error } = await listTafiAdminAttendancePeriodControls(
 				sessionToken,
@@ -266,7 +319,14 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 		return () => {
 			isCurrent = false
 		}
-	}, [activeTab, sessionToken, selectedBranchId, controlPeriodStarts])
+	}, [
+		activeTab,
+		sessionToken,
+		selectedBranchId,
+		controlPeriodStarts,
+		isLoadingPeriodAccessMode,
+		periodControlsError
+	])
 
 	useEffect(() => {
 		if (!sessionToken || !selectedBranchId) {
@@ -609,6 +669,30 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 		))
 		setPeriodControlsMessage(
 			`${period.label} ${nextIsLocked ? 'locked' : 'unlocked'} for ${selectedBranch?.branch_name ?? 'the selected branch'}.`
+		)
+	}
+
+	const updatePeriodAccessMode = async (accessMode) => {
+		if (accessMode === periodAccessMode || isSavingPeriodAccessMode) return
+
+		setIsSavingPeriodAccessMode(true)
+		setPeriodControlsError('')
+		setPeriodControlsMessage('')
+		const { error } = await setTafiAdminAttendancePeriodAccessMode(
+			sessionToken,
+			selectedBranchId,
+			accessMode
+		)
+		setIsSavingPeriodAccessMode(false)
+		if (error) {
+			setPeriodControlsError(error.message)
+			return
+		}
+
+		setPeriodAccessMode(accessMode)
+		setPeriodControls([])
+		setPeriodControlsMessage(
+			`Attendance access is now ${accessMode === 'daily' ? 'daily' : 'weekly'} for ${selectedBranch?.branch_name ?? 'the selected branch'}.`
 		)
 	}
 
@@ -1007,6 +1091,35 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 							<span>Periods lock automatically after their end date.</span>
 						</div>
 					</div>
+					<div className="attendance-period-mode">
+						<strong>Period access</strong>
+						<div className="attendance-period-mode-options" role="radiogroup" aria-label="Attendance period access mode">
+							<label className={periodAccessMode === 'weekly' ? 'selected' : ''}>
+								<input
+									type="radio"
+									name="attendance-period-access-mode"
+									value="weekly"
+									checked={periodAccessMode === 'weekly'}
+									onChange={() => updatePeriodAccessMode('weekly')}
+									disabled={isLoadingPeriodAccessMode || isSavingPeriodAccessMode}
+								/>
+								<span>Weekly</span>
+								<small>Covered period, Week 1, and so on</small>
+							</label>
+							<label className={periodAccessMode === 'daily' ? 'selected' : ''}>
+								<input
+									type="radio"
+									name="attendance-period-access-mode"
+									value="daily"
+									checked={periodAccessMode === 'daily'}
+									onChange={() => updatePeriodAccessMode('daily')}
+									disabled={isLoadingPeriodAccessMode || isSavingPeriodAccessMode}
+								/>
+								<span>Daily</span>
+								<small>Each calendar day locks automatically the next day</small>
+							</label>
+						</div>
+					</div>
 					{periodControlsError && (
 						<p className="payroll-contribution-message error" role="alert">
 							Could not load attendance period controls: {periodControlsError}
@@ -1015,7 +1128,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 					{periodControlsMessage && (
 						<p className="payroll-contribution-message" role="status">{periodControlsMessage}</p>
 					)}
-					{isLoadingPeriodControls ? (
+					{isLoadingPeriodAccessMode || isSavingPeriodAccessMode || isLoadingPeriodControls ? (
 						<p className="payroll-contribution-message" role="status">Loading attendance period controls…</p>
 					) : !periodControlsError ? (
 						<div className="attendance-period-control-list">
