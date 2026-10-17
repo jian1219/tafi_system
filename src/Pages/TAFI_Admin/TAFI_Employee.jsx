@@ -16,6 +16,7 @@ import {
 	getAttendanceRemark,
 	getLocalDateKey
 } from '../Branch_admin/branchAttendanceRecords'
+import { recordLegend, statusCodeClassNames, statusCodes } from '../attendanceStatusDisplay'
 
 const today = new Date()
 const todayDateKey = [
@@ -26,18 +27,18 @@ const todayDateKey = [
 const currentMonthKey = todayDateKey.slice(0, 7)
 
 const attendanceStatusDetails = {
-	present: { label: 'Present', className: 'p' },
-	present_late: { label: 'Late', className: 'l' },
-	half_day: { label: 'Half Day', className: 'half-day' },
-	absent: { label: 'Absent', className: 'a' },
-	maternity_leave: { label: 'Leave', className: 'v' },
-	paternity_leave: { label: 'Leave', className: 'v' },
-	authorized_leave: { label: 'Leave', className: 'v' },
-	birthday_leave: { label: 'Leave', className: 'v' },
-	vl_with_pay: { label: 'Leave with Pay', className: 'v' },
-	vl_without_pay: { label: 'Leave', className: 'v' },
-	day_off: { label: 'Day off', className: 'o' },
-	not_marked: { label: 'Not marked', className: '' }
+	present: { label: '✓', description: 'Present', className: statusCodeClassNames[statusCodes.present] },
+	present_late: { label: 'Late', description: 'Present (Late)', className: statusCodeClassNames[statusCodes.present_late] },
+	half_day: { label: 'HD', description: 'Half day', className: statusCodeClassNames[statusCodes.half_day] },
+	absent: { label: 'A', description: 'Absent', className: statusCodeClassNames[statusCodes.absent] },
+	maternity_leave: { label: 'ML', description: 'Maternity leave', className: statusCodeClassNames[statusCodes.maternity_leave] },
+	paternity_leave: { label: 'PL', description: 'Paternity leave', className: statusCodeClassNames[statusCodes.paternity_leave] },
+	authorized_leave: { label: 'AL', description: 'Authorized leave', className: statusCodeClassNames[statusCodes.authorized_leave] },
+	birthday_leave: { label: 'BL', description: 'Birthday leave', className: statusCodeClassNames[statusCodes.birthday_leave] },
+	vl_with_pay: { label: 'VLP', description: 'Vacation leave with pay', className: statusCodeClassNames[statusCodes.vl_with_pay] },
+	vl_without_pay: { label: 'VLwP', description: 'Vacation leave without pay', className: statusCodeClassNames[statusCodes.vl_without_pay] },
+	day_off: { label: 'DAY OFF', description: 'Day off', className: statusCodeClassNames[statusCodes.day_off] },
+	not_marked: { label: '—', description: 'Not marked', className: '' }
 }
 
 const attendanceShiftDetails = [
@@ -1276,11 +1277,9 @@ export default function TafiEmployee({ sessionToken }) {
 								</label>
 							</div>
 							<div className="employee-attendance-legend">
-								<span><i className="present" /> Present</span>
-								<span><i className="late" /> Present (Late)</span>
-								<span><i className="absent" /> Absent</span>
-								<span><i className="leave" /> Leave</span>
-								<span><i className="day-off" /> Day off</span>
+								{recordLegend.map(({ className, label }) => (
+									<span key={className}><i className={className} /> {label}</span>
+								))}
 							</div>
 							{isLoadingAttendanceHistory ? (
 								<p className="employee-detail-empty" role="status">Loading attendance records…</p>
@@ -1346,7 +1345,7 @@ export default function TafiEmployee({ sessionToken }) {
 													<div
 														className={`employee-attendance-day${className}`}
 														key={dateKey}
-														title={`${dateKey}: ${statusDetail?.label ?? (status ? 'Not marked' : 'No record')}${lateMinutes === null ? '' : `, ${lateMinutes} minutes late`}${displayedShiftLabel ? `, ${displayedShiftLabel}` : ''}`}
+														title={`${dateKey}: ${statusDetail?.description ?? (status ? 'Not marked' : 'No record')}${lateMinutes === null ? '' : `, ${lateMinutes} minutes late`}${displayedShiftLabel ? `, ${displayedShiftLabel}` : ''}`}
 													>
 														<strong>{day}</strong>
 														<span>{lateMinutes === null

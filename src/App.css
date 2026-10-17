@@ -1587,11 +1587,17 @@ button {
   border-radius: 2px;
 }
 
-.employee-attendance-legend i.present { background: #86efac; }
-.employee-attendance-legend i.late { background: #86efac; }
-.employee-attendance-legend i.absent { background: #fca5a5; }
-.employee-attendance-legend i.leave { background: #a5b4fc; }
-.employee-attendance-legend i.day-off { background: #cbd5e1; }
+.employee-attendance-legend i.present,
+.employee-attendance-legend i.late { background: #a9f3b5; }
+.employee-attendance-legend i.half-day { background: #14532d; }
+.employee-attendance-legend i.absent { background: #dc2626; }
+.employee-attendance-legend i.day-off { background: #9acd32; }
+.employee-attendance-legend i.vlp { background: #ffff00; }
+.employee-attendance-legend i.vlwp { background: #2563eb; }
+.employee-attendance-legend i.ml { background: #ffc0cb; }
+.employee-attendance-legend i.pl { background: #ee82ee; }
+.employee-attendance-legend i.bl { background: #87ceeb; }
+.employee-attendance-legend i.authorized-leave { background: #8b4513; }
 
 .employee-attendance-month-filter {
   display: grid;
@@ -1737,13 +1743,25 @@ button {
   overflow-wrap: anywhere;
 }
 
-.employee-attendance-day.p { background: #dcfce7; }
-.employee-attendance-day.l { background: #dcfce7; }
+.employee-attendance-day.p { background: #a9f3b5; color: #14532d; }
+.employee-attendance-day.l { background: #a9f3b5; color: #14532d; }
 .employee-attendance-day.half-day { background: #14532d; color: #fff; }
-.employee-attendance-day.a { background: #fee2e2; }
-.employee-attendance-day.v { background: #e0e7ff; }
-.employee-attendance-day.o { background: #f1f5f9; }
+.employee-attendance-day.a { background: #dc2626; color: #fff; }
+.employee-attendance-day.ml { background: #ffc0cb; color: #0f172a; }
+.employee-attendance-day.pl { background: #ee82ee; color: #0f172a; }
+.employee-attendance-day.authorized-leave { background: #8b4513; color: #fff; }
+.employee-attendance-day.bl { background: #87ceeb; color: #0f172a; }
+.employee-attendance-day.vlp { background: #ffff00; color: #0f172a; }
+.employee-attendance-day.vlwp { background: #2563eb; color: #fff; }
+.employee-attendance-day.day-off { background: #9acd32; color: #0f172a; }
 .employee-attendance-day.no-record { background: #f8fafc; }
+
+.employee-attendance-day.half-day strong,
+.employee-attendance-day.a strong,
+.employee-attendance-day.authorized-leave strong,
+.employee-attendance-day.vlwp strong {
+  color: #fff;
+}
 
 .employee-detail-empty {
   margin: 0;
