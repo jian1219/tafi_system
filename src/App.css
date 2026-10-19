@@ -1321,6 +1321,12 @@ button {
   padding: 20px 24px;
 }
 
+.branch-employee-attendance-record {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+}
+
 .employee-personal-details {
   margin: 20px 24px 0;
 }
@@ -3151,6 +3157,25 @@ button {
 .weekly-payroll-table td {
   color: #334155;
   font-size: 0.84rem;
+}
+
+.weekly-payroll-table tbody tr {
+  cursor: pointer;
+}
+
+.weekly-payroll-table tbody tr:hover td,
+.weekly-payroll-table tbody tr:focus-visible td {
+  background: #eff6ff;
+}
+
+.weekly-payroll-table tbody tr.selected td,
+.weekly-payroll-table tbody tr.selected:hover td {
+  background: #dbeafe;
+}
+
+.weekly-payroll-table tbody tr:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
 }
 
 .weekly-payroll-table td:first-child strong,

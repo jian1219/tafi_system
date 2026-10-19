@@ -35,6 +35,7 @@ export default function TafiBranchPayroll({ sessionToken }) {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   })
   const [selectedWeekIndex, setSelectedWeekIndex] = useState(0)
+  const [selectedPayrollRowKey, setSelectedPayrollRowKey] = useState('')
   const [employees, setEmployees] = useState([])
   const [attendanceRecords, setAttendanceRecords] = useState([])
   const [contributions, setContributions] = useState({})
@@ -520,8 +521,23 @@ export default function TafiBranchPayroll({ sessionToken }) {
             </tr>
           </thead>
           <tbody>
-            {payrollRows.map((employee) => (
-              <tr key={employee.id}>
+            {payrollRows.map((employee) => {
+              const rowKey = `${selectedBranchId}:${selectedStartDate}:${selectedEndDate}:${employee.id}`
+              const isSelected = selectedPayrollRowKey === rowKey
+              return (
+              <tr
+                key={employee.id}
+                className={isSelected ? 'selected' : ''}
+                aria-selected={isSelected}
+                tabIndex="0"
+                onClick={() => setSelectedPayrollRowKey(rowKey)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    setSelectedPayrollRowKey(rowKey)
+                  }
+                }}
+              >
                 <td>{employee.id}</td>
                 <td><strong>{employee.name}</strong></td>
                 <td>{employee.employmentClassification || '—'}</td>
@@ -563,7 +579,8 @@ export default function TafiBranchPayroll({ sessionToken }) {
                   </span>
                 </td>
               </tr>
-            ))}
+              )
+            })}
             {payrollRows.length === 0 && payrollStatus === 'ready' && (
               <tr><td className="employee-empty-state" colSpan="24">No active employees in this branch.</td></tr>
             )}

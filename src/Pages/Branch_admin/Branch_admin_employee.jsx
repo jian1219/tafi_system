@@ -401,7 +401,7 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 				</section>
 
 				<div className="employee-detail-columns">
-					<section className="employee-detail-panel">
+					<section className="employee-detail-panel branch-employee-attendance-record">
 						<div className="employee-detail-panel-heading">
 							<div>
 								<h4>Attendance record</h4>

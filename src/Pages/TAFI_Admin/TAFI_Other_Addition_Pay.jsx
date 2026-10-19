@@ -229,37 +229,62 @@ export default function TafiOtherAdditionPay({ sessionToken }) {
 			const periodEnd = getLocalDateKey(new Date(year, month, 0))
 			setLoadStatus('loading')
 			setError('')
-			const [additionResult, overtimeResult, holidayResult, holidayRuleResult] = await Promise.all([
-				listTafiAdminPayrollAdditions(sessionToken, selectedBranchId, periodStart, periodEnd),
-				listTafiAdminOvertimeHistory(sessionToken, selectedBranchId, periodStart, periodEnd),
-				listTafiAdminHolidayPay(sessionToken, selectedBranchId, periodStart, periodEnd),
-				listTafiAdminHolidayPayRules(sessionToken, selectedBranchId, periodStart, periodEnd)
-			])
-			if (!isCurrent) return
-			const loadError = additionResult.error
-				?? overtimeResult.error
-				?? holidayResult.error
-				?? holidayRuleResult.error
-			if (loadError) {
-				setError(loadError.message)
-				setLoadStatus('error')
-				return
-			}
+			if (activeType === 'overtime_pay') {
+				const { data, error: loadError } = await listTafiAdminOvertimeHistory(
+					sessionToken,
+					selectedBranchId,
+					periodStart,
+					periodEnd
+				)
+				if (!isCurrent) return
+				if (loadError) {
+					setError(loadError.message)
+					setLoadStatus('error')
+					return
+				}
 
-			const loadedAdditions = additionResult.data ?? []
-			const loadedOvertime = overtimeResult.data ?? []
-			setAdditions(loadedAdditions)
-			setOvertimeEntries(loadedOvertime)
-			setHolidayEntries(holidayResult.data ?? [])
-			setHolidayRules(holidayRuleResult.data ?? [])
-			setAmounts(Object.fromEntries(loadedAdditions.map((addition) => [
-				getAdditionKey(selectedBranchId, addition.employee_code, addition.period_start, addition.addition_type),
-				String(addition.amount)
-			])))
-			setOvertimeHours(Object.fromEntries(loadedOvertime.map((entry) => [
-				getOvertimeKey(selectedBranchId, entry.employee_code, entry.overtime_date),
-				String(entry.hours)
-			])))
+				const loadedOvertime = data ?? []
+				setOvertimeEntries(loadedOvertime)
+				setOvertimeHours(Object.fromEntries(loadedOvertime.map((entry) => [
+					getOvertimeKey(selectedBranchId, entry.employee_code, entry.overtime_date),
+					String(entry.hours)
+				])))
+			} else if (['holiday_regular_pay', 'special_nonworking_holiday'].includes(activeType)) {
+				const [holidayResult, holidayRuleResult] = await Promise.all([
+					listTafiAdminHolidayPay(sessionToken, selectedBranchId, periodStart, periodEnd),
+					listTafiAdminHolidayPayRules(sessionToken, selectedBranchId, periodStart, periodEnd)
+				])
+				if (!isCurrent) return
+				const loadError = holidayResult.error ?? holidayRuleResult.error
+				if (loadError) {
+					setError(loadError.message)
+					setLoadStatus('error')
+					return
+				}
+
+				setHolidayEntries(holidayResult.data ?? [])
+				setHolidayRules(holidayRuleResult.data ?? [])
+			} else {
+				const { data, error: loadError } = await listTafiAdminPayrollAdditions(
+					sessionToken,
+					selectedBranchId,
+					periodStart,
+					periodEnd
+				)
+				if (!isCurrent) return
+				if (loadError) {
+					setError(loadError.message)
+					setLoadStatus('error')
+					return
+				}
+
+				const loadedAdditions = data ?? []
+				setAdditions(loadedAdditions)
+				setAmounts(Object.fromEntries(loadedAdditions.map((addition) => [
+					getAdditionKey(selectedBranchId, addition.employee_code, addition.period_start, addition.addition_type),
+					String(addition.amount)
+				])))
+			}
 			setLoadStatus('ready')
 		}
 
@@ -267,7 +292,7 @@ export default function TafiOtherAdditionPay({ sessionToken }) {
 		return () => {
 			isCurrent = false
 		}
-	}, [sessionToken, selectedBranchId, selectedMonth, directoryStatus, reloadVersion])
+	}, [sessionToken, selectedBranchId, selectedMonth, directoryStatus, reloadVersion, activeType])
 
 	const saveAddition = async (event) => {
 		event.preventDefault()
@@ -414,6 +439,7 @@ export default function TafiOtherAdditionPay({ sessionToken }) {
 						className={activeType === type.key ? 'active' : ''}
 						onClick={() => {
 							setActiveType(type.key)
+							setLoadStatus('loading')
 							if (['holiday_regular_pay', 'special_nonworking_holiday'].includes(type.key)) {
 								setHolidayDate(selectedWeek?.startDate ?? '')
 							}
@@ -571,7 +597,7 @@ export default function TafiOtherAdditionPay({ sessionToken }) {
 											min="0"
 											max="24"
 											step="0.25"
-											value={date ? overtimeHours[getOvertimeKey(employeeCode, date)] ?? '' : ''}
+											value={date ? overtimeHours[getOvertimeKey(selectedBranchId, employeeCode, date)] ?? '' : ''}
 											onChange={(event) => setOvertimeHours((current) => ({
 												...current,
 												[getOvertimeKey(selectedBranchId, employeeCode, date)]: event.target.value
