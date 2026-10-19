@@ -1,6 +1,6 @@
 begin;
 
--- Run after super_admin_login.sql.
+-- Run after super_admin_login.sql and tafi_employee_emergency_contacts.sql.
 create table if not exists public.guest_account (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -187,7 +187,9 @@ begin
 end;
 $$;
 
-create or replace function public.guest_list_employees(p_session_token uuid)
+drop function if exists public.guest_list_employees(uuid);
+
+create function public.guest_list_employees(p_session_token uuid)
 returns table (
   employee_id uuid,
   branch_id uuid,
@@ -198,6 +200,8 @@ returns table (
   employment_status text,
   email text,
   phone text,
+  emergency_contact_name text,
+  emergency_contact_number text,
   address text,
   gender text,
   birthday date,
@@ -228,7 +232,8 @@ begin
   return query
   select employee.id, employee.branch_id, branch.name, employee.employee_code,
     employee.name, employee.position, employee.employment_status, employee.email,
-    employee.phone, employee.address, employee.gender, employee.birthday,
+    employee.phone, employee.emergency_contact_name, employee.emergency_contact_number,
+    employee.address, employee.gender, employee.birthday,
     employee.tin_number, employee.sss_number, employee.pagibig_number,
     employee.philhealth_number, employee.employment_classification,
     employee.daily_rate, employee.hire_date, employee.probationary_start_date,

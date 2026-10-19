@@ -103,6 +103,8 @@ function getEmployeeProfile(employee) {
 		birthday: employee.birthday ?? '',
 		email: employee.email ?? '',
 		phone: employee.phone ?? '',
+		emergencyContactName: employee.emergency_contact_name ?? '',
+		emergencyContactNumber: employee.emergency_contact_number ?? '',
 		hireDate: employee.hire_date ?? '',
 		probationaryDate: employee.probationary_start_date ?? '',
 		regularDate: employee.regular_start_date ?? '',
@@ -1012,6 +1014,23 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 										/>
 									</label>
 									<label>
+										<span>Emergency contact name</span>
+										<input
+											value={profileForm.emergencyContactName}
+											onChange={(event) => updateProfileField('emergencyContactName', event.target.value)}
+											autoComplete="off"
+										/>
+									</label>
+									<label>
+										<span>Emergency contact number</span>
+										<input
+											type="tel"
+											value={profileForm.emergencyContactNumber}
+											onChange={(event) => updateProfileField('emergencyContactNumber', event.target.value)}
+											autoComplete="off"
+										/>
+									</label>
+									<label>
 										<span>TIN</span>
 										<input
 											value={profileForm.tinNumber}
@@ -1137,6 +1156,14 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 								<div className="employee-profile-field">
 									<dt>Phone</dt>
 									<dd>{displayValue(selectedEmployee.phone)}</dd>
+								</div>
+								<div className="employee-profile-field">
+									<dt>Emergency contact name</dt>
+									<dd>{displayValue(selectedEmployee.emergency_contact_name)}</dd>
+								</div>
+								<div className="employee-profile-field">
+									<dt>Emergency contact number</dt>
+									<dd>{displayValue(selectedEmployee.emergency_contact_number)}</dd>
 								</div>
 								<div className="employee-profile-field">
 									<dt>TIN</dt>

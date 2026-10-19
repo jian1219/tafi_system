@@ -83,6 +83,8 @@ create table if not exists public.employee (
   address text,
   gender text,
   birthday date,
+  emergency_contact_name text,
+  emergency_contact_number text,
   tin_number text,
   sss_number text,
   pagibig_number text,

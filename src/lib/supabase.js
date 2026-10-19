@@ -773,6 +773,8 @@ export async function updateTafiAdminEmployeeProfile(sessionToken, employeeId, p
       p_birthday: profile.birthday || null,
       p_email: profile.email || null,
       p_phone: profile.phone || null,
+      p_emergency_contact_name: profile.emergencyContactName || null,
+      p_emergency_contact_number: profile.emergencyContactNumber || null,
       p_hire_date: profile.hireDate || null,
       p_probationary_start_date: profile.probationaryDate || null,
       p_regular_start_date: profile.regularDate || null,
