@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
-import { ArrowRight, Calculator, Crown, ShieldCheck, Store } from 'lucide-react'
+import { ArrowRight, Calculator, Crown, ShieldCheck, Store, UserRound } from 'lucide-react'
 import AccountantLogin from './Pages/Accountant/Accountant_login'
 import AccountantDashboard from './Pages/Accountant/Accountant_Dashboard'
 import AdminLogin from './Pages/TAFI_Admin/TAFI_Admin_login'
 import TafiDashboard from './Pages/TAFI_Admin/TAFI_Dashboard'
 import BranchAdminLogin from './Pages/Branch_admin/Branch_admin_login'
 import BranchAdminDashboard from './Pages/Branch_admin/Branch_admin_dashboard'
+import GuestLogin from './Pages/Owner/Guest_login'
+import GuestDashboard from './Pages/Owner/Guest_Dashboard'
 import SuperAdminLogin from './Pages/Super_Admin/Super_Admin'
 import SuperAdminDashboard from './Pages/Super_Admin/Super_Admin_Dashboard'
 import logoImage from './images/Tafi logo transparent.png'
@@ -32,6 +34,12 @@ const roles = [
     path: '/branch-admin-login',
     icon: Store,
     description: 'Coordinate branch operations and team performance.'
+  },
+  {
+    name: 'Guest',
+    path: '/guest-login',
+    icon: UserRound,
+    description: 'Sign in to your Guest workspace.'
   }
 ]
 
@@ -82,7 +90,7 @@ function Home() {
                 <h2 className="role-title" id="role-panel-title">Continue as</h2>
                 <p className="role-subtitle">Select a team workspace to sign in.</p>
               </div>
-              <span className="role-count">03 WORKSPACES</span>
+              <span className="role-count">04 WORKSPACES</span>
             </div>
 
             <div className="role-list">
@@ -127,6 +135,8 @@ function App() {
         <Route path="/tafi-admin-login" element={<AdminLogin />} />
         <Route path="/tafi-dashboard" element={<TafiDashboard />} />
         <Route path="/branch-admin-login" element={<BranchAdminLogin />} />
+        <Route path="/guest-login" element={<GuestLogin />} />
+        <Route path="/guest-dashboard" element={<GuestDashboard />} />
         <Route path="/super-admin-login" element={<SuperAdminLogin />} />
         <Route path="/branch-admin-dashboard" element={<BranchAdminDashboard />} />
         <Route path="/super-admin-dashboard" element={<SuperAdminDashboard />} />

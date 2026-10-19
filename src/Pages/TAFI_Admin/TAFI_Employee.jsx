@@ -9,7 +9,12 @@ import {
 	saveTafiAdminEmployeePhoto,
 	updateTafiAdminEmployeeDailyRate,
 	updateTafiAdminEmployeeIdentity,
-	updateTafiAdminEmployeeProfile
+	updateTafiAdminEmployeeProfile,
+	getGuestEmployeePhoto,
+	listGuestEmployeeAttendance,
+	listGuestEmployeeBranches,
+	listGuestEmployeeContributions,
+	listGuestEmployees
 } from '../../lib/supabase'
 import {
 	getAttendanceDayValue,
@@ -17,6 +22,7 @@ import {
 	getLocalDateKey
 } from '../Branch_admin/branchAttendanceRecords'
 import { recordLegend, statusCodeClassNames, statusCodes } from '../attendanceStatusDisplay'
+import TafiEmployeeDocuments from './TAFI_Employee_Documents'
 
 const today = new Date()
 const todayDateKey = [
@@ -128,7 +134,7 @@ function readPhotoAsBase64(file) {
 	})
 }
 
-export default function TafiEmployee({ sessionToken }) {
+export default function TafiEmployee({ sessionToken, readOnly = false }) {
 	const [branches, setBranches] = useState([])
 	const [employees, setEmployees] = useState([])
 	const [selectedBranchId, setSelectedBranchId] = useState('all')
@@ -173,8 +179,8 @@ export default function TafiEmployee({ sessionToken }) {
 			setIsLoading(true)
 			setErrorMessage('')
 			const [branchesResult, employeesResult] = await Promise.all([
-				listTafiAdminBranches(sessionToken),
-				listTafiAdminEmployees(sessionToken)
+				readOnly ? listGuestEmployeeBranches(sessionToken) : listTafiAdminBranches(sessionToken),
+				readOnly ? listGuestEmployees(sessionToken) : listTafiAdminEmployees(sessionToken)
 			])
 
 			if (!isCurrent) return
@@ -197,7 +203,7 @@ export default function TafiEmployee({ sessionToken }) {
 		return () => {
 			isCurrent = false
 		}
-	}, [sessionToken])
+	}, [sessionToken, readOnly])
 
 	const selectedBranch = branches.find((branch) => branch.branch_id === selectedBranchId)
 	const filteredEmployees = useMemo(
@@ -251,7 +257,9 @@ export default function TafiEmployee({ sessionToken }) {
 				error: '',
 				message: ''
 			})
-			const { data, error } = await getTafiAdminEmployeePhoto(sessionToken, selectedEmployee.employee_id)
+			const { data, error } = readOnly
+				? await getGuestEmployeePhoto(sessionToken, selectedEmployee.employee_id)
+				: await getTafiAdminEmployeePhoto(sessionToken, selectedEmployee.employee_id)
 			if (!isCurrent) return
 			const photo = data?.[0]
 			setEmployeePhotoState({
@@ -269,7 +277,7 @@ export default function TafiEmployee({ sessionToken }) {
 		return () => {
 			isCurrent = false
 		}
-	}, [sessionToken, selectedEmployee])
+	}, [sessionToken, selectedEmployee, readOnly])
 
 	const uploadEmployeePhoto = async (event) => {
 		const file = event.currentTarget.files?.[0]
@@ -347,12 +355,19 @@ export default function TafiEmployee({ sessionToken }) {
 			const [year, month] = attendanceMonth.split('-').map(Number)
 			const startDate = `${attendanceMonth}-01`
 			const endDate = getLocalDateKey(new Date(year, month, 0))
-			const { data, error } = await listTafiAdminAttendance(
-				sessionToken,
-				selectedEmployee.branch_id,
-				startDate,
-				endDate
-			)
+			const { data, error } = readOnly
+				? await listGuestEmployeeAttendance(
+					sessionToken,
+					selectedEmployee.branch_id,
+					startDate,
+					endDate
+				)
+				: await listTafiAdminAttendance(
+					sessionToken,
+					selectedEmployee.branch_id,
+					startDate,
+					endDate
+				)
 			if (!isCurrent) return
 			setAttendanceHistoryState({
 				sessionToken,
@@ -367,7 +382,7 @@ export default function TafiEmployee({ sessionToken }) {
 		return () => {
 			isCurrent = false
 		}
-	}, [sessionToken, selectedEmployee, attendanceMonth])
+	}, [sessionToken, selectedEmployee, attendanceMonth, readOnly])
 
 	const hasCurrentAttendanceHistory = attendanceHistoryState?.sessionToken === sessionToken
 		&& attendanceHistoryState?.employeeId === selectedEmployeeId
@@ -391,10 +406,9 @@ export default function TafiEmployee({ sessionToken }) {
 				error: ''
 			})
 
-			const { data, error } = await listTafiAdminEmployeeContributions(
-				sessionToken,
-				selectedEmployeeBranchId
-			)
+			const { data, error } = readOnly
+				? await listGuestEmployeeContributions(sessionToken, selectedEmployeeBranchId)
+				: await listTafiAdminEmployeeContributions(sessionToken, selectedEmployeeBranchId)
 			if (!isCurrent) return
 
 			if (error) {
@@ -428,7 +442,8 @@ export default function TafiEmployee({ sessionToken }) {
 		sessionToken,
 		selectedEmployeeId,
 		selectedEmployeeBranchId,
-		selectedEmployeeCode
+		selectedEmployeeCode,
+		readOnly
 	])
 
 	const hasCurrentEmployeeContribution = employeeContributionState?.sessionToken === sessionToken
@@ -744,16 +759,18 @@ export default function TafiEmployee({ sessionToken }) {
 											{selectedEmployee.employee_name?.charAt(0) || '?'}
 										</span>
 									)}
-									<label className="employee-profile-photo-upload">
-										<input
-											type="file"
-											accept="image/jpeg,image/png,image/webp"
-											aria-label={`Upload profile photo for ${selectedEmployee.employee_name}`}
-											disabled={!sessionToken || currentEmployeePhoto?.isSaving}
-											onChange={uploadEmployeePhoto}
-										/>
-										{currentEmployeePhoto?.isSaving ? 'Uploading…' : 'Upload photo'}
-									</label>
+									{!readOnly && (
+										<label className="employee-profile-photo-upload">
+											<input
+												type="file"
+												accept="image/jpeg,image/png,image/webp"
+												aria-label={`Upload profile photo for ${selectedEmployee.employee_name}`}
+												disabled={!sessionToken || currentEmployeePhoto?.isSaving}
+												onChange={uploadEmployeePhoto}
+											/>
+											{currentEmployeePhoto?.isSaving ? 'Uploading…' : 'Upload photo'}
+										</label>
+									)}
 									{currentEmployeePhoto?.error && (
 										<span className="employee-profile-photo-feedback error" role="alert">
 											{currentEmployeePhoto.error}
@@ -804,9 +821,9 @@ export default function TafiEmployee({ sessionToken }) {
 							<div className="employee-detail-panel-heading employee-personal-heading">
 								<div>
 									<h4>Employee identification</h4>
-									<p>Update the employee name, ID, or position.</p>
+									<p>{readOnly ? 'Employee name, ID, and position.' : 'Update the employee name, ID, or position.'}</p>
 								</div>
-								{!isEditingIdentity && (
+								{!readOnly && !isEditingIdentity && (
 									<button
 										type="button"
 										className="add-employee-button"
@@ -825,7 +842,7 @@ export default function TafiEmployee({ sessionToken }) {
 									</button>
 								)}
 							</div>
-							{isEditingIdentity ? (
+							{!readOnly && isEditingIdentity ? (
 								<form className="employee-personal-form" onSubmit={saveEmployeeIdentity}>
 									<label>
 										<span>Employee ID</span>
@@ -926,7 +943,7 @@ export default function TafiEmployee({ sessionToken }) {
 									<h4>Personal and employment information</h4>
 									<p>Personal details, identity, and government contribution information.</p>
 								</div>
-								{!isEditingProfile && (
+								{!readOnly && !isEditingProfile && (
 									<button
 										type="button"
 										className="add-employee-button"
@@ -942,7 +959,7 @@ export default function TafiEmployee({ sessionToken }) {
 								)}
 							</div>
 
-							{isEditingProfile ? (
+							{!readOnly && isEditingProfile ? (
 								<form className="employee-personal-form" onSubmit={saveEmployeeProfile}>
 									<label className="employee-personal-address">
 										<span>Address</span>
@@ -1165,9 +1182,9 @@ export default function TafiEmployee({ sessionToken }) {
 							<div className="employee-detail-panel-heading">
 								<div>
 									<h4>Payroll details</h4>
-									<p>Set the daily rate used for payroll estimates.</p>
+									<p>{readOnly ? 'Daily rate used for payroll estimates.' : 'Set the daily rate used for payroll estimates.'}</p>
 								</div>
-								{!isEditingDailyRate && (
+								{!readOnly && !isEditingDailyRate && (
 									<button
 										type="button"
 										className="add-employee-button"
@@ -1184,7 +1201,7 @@ export default function TafiEmployee({ sessionToken }) {
 									</button>
 								)}
 							</div>
-							{isEditingDailyRate ? (
+							{!readOnly && isEditingDailyRate ? (
 								<form className="daily-rate-form" onSubmit={saveEmployeeDailyRate}>
 									<label htmlFor="tafi-employee-daily-rate">Daily rate</label>
 									<div className="daily-rate-input-row">
@@ -1225,6 +1242,13 @@ export default function TafiEmployee({ sessionToken }) {
 							)}
 							{dailyRateMessage && <p className="employee-personal-saved" role="status">{dailyRateMessage}</p>}
 						</section>
+
+						{!readOnly && (
+							<TafiEmployeeDocuments
+								sessionToken={sessionToken}
+								employeeId={selectedEmployee.employee_id}
+							/>
+						)}
 
 						<section className="employee-detail-panel employee-personal-details">
 							<div className="employee-detail-panel-heading">
@@ -1376,18 +1400,20 @@ export default function TafiEmployee({ sessionToken }) {
 										: `${employeeResults.length} employee${employeeResults.length === 1 ? '' : 's'}`}
 								</p>
 							</div>
-							<button
-								type="button"
-								className="add-employee-button"
-								disabled={isLoading || !branches.length || isSavingEmployee}
-								onClick={() => {
-									setEmployeeFormError('')
-									setNewEmployeeBranchId(selectedBranchId === 'all' ? '' : selectedBranchId)
-									setIsAddFormOpen((isOpen) => !isOpen)
-								}}
-							>
-								{isSavingEmployee ? 'Saving…' : isAddFormOpen ? 'Cancel' : 'Add employee'}
-							</button>
+							{!readOnly && (
+								<button
+									type="button"
+									className="add-employee-button"
+									disabled={isLoading || !branches.length || isSavingEmployee}
+									onClick={() => {
+										setEmployeeFormError('')
+										setNewEmployeeBranchId(selectedBranchId === 'all' ? '' : selectedBranchId)
+										setIsAddFormOpen((isOpen) => !isOpen)
+									}}
+								>
+									{isSavingEmployee ? 'Saving…' : isAddFormOpen ? 'Cancel' : 'Add employee'}
+								</button>
+							)}
 						</div>
 
 						<div className="employee-directory-tools tafi-employee-directory-tools">
@@ -1420,7 +1446,7 @@ export default function TafiEmployee({ sessionToken }) {
 						</div>
 
 						{errorMessage && <p className="tafi-employee-error" role="alert">{errorMessage}</p>}
-						{isAddFormOpen && (
+						{!readOnly && isAddFormOpen && (
 							<form className="add-employee-form tafi-employee-create-form" onSubmit={addEmployee}>
 								<label>
 									<span>Employee ID</span>

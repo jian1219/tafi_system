@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { CalendarDays, CircleDollarSign, LogOut, MinusCircle, PlusCircle, ShieldCheck, Users, Wallet } from 'lucide-react'
+import { CalendarDays, ChevronDown, CircleDollarSign, LogOut, MinusCircle, Package, PlusCircle, ShieldCheck, Users, Wallet } from 'lucide-react'
 import { revokeTafiAdminSession } from '../../lib/supabase'
 import TafiEmployee from './TAFI_Employee'
 import TafiEmployeeContributions from './TAFI_Employee_Contributions'
@@ -10,24 +10,46 @@ import TafiBranchPayroll from './TAFI_Branch_Payroll'
 const TafiOtherAdditionPay = lazy(() => import('./TAFI_Other_Addition_Pay'))
 const TafiOtherDeductionPay = lazy(() => import('./TAFI_Other_Deduction_Pay'))
 const TafiCashAdvance = lazy(() => import('./TAFI_Cash_Advance'))
+const TafiInventory = lazy(() => import('./TAFI_Inventory'))
 import logoImage from '../../images/Tafi logo transparent.png'
 
-const navigationItems = [
-	{ id: 'employees', label: 'Employee', icon: Users },
-	{ id: 'attendance', label: 'Employee Attendance', icon: CalendarDays },
-	{ id: 'leave-credits', label: 'Leave Credits', icon: PlusCircle },
-	{ id: 'contributions', label: 'Mandatory Contributions', icon: CircleDollarSign },
-	{ id: 'other-additions', label: 'Other Addition Pay', icon: PlusCircle },
-	{ id: 'other-deductions', label: 'Other Deduction Pay', icon: MinusCircle },
-	{ id: 'cash-advance', label: 'Cash Advance', icon: CircleDollarSign },
-	{ id: 'payroll', label: 'Branch Payroll', icon: Wallet }
+const navigationGroups = [
+	{
+		id: 'employee-management',
+		label: 'Employee Management',
+		items: [
+			{ id: 'employees', label: 'Employee', icon: Users },
+			{ id: 'attendance', label: 'Employee Attendance', icon: CalendarDays },
+			{ id: 'leave-credits', label: 'Leave Credits', icon: PlusCircle }
+		]
+	},
+	{
+		id: 'payroll-finance',
+		label: 'Payroll & Finance',
+		items: [
+			{ id: 'contributions', label: 'Mandatory Contributions', icon: CircleDollarSign },
+			{ id: 'other-additions', label: 'Other Addition Pay', icon: PlusCircle },
+			{ id: 'other-deductions', label: 'Other Deduction Pay', icon: MinusCircle },
+			{ id: 'cash-advance', label: 'Cash Advance', icon: CircleDollarSign },
+			{ id: 'payroll', label: 'Branch Payroll', icon: Wallet }
+		]
+	},
+	{
+		id: 'inventory',
+		label: 'Inventory',
+		items: [
+			{ id: 'inventory', label: 'Inventory Information', icon: Package }
+		]
+	}
 ]
+const navigationItems = navigationGroups.flatMap((group) => group.items)
 
 export default function TafiDashboard() {
 	const location = useLocation()
 	const navigate = useNavigate()
 	const tafiAdmin = location.state?.tafiAdmin
 	const [activePage, setActivePage] = useState('employees')
+	const [expandedGroups, setExpandedGroups] = useState({ 'employee-management': true })
 	const [signOutError, setSignOutError] = useState('')
 
 	if (!tafiAdmin) return <Navigate to="/tafi-admin-login" replace />
@@ -53,20 +75,53 @@ export default function TafiDashboard() {
 					</div>
 				</div>
 
-				<p className="tafi-admin-nav-label">Management</p>
+				<p className="tafi-admin-nav-label">Workspace</p>
 				<nav className="tafi-admin-nav" aria-label="Dashboard sections">
-					{navigationItems.map(({ id, label, icon: Icon }) => (
-						<button
-							key={id}
-							type="button"
-							className={`tafi-admin-nav-item${activePage === id ? ' active' : ''}`}
-							aria-current={activePage === id ? 'page' : undefined}
-							onClick={() => setActivePage(id)}
-						>
-							<Icon size={19} aria-hidden="true" />
-							<span>{label}</span>
-						</button>
-					))}
+					{navigationGroups.map((group) => {
+						const isExpanded = Boolean(expandedGroups[group.id])
+						const containsActivePage = group.items.some((item) => item.id === activePage)
+						const groupItemsId = `tafi-admin-nav-group-${group.id}`
+						return (
+							<div className="tafi-admin-nav-group" key={group.id}>
+								<button
+									type="button"
+									className={`tafi-admin-nav-group-toggle${containsActivePage ? ' has-active' : ''}`}
+									aria-expanded={isExpanded}
+									aria-controls={groupItemsId}
+									onClick={() => setExpandedGroups((current) => ({
+										...current,
+										[group.id]: !current[group.id]
+									}))}
+								>
+									<span>{group.label}</span>
+									<ChevronDown size={16} aria-hidden="true" />
+								</button>
+								<div
+									className="tafi-admin-nav-group-items"
+									id={groupItemsId}
+									role="group"
+									aria-label={group.label}
+									hidden={!isExpanded}
+								>
+									{group.items.map(({ id, label, icon: Icon }) => (
+										<button
+											key={id}
+											type="button"
+											className={`tafi-admin-nav-item${activePage === id ? ' active' : ''}`}
+											aria-current={activePage === id ? 'page' : undefined}
+											onClick={() => {
+												setActivePage(id)
+												setExpandedGroups((current) => ({ ...current, [group.id]: true }))
+											}}
+										>
+											<Icon size={19} aria-hidden="true" />
+											<span>{label}</span>
+										</button>
+									))}
+								</div>
+							</div>
+						)
+					})}
 				</nav>
 
 				<div className="tafi-admin-sidebar-footer">
@@ -100,8 +155,14 @@ export default function TafiDashboard() {
 								? <TafiLeaveCredits sessionToken={tafiAdmin.session_token} />
 								: activePage === 'contributions'
 									? <TafiEmployeeContributions sessionToken={tafiAdmin.session_token} />
-									: activePage === 'other-additions'
-										? (
+								: activePage === 'inventory'
+								? (
+								<Suspense fallback={<p className="other-deduction-message" role="status">Loading inventory tools…</p>}>
+									<TafiInventory sessionToken={tafiAdmin.session_token} />
+								</Suspense>
+								)
+								: activePage === 'other-additions'
+									? (
 										<Suspense fallback={<p className="other-deduction-message" role="status">Loading payroll addition tools…</p>}>
 											<TafiOtherAdditionPay sessionToken={tafiAdmin.session_token} />
 										</Suspense>

@@ -61,6 +61,39 @@ export async function listTafiAdminBranches(sessionToken) {
   }
 }
 
+export async function listTafiAdminInventoryInformation(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_inventory_information', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load inventory information.')
+    }
+  }
+}
+
+export async function createTafiAdminInventoryInformation(sessionToken, item) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_create_inventory_information', {
+      p_session_token: sessionToken,
+      p_stock_no: item.stockNo,
+      p_category: item.category,
+      p_item_description: item.itemDescription,
+      p_unit_of_measure: item.unitOfMeasure,
+      p_supplier: item.supplier
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the inventory item.')
+    }
+  }
+}
+
 export async function listTafiAdminEmployeeContributions(sessionToken, branchId) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -789,6 +822,171 @@ export async function getTafiAdminEmployeePhoto(sessionToken, employeeId) {
   }
 }
 
+export async function listTafiAdminEmployeeDocuments(sessionToken, employeeId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_employee_documents', {
+      p_session_token: sessionToken,
+      p_employee_id: employeeId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load employee documents.')
+    }
+  }
+}
+
+export async function uploadTafiAdminEmployeeDocument(
+  sessionToken,
+  employeeId,
+  documentType,
+  fileName,
+  contentType,
+  fileBase64
+) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_upload_employee_document', {
+      p_session_token: sessionToken,
+      p_employee_id: employeeId,
+      p_document_type: documentType,
+      p_file_name: fileName,
+      p_content_type: contentType,
+      p_file_base64: fileBase64
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to upload the employee document.')
+    }
+  }
+}
+
+export async function getTafiAdminEmployeeDocument(sessionToken, documentId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_get_employee_document', {
+      p_session_token: sessionToken,
+      p_document_id: documentId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to download the employee document.')
+    }
+  }
+}
+
+export async function listGuestEmployeeBranches(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('guest_list_employee_branches', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load branches.')
+    }
+  }
+}
+
+export async function listGuestEmployees(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('guest_list_employees', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load employees.')
+    }
+  }
+}
+
+export async function getGuestEmployeePhoto(sessionToken, employeeId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('guest_get_employee_photo', {
+      p_session_token: sessionToken,
+      p_employee_id: employeeId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the employee photo.')
+    }
+  }
+}
+
+export async function listGuestEmployeeAttendance(sessionToken, branchId, startDate, endDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('guest_list_employee_attendance', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_start_date: startDate,
+      p_end_date: endDate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load attendance records.')
+    }
+  }
+}
+
+export async function listGuestOvertimeHours(sessionToken, branchId, startDate, endDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('guest_list_overtime_hours', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_period_start: startDate,
+      p_period_end: endDate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load overtime hours.')
+    }
+  }
+}
+
+export async function listGuestUndertimeDeductions(sessionToken, branchId, startDate, endDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('guest_list_undertime_deductions', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_period_start: startDate,
+      p_period_end: endDate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load undertime deductions.')
+    }
+  }
+}
+
+export async function listGuestEmployeeContributions(sessionToken, branchId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('guest_list_employee_contributions', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load employee contributions.')
+    }
+  }
+}
+
 export async function updateTafiAdminEmployeeIdentity(sessionToken, employeeId, identity) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -974,6 +1172,45 @@ export async function createAccountant({
   }
 }
 
+export async function listGuestAccounts(email, password) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('super_admin_list_guest_accounts', {
+      p_super_admin_email: email.trim(),
+      p_super_admin_password: password
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load Guest accounts.')
+    }
+  }
+}
+
+export async function createGuestAccount({
+  superAdminEmail,
+  superAdminPassword,
+  guestName,
+  guestEmail,
+  guestPassword
+}) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('super_admin_create_guest_account', {
+      p_super_admin_email: superAdminEmail.trim(),
+      p_super_admin_password: superAdminPassword,
+      p_guest_name: guestName,
+      p_guest_email: guestEmail,
+      p_guest_password: guestPassword
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to create the Guest account.')
+    }
+  }
+}
+
 export async function verifyAccountantCredentials(email, password) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -1000,6 +1237,36 @@ export async function revokeAccountantSession(sessionToken) {
   } catch (error) {
     return {
       error: error instanceof Error ? error : new Error('Unable to end the Accountant session.')
+    }
+  }
+}
+
+export async function verifyGuestCredentials(email, password) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const { data, error } = await supabaseClient.rpc('guest_login', {
+      p_email: email.trim(),
+      p_password: password
+    })
+
+    return { profile: data?.[0] ?? null, error }
+  } catch (error) {
+    return {
+      profile: null,
+      error: error instanceof Error ? error : new Error('Unable to connect to the Guest login service.')
+    }
+  }
+}
+
+export async function revokeGuestSession(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('guest_logout', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error : new Error('Unable to end the Guest session.')
     }
   }
 }

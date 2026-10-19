@@ -8,6 +8,11 @@ import {
 	listTafiAdminEmployees,
 	listTafiAdminOvertimeHours,
 	listTafiAdminUndertimeDeductions,
+	listGuestEmployeeAttendance,
+	listGuestEmployeeBranches,
+	listGuestEmployees,
+	listGuestOvertimeHours,
+	listGuestUndertimeDeductions,
 	saveTafiAdminAttendance,
 	getTafiAdminAttendancePeriodAccessMode,
 	setTafiAdminAttendancePeriodAccessMode,
@@ -104,9 +109,9 @@ function formatSubmittedAt(timestamp) {
 	})
 }
 
-export default function TafiEmployeeAttendance({ sessionToken }) {
+export default function TafiEmployeeAttendance({ sessionToken, readOnly = false }) {
 	const [attendanceDateKey] = useState(() => getLocalDateKey(new Date()))
-	const [activeTab, setActiveTab] = useState('daily')
+	const [activeTab, setActiveTab] = useState(readOnly ? 'weekly' : 'daily')
 	const [branches, setBranches] = useState([])
 	const [directoryEmployees, setDirectoryEmployees] = useState([])
 	const [selectedBranchId, setSelectedBranchId] = useState('')
@@ -189,8 +194,8 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 			setIsLoadingDirectory(true)
 			setLoadError('')
 			const [branchesResult, employeesResult] = await Promise.all([
-				listTafiAdminBranches(sessionToken),
-				listTafiAdminEmployees(sessionToken)
+				readOnly ? listGuestEmployeeBranches(sessionToken) : listTafiAdminBranches(sessionToken),
+				readOnly ? listGuestEmployees(sessionToken) : listTafiAdminEmployees(sessionToken)
 			])
 			if (!isCurrent) return
 
@@ -220,7 +225,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 		return () => {
 			isCurrent = false
 		}
-	}, [sessionToken])
+	}, [sessionToken, readOnly])
 
 	useEffect(() => {
 		if (activeTab !== 'history' || !sessionToken) return undefined
@@ -334,10 +339,8 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 		}
 
 		let isCurrent = true
-		const attendanceRanges = new Map([
-			[monthDates.start, monthDates.end],
-			[dailyDateMonthStart, dailyDateMonthEnd]
-		])
+		const attendanceRanges = new Map([[monthDates.start, monthDates.end]])
+		if (!readOnly) attendanceRanges.set(dailyDateMonthStart, dailyDateMonthEnd)
 
 		const loadAttendance = async () => {
 			setIsLoadingAttendance(true)
@@ -346,13 +349,21 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 			setLeaveCreditError('')
 
 			const attendanceRequests = [...attendanceRanges].map(([startDate, endDate]) =>
-				listTafiAdminAttendance(sessionToken, selectedBranchId, startDate, endDate)
+				readOnly
+					? listGuestEmployeeAttendance(sessionToken, selectedBranchId, startDate, endDate)
+					: listTafiAdminAttendance(sessionToken, selectedBranchId, startDate, endDate)
 			)
 			const [attendanceResults, leaveCreditResult, overtimeResult, undertimeResult] = await Promise.all([
 				Promise.all(attendanceRequests),
-				listTafiAdminEmployeeLeaveCredits(sessionToken, selectedBranchId),
-				listTafiAdminOvertimeHours(sessionToken, selectedBranchId, monthDates.start, monthDates.end),
-				listTafiAdminUndertimeDeductions(sessionToken, selectedBranchId, monthDates.start, monthDates.end)
+				readOnly
+					? Promise.resolve({ data: [], error: null })
+					: listTafiAdminEmployeeLeaveCredits(sessionToken, selectedBranchId),
+				readOnly
+					? listGuestOvertimeHours(sessionToken, selectedBranchId, monthDates.start, monthDates.end)
+					: listTafiAdminOvertimeHours(sessionToken, selectedBranchId, monthDates.start, monthDates.end),
+				readOnly
+					? listGuestUndertimeDeductions(sessionToken, selectedBranchId, monthDates.start, monthDates.end)
+					: listTafiAdminUndertimeDeductions(sessionToken, selectedBranchId, monthDates.start, monthDates.end)
 			])
 			if (!isCurrent) return
 
@@ -424,7 +435,8 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 		dailyAttendanceDateKey,
 		dailyDateMonthStart,
 		dailyDateMonthEnd,
-		branchEmployees
+		branchEmployees,
+		readOnly
 	])
 
 	const monthRecords = useMemo(() => branchEmployees.map((employee, index) => {
@@ -746,7 +758,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 	return (
 		<div className="attendance-monitoring-shell">
 			<div className="attendance-header-strip tafi-attendance-header">
-				<div className="branch-title">{selectedBranch?.branch_name ?? 'TAFI Admin'}</div>
+				<div className="branch-title">{selectedBranch?.branch_name ?? (readOnly ? 'Guest' : 'TAFI Admin')}</div>
 				<label className="tafi-attendance-branch-select">
 					<span>Branch</span>
 					<select
@@ -773,7 +785,7 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 			</div>
 			{!sessionToken && (
 				<p className="payroll-contribution-message error" role="alert">
-					Your TAFI Admin login session is missing. Sign out and sign in again.
+					Your {readOnly ? 'Guest' : 'TAFI Admin'} login session is missing. Sign out and sign in again.
 				</p>
 			)}
 			{loadError && <p className="payroll-contribution-message error" role="alert">{loadError}</p>}
@@ -785,13 +797,15 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 			)}
 
 			<div className="attendance-monitoring-tabs">
-				<button
-					type="button"
-					className={activeTab === 'daily' ? 'monitoring-tab active' : 'monitoring-tab'}
-					onClick={() => setActiveTab('daily')}
-				>
-					Daily Attendance
-				</button>
+				{!readOnly && (
+					<button
+						type="button"
+						className={activeTab === 'daily' ? 'monitoring-tab active' : 'monitoring-tab'}
+						onClick={() => setActiveTab('daily')}
+					>
+						Daily Attendance
+					</button>
+				)}
 				<button
 					type="button"
 					className={activeTab === 'weekly' ? 'monitoring-tab active' : 'monitoring-tab'}
@@ -806,20 +820,24 @@ export default function TafiEmployeeAttendance({ sessionToken }) {
 				>
 					All Month Records
 				</button>
-				<button
-					type="button"
-					className={activeTab === 'history' ? 'monitoring-tab active' : 'monitoring-tab'}
-					onClick={() => setActiveTab('history')}
-				>
-					Submitted History
-				</button>
-				<button
-					type="button"
-					className={activeTab === 'access' ? 'monitoring-tab active' : 'monitoring-tab'}
-					onClick={() => setActiveTab('access')}
-				>
-					Period Access
-				</button>
+				{!readOnly && (
+					<>
+						<button
+							type="button"
+							className={activeTab === 'history' ? 'monitoring-tab active' : 'monitoring-tab'}
+							onClick={() => setActiveTab('history')}
+						>
+							Submitted History
+						</button>
+						<button
+							type="button"
+							className={activeTab === 'access' ? 'monitoring-tab active' : 'monitoring-tab'}
+							onClick={() => setActiveTab('access')}
+						>
+							Period Access
+						</button>
+					</>
+				)}
 			</div>
 
 			{activeTab === 'daily' ? (

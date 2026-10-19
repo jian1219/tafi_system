@@ -25,7 +25,20 @@ create table if not exists public.accountant_session (
 alter table public.accountant_session enable row level security;
 revoke all on table public.accountant_session from public, anon, authenticated;
 
-create table if not exists public.accountant_inventory_information (
+do $$
+begin
+  if to_regclass('public.accountant_inventory_information') is not null
+    and to_regclass('public.tafi_inventory_information') is null then
+    alter table public.accountant_inventory_information
+      rename to tafi_inventory_information;
+  elsif to_regclass('public.accountant_inventory_information') is not null
+    and to_regclass('public.tafi_inventory_information') is not null then
+    raise exception 'Both inventory tables exist. Resolve or merge their records before renaming.';
+  end if;
+end;
+$$;
+
+create table if not exists public.tafi_inventory_information (
   id uuid primary key default gen_random_uuid(),
   stock_no text not null,
   category text not null,
@@ -37,8 +50,8 @@ create table if not exists public.accountant_inventory_information (
   created_at timestamptz not null default now()
 );
 
-alter table public.accountant_inventory_information enable row level security;
-revoke all on table public.accountant_inventory_information from public, anon, authenticated;
+alter table public.tafi_inventory_information enable row level security;
+revoke all on table public.tafi_inventory_information from public, anon, authenticated;
 
 create or replace function public.super_admin_list_accountants(
   p_super_admin_email text,
@@ -206,7 +219,7 @@ begin
          inventory.unit_of_measure,
          inventory.supplier,
          inventory.created_at
-  from public.accountant_inventory_information as inventory
+  from public.tafi_inventory_information as inventory
   order by inventory.stock_no, inventory.created_at desc;
 end;
 $$;
@@ -246,7 +259,7 @@ begin
     raise exception 'Stock number, category, item description, unit of measure, and supplier are required';
   end if;
 
-  insert into public.accountant_inventory_information (
+  insert into public.tafi_inventory_information (
     stock_no,
     category,
     item_description,

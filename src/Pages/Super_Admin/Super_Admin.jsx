@@ -29,69 +29,75 @@ export default function SuperAdminLogin() {
 	}
 
 	return (
-		<div className="login-page">
-			<div className="brand-panel">
+		<div className="login-page role-login-page super-admin-login-page">
+			<aside className="brand-panel role-login-brand">
 				<div className="brand-badge">
 					<img src={logoImage} alt="TAFI logo" className="brand-logo" />
 				</div>
-				<p className="eyebrow">Company administration</p>
-				<h1>TAFI</h1>
-				<p className="brand-copy">
-					Manage company-wide access, administration, and operations.
-				</p>
-			</div>
+				<div className="login-brand-message">
+					<p className="eyebrow">TRITON ACCE FOOD INC. · SECURE ACCESS</p>
+					<h1>Company-wide control. One secure workspace.</h1>
+					<p className="brand-copy">
+						Manage branches, administrator access, and company operations from one place.
+					</p>
+				</div>
+				<p className="brand-reserve">Authorized Super Admins only · Protected access</p>
+			</aside>
 
-			<div className="login-panel">
-				<p className="role-tag admin-role-tag">
-					<Crown size={16} aria-hidden="true" />
-					Super Admin
-				</p>
-				<h2>Login</h2>
+			<main className="login-main">
+				<section className="login-panel role-login-panel">
+					<p className="role-tag admin-role-tag">
+						<Crown size={16} aria-hidden="true" />
+						Super Admin
+					</p>
+					<h2>Welcome back</h2>
+					<p className="login-description">Sign in to manage your company-wide workspace.</p>
 
-				<form className="login-form" onSubmit={handleSubmit}>
-					<div className="input-group">
-						<label htmlFor="super-admin-email">Email</label>
-						<div className="login-input-wrap">
-							<UserRound className="login-input-icon" size={18} aria-hidden="true" />
-							<input
-								id="super-admin-email"
-								type="email"
-								value={email}
-								onChange={(event) => setEmail(event.target.value)}
-								placeholder="Enter email"
-								autoComplete="email"
-								required
-							/>
+					<form className="login-form" onSubmit={handleSubmit}>
+						<div className="input-group">
+							<label htmlFor="super-admin-email">Email</label>
+							<div className="login-input-wrap">
+								<UserRound className="login-input-icon" size={18} aria-hidden="true" />
+								<input
+									id="super-admin-email"
+									type="email"
+									value={email}
+									onChange={(event) => setEmail(event.target.value)}
+									placeholder="Enter email"
+									autoComplete="email"
+									required
+								/>
+							</div>
 						</div>
-					</div>
 
-					<div className="input-group">
-						<label htmlFor="super-admin-password">Password</label>
-						<div className="login-input-wrap">
-							<LockKeyhole className="login-input-icon" size={18} aria-hidden="true" />
-							<input
-								id="super-admin-password"
-								type="password"
-								value={password}
-								onChange={(event) => setPassword(event.target.value)}
-								placeholder="Enter password"
-								autoComplete="current-password"
-								required
-							/>
+						<div className="input-group">
+							<label htmlFor="super-admin-password">Password</label>
+							<div className="login-input-wrap">
+								<LockKeyhole className="login-input-icon" size={18} aria-hidden="true" />
+								<input
+									id="super-admin-password"
+									type="password"
+									value={password}
+									onChange={(event) => setPassword(event.target.value)}
+									placeholder="Enter password"
+									autoComplete="current-password"
+									required
+								/>
+							</div>
 						</div>
-					</div>
 
-					<button type="submit" className="login-button">
-						{isSubmitting ? 'Signing in...' : 'Login'}
-						<ArrowRight size={18} aria-hidden="true" />
-					</button>
-					{loginNotice && <p className="login-notice" role="status">{loginNotice}</p>}
-				</form>
+						<button type="submit" className="login-button" disabled={isSubmitting}>
+							{isSubmitting ? 'Verifying access...' : 'Sign in securely'}
+							<ArrowRight size={18} aria-hidden="true" />
+						</button>
+						{loginNotice && <p className="login-notice error" role="alert">{loginNotice}</p>}
+					</form>
 
-				<Link to="/" className="back-link">
-					← Back to role selection
-				</Link>
-			</div>
+					<Link to="/" className="back-link">
+						← Back to role selection
+					</Link>
+				</section>
+			</main>
 		</div>
 	)
 }
