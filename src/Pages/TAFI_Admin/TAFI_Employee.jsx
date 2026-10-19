@@ -100,11 +100,13 @@ function getEmployeeProfile(employee) {
 	return {
 		address: employee.address ?? '',
 		gender: employee.gender ?? '',
+		civilStatus: employee.civil_status ?? '',
 		birthday: employee.birthday ?? '',
 		email: employee.email ?? '',
 		phone: employee.phone ?? '',
 		emergencyContactName: employee.emergency_contact_name ?? '',
 		emergencyContactNumber: employee.emergency_contact_number ?? '',
+		emergencyContactRelationship: employee.emergency_contact_relationship ?? '',
 		hireDate: employee.hire_date ?? '',
 		probationaryDate: employee.probationary_start_date ?? '',
 		regularDate: employee.regular_start_date ?? '',
@@ -602,11 +604,13 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 		const normalizedProfile = {
 			address: profileForm.address.trim() || null,
 			gender: profileForm.gender || null,
+			civil_status: profileForm.civilStatus || null,
 			birthday: profileForm.birthday || null,
 			email: profileForm.email.trim() || null,
 			phone: profileForm.phone.trim() || null,
 			emergency_contact_name: profileForm.emergencyContactName.trim() || null,
 			emergency_contact_number: profileForm.emergencyContactNumber.trim() || null,
+			emergency_contact_relationship: profileForm.emergencyContactRelationship || null,
 			hire_date: profileForm.hireDate || null,
 			probationary_start_date: profileForm.probationaryDate || null,
 			regular_start_date: profileForm.regularDate || null,
@@ -987,6 +991,19 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 										</select>
 									</label>
 									<label>
+										<span>Civil status</span>
+										<select
+											value={profileForm.civilStatus}
+											onChange={(event) => updateProfileField('civilStatus', event.target.value)}
+										>
+											<option value="">Not specified</option>
+											<option value="Single">Single</option>
+											<option value="Married">Married</option>
+											<option value="Widowed">Widowed</option>
+											<option value="Separated">Separated</option>
+										</select>
+									</label>
+									<label>
 										<span>Birthday</span>
 										<input
 											type="date"
@@ -1013,23 +1030,6 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 											type="tel"
 											value={profileForm.phone}
 											onChange={(event) => updateProfileField('phone', event.target.value)}
-										/>
-									</label>
-									<label>
-										<span>Emergency contact name</span>
-										<input
-											value={profileForm.emergencyContactName}
-											onChange={(event) => updateProfileField('emergencyContactName', event.target.value)}
-											autoComplete="off"
-										/>
-									</label>
-									<label>
-										<span>Emergency contact number</span>
-										<input
-											type="tel"
-											value={profileForm.emergencyContactNumber}
-											onChange={(event) => updateProfileField('emergencyContactNumber', event.target.value)}
-											autoComplete="off"
 										/>
 									</label>
 									<label>
@@ -1078,6 +1078,39 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 											<option value="OnCall">OnCall</option>
 										</select>
 									</label>
+									<fieldset className="employee-emergency-contact-box">
+										<legend>Emergency contact</legend>
+										<label>
+											<span>Contact name</span>
+											<input
+												value={profileForm.emergencyContactName}
+												onChange={(event) => updateProfileField('emergencyContactName', event.target.value)}
+												autoComplete="off"
+											/>
+										</label>
+										<label>
+											<span>Contact number</span>
+											<input
+												type="tel"
+												value={profileForm.emergencyContactNumber}
+												onChange={(event) => updateProfileField('emergencyContactNumber', event.target.value)}
+												autoComplete="off"
+											/>
+										</label>
+										<label>
+											<span>Relationship</span>
+											<select
+												value={profileForm.emergencyContactRelationship}
+												onChange={(event) => updateProfileField('emergencyContactRelationship', event.target.value)}
+											>
+												<option value="">Select relationship</option>
+												<option value="Parents">Parents</option>
+												<option value="Guardian">Guardian</option>
+												<option value="Sibling">Sibling</option>
+												<option value="Relatives">Relatives</option>
+											</select>
+										</label>
+									</fieldset>
 									<div className="employee-employment-history-form">
 										<div>
 											<h5>Employment record</h5>
@@ -1144,6 +1177,10 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 									<dd>{displayValue(selectedEmployee.gender)}</dd>
 								</div>
 								<div className="employee-profile-field">
+									<dt>Civil status</dt>
+									<dd>{displayValue(selectedEmployee.civil_status)}</dd>
+								</div>
+								<div className="employee-profile-field">
 									<dt>Birthday</dt>
 									<dd>{formatDate(selectedEmployee.birthday)}</dd>
 								</div>
@@ -1158,14 +1195,6 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 								<div className="employee-profile-field">
 									<dt>Phone</dt>
 									<dd>{displayValue(selectedEmployee.phone)}</dd>
-								</div>
-								<div className="employee-profile-field">
-									<dt>Emergency contact name</dt>
-									<dd>{displayValue(selectedEmployee.emergency_contact_name)}</dd>
-								</div>
-								<div className="employee-profile-field">
-									<dt>Emergency contact number</dt>
-									<dd>{displayValue(selectedEmployee.emergency_contact_number)}</dd>
 								</div>
 								<div className="employee-profile-field">
 									<dt>TIN</dt>
@@ -1184,6 +1213,24 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 									<dd>{displayValue(selectedEmployee.philhealth_number)}</dd>
 								</div>
 							</dl>
+
+							<section className="employee-emergency-contact-box employee-emergency-contact-summary">
+								<h5>Emergency contact</h5>
+								<dl className="employee-profile-fields">
+									<div className="employee-profile-field">
+										<dt>Contact name</dt>
+										<dd>{displayValue(selectedEmployee.emergency_contact_name)}</dd>
+									</div>
+									<div className="employee-profile-field">
+										<dt>Contact number</dt>
+										<dd>{displayValue(selectedEmployee.emergency_contact_number)}</dd>
+									</div>
+									<div className="employee-profile-field">
+										<dt>Relationship</dt>
+										<dd>{displayValue(selectedEmployee.emergency_contact_relationship)}</dd>
+									</div>
+								</dl>
+							</section>
 
 							<div className="employee-employment-history">
 								<h5>Employment record</h5>

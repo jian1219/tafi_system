@@ -82,9 +82,19 @@ create table if not exists public.employee (
   phone text,
   address text,
   gender text,
+  civil_status text
+    check (
+      civil_status is null
+      or civil_status in ('Single', 'Married', 'Widowed', 'Separated')
+    ),
   birthday date,
   emergency_contact_name text,
   emergency_contact_number text,
+  emergency_contact_relationship text
+    check (
+      emergency_contact_relationship is null
+      or emergency_contact_relationship in ('Parents', 'Guardian', 'Sibling', 'Relatives')
+    ),
   tin_number text,
   sss_number text,
   pagibig_number text,

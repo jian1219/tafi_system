@@ -1720,6 +1720,67 @@ button {
   font-size: 0.78rem;
 }
 
+.employee-emergency-contact-box {
+  min-width: 0;
+  margin: 16px 0 0;
+  padding: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+fieldset.employee-emergency-contact-box {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.employee-emergency-contact-box legend {
+  padding: 0 6px;
+  color: #334155;
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.employee-emergency-contact-box h5 {
+  margin: 0 0 12px;
+  color: #334155;
+  font-size: 0.86rem;
+}
+
+.employee-emergency-contact-box label {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.employee-emergency-contact-box input,
+.employee-emergency-contact-box select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #0f172a;
+  background: white;
+  font: inherit;
+  font-size: 0.84rem;
+}
+
+.employee-emergency-contact-summary {
+  margin-top: 16px;
+}
+
+.employee-emergency-contact-summary .employee-profile-fields {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .employee-document-upload-form {
   display: grid;
   grid-template-columns: minmax(170px, 0.7fr) minmax(240px, 1.3fr) auto;
@@ -4690,6 +4751,15 @@ button {
   background: #0f172a;
 }
 
+.tafi-admin-layout:not(.guest-dashboard) .tafi-admin-sidebar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tafi-admin-layout:not(.guest-dashboard) .tafi-admin-sidebar::-webkit-scrollbar {
+  display: none;
+}
+
 .tafi-admin-sidebar-brand {
   display: flex;
   align-items: center;
@@ -5438,6 +5508,13 @@ button {
 @media (max-width: 900px) {
   .tafi-employee-view {
     grid-template-columns: 1fr;
+  }
+
+  @media (max-width: 600px) {
+    fieldset.employee-emergency-contact-box,
+    .employee-emergency-contact-summary .employee-profile-fields {
+      grid-template-columns: 1fr;
+    }
   }
 
   @media (max-width: 600px) {

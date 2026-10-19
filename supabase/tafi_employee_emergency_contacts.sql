@@ -3,7 +3,41 @@ begin;
 -- Run after tafi_admin_management.sql.
 alter table public.employee
   add column if not exists emergency_contact_name text,
-  add column if not exists emergency_contact_number text;
+  add column if not exists emergency_contact_number text,
+  add column if not exists emergency_contact_relationship text,
+  add column if not exists civil_status text;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.employee'::regclass
+      and conname = 'employee_emergency_contact_relationship_check'
+  ) then
+    alter table public.employee
+      add constraint employee_emergency_contact_relationship_check
+      check (
+        emergency_contact_relationship is null
+        or emergency_contact_relationship in ('Parents', 'Guardian', 'Sibling', 'Relatives')
+      );
+  end if;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.employee'::regclass
+      and conname = 'employee_civil_status_check'
+  ) then
+    alter table public.employee
+      add constraint employee_civil_status_check
+      check (
+        civil_status is null
+        or civil_status in ('Single', 'Married', 'Widowed', 'Separated')
+      );
+  end if;
+end;
+$$;
 
 drop function if exists public.tafi_admin_list_employees(uuid);
 
@@ -20,8 +54,10 @@ returns table (
   phone text,
   emergency_contact_name text,
   emergency_contact_number text,
+  emergency_contact_relationship text,
   address text,
   gender text,
+  civil_status text,
   birthday date,
   tin_number text,
   sss_number text,
@@ -51,7 +87,9 @@ begin
   select employee.id, employee.branch_id, branch.name, employee.employee_code,
     employee.name, employee.position, employee.employment_status, employee.email,
     employee.phone, employee.emergency_contact_name, employee.emergency_contact_number,
-    employee.address, employee.gender, employee.birthday, employee.tin_number,
+    employee.emergency_contact_relationship,
+    employee.address, employee.gender, employee.civil_status, employee.birthday,
+    employee.tin_number,
     employee.sss_number, employee.pagibig_number, employee.philhealth_number,
     employee.employment_classification, employee.daily_rate, employee.hire_date,
     employee.probationary_start_date, employee.regular_start_date
@@ -65,12 +103,21 @@ drop function if exists public.tafi_admin_update_employee_profile(
   uuid, uuid, text, text, date, text, text, date, date, date,
   text, text, text, text, text
 );
+drop function if exists public.tafi_admin_update_employee_profile(
+  uuid, uuid, text, text, date, text, text, date, date, date,
+  text, text, text, text, text, text, text
+);
+drop function if exists public.tafi_admin_update_employee_profile(
+  uuid, uuid, text, text, date, text, text, date, date, date,
+  text, text, text, text, text, text, text, text
+);
 
 create or replace function public.tafi_admin_update_employee_profile(
   p_session_token uuid,
   p_employee_id uuid,
   p_address text,
   p_gender text,
+  p_civil_status text,
   p_birthday date,
   p_email text,
   p_phone text,
@@ -83,7 +130,8 @@ create or replace function public.tafi_admin_update_employee_profile(
   p_philhealth_number text,
   p_employment_classification text,
   p_emergency_contact_name text,
-  p_emergency_contact_number text
+  p_emergency_contact_number text,
+  p_emergency_contact_relationship text
 )
 returns boolean
 language plpgsql
@@ -119,14 +167,26 @@ begin
     raise exception 'Select a valid gender option';
   end if;
 
+  if p_civil_status is not null
+    and p_civil_status not in ('Single', 'Married', 'Widowed', 'Separated') then
+    raise exception 'Select a valid civil status';
+  end if;
+
+  if p_emergency_contact_relationship is not null
+    and p_emergency_contact_relationship not in ('Parents', 'Guardian', 'Sibling', 'Relatives') then
+    raise exception 'Select a valid emergency contact relationship';
+  end if;
+
   update public.employee
   set address = nullif(trim(p_address), ''),
     gender = p_gender,
+    civil_status = p_civil_status,
     birthday = p_birthday,
     email = nullif(trim(p_email), ''),
     phone = nullif(trim(p_phone), ''),
     emergency_contact_name = nullif(trim(p_emergency_contact_name), ''),
     emergency_contact_number = nullif(trim(p_emergency_contact_number), ''),
+    emergency_contact_relationship = nullif(trim(p_emergency_contact_relationship), ''),
     hire_date = p_hire_date,
     probationary_start_date = p_probationary_start_date,
     regular_start_date = p_regular_start_date,
@@ -148,14 +208,14 @@ $$;
 
 revoke all on function public.tafi_admin_list_employees(uuid) from public;
 revoke all on function public.tafi_admin_update_employee_profile(
-  uuid, uuid, text, text, date, text, text, date, date, date,
-  text, text, text, text, text, text, text
+  uuid, uuid, text, text, text, date, text, text, date, date, date,
+  text, text, text, text, text, text, text, text
 ) from public;
 
 grant execute on function public.tafi_admin_list_employees(uuid) to anon, authenticated;
 grant execute on function public.tafi_admin_update_employee_profile(
-  uuid, uuid, text, text, date, text, text, date, date, date,
-  text, text, text, text, text, text, text
+  uuid, uuid, text, text, text, date, text, text, date, date, date,
+  text, text, text, text, text, text, text, text
 ) to anon, authenticated;
 
 commit;
