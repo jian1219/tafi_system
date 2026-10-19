@@ -605,6 +605,8 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 			birthday: profileForm.birthday || null,
 			email: profileForm.email.trim() || null,
 			phone: profileForm.phone.trim() || null,
+			emergency_contact_name: profileForm.emergencyContactName.trim() || null,
+			emergency_contact_number: profileForm.emergencyContactNumber.trim() || null,
 			hire_date: profileForm.hireDate || null,
 			probationary_start_date: profileForm.probationaryDate || null,
 			regular_start_date: profileForm.regularDate || null,
