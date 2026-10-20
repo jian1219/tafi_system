@@ -692,6 +692,7 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 		&& employeePhotoState?.employeeId === selectedEmployee?.employee_id
 		? employeePhotoState
 		: null
+	const tafiHeadOfficeBranch = branches.find((branch) => branch.branch_name === 'TAFI - HO')
 
 	useEffect(() => {
 		if (!isEmployeePhotoExpanded) return undefined
@@ -704,6 +705,7 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 
 	return (
 		<div className="tafi-employee-view">
+			<div className="tafi-branch-sidebar">
 			<section className="tafi-branch-panel" aria-labelledby="tafi-branch-heading">
 				<div className="tafi-employee-section-heading">
 					<h2 id="tafi-branch-heading">Branches</h2>
@@ -719,7 +721,7 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 						<span>All branches</span>
 						<span className="tafi-branch-count">{employees.length}</span>
 					</button>
-					{branches.map((branch) => {
+					{branches.filter((branch) => branch.branch_name !== 'TAFI - HO').map((branch) => {
 						const branchEmployeeCount = employees.filter((employee) => employee.branch_id === branch.branch_id).length
 						return (
 							<button
@@ -736,6 +738,27 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 					})}
 				</div>
 			</section>
+			{tafiHeadOfficeBranch && (
+				<section className="tafi-branch-panel" aria-labelledby="tafi-head-office-heading">
+					<div className="tafi-employee-section-heading">
+						<h2 id="tafi-head-office-heading">TAFI</h2>
+					</div>
+					<div className="tafi-branch-list">
+						<button
+							type="button"
+							className={`tafi-branch-option${selectedBranchId === tafiHeadOfficeBranch.branch_id ? ' active' : ''}`}
+							aria-pressed={selectedBranchId === tafiHeadOfficeBranch.branch_id}
+							onClick={() => selectBranch(tafiHeadOfficeBranch.branch_id)}
+						>
+							<span>TAFI</span>
+							<span className="tafi-branch-count">
+								{employees.filter((employee) => employee.branch_id === tafiHeadOfficeBranch.branch_id).length}
+							</span>
+						</button>
+					</div>
+				</section>
+			)}
+			</div>
 
 			<section className="tafi-employee-results" aria-labelledby="tafi-employee-heading">
 				{selectedEmployee ? (

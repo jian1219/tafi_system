@@ -5331,6 +5331,11 @@ fieldset.employee-emergency-contact-box {
   gap: 20px;
 }
 
+.tafi-branch-sidebar {
+  display: grid;
+  gap: 16px;
+}
+
 .tafi-branch-panel,
 .tafi-employee-results {
   min-width: 0;
