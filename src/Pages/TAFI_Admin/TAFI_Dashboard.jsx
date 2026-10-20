@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { CalendarDays, ChevronDown, CircleDollarSign, LogOut, MinusCircle, Package, PlusCircle, ShieldCheck, Users, Wallet } from 'lucide-react'
+import { CalendarDays, ChevronDown, CircleDollarSign, ClipboardList, LogOut, MinusCircle, Package, PlusCircle, ShieldCheck, Users, Wallet } from 'lucide-react'
 import { revokeTafiAdminSession } from '../../lib/supabase'
 import TafiEmployee from './TAFI_Employee'
 import TafiEmployeeContributions from './TAFI_Employee_Contributions'
@@ -11,6 +11,8 @@ const TafiOtherAdditionPay = lazy(() => import('./TAFI_Other_Addition_Pay'))
 const TafiOtherDeductionPay = lazy(() => import('./TAFI_Other_Deduction_Pay'))
 const TafiCashAdvance = lazy(() => import('./TAFI_Cash_Advance'))
 const TafiInventory = lazy(() => import('./TAFI_Inventory'))
+const TafiStockInventory = lazy(() => import('./TAFI_Stock_Inventory'))
+const TafiRequestStockOrder = lazy(() => import('./TAFI_Request_Stock_Order'))
 import logoImage from '../../images/Tafi logo transparent.png'
 
 const navigationGroups = [
@@ -38,7 +40,9 @@ const navigationGroups = [
 		id: 'inventory',
 		label: 'Inventory',
 		items: [
-			{ id: 'inventory', label: 'Inventory Information', icon: Package }
+			{ id: 'inventory', label: 'Inventory Information', icon: Package },
+			{ id: 'stock-inventory', label: 'Stock Inventory', icon: Package },
+			{ id: 'stock-requests', label: 'Stock Requests', icon: ClipboardList }
 		]
 	}
 ]
@@ -161,6 +165,18 @@ export default function TafiDashboard() {
 									<TafiInventory sessionToken={tafiAdmin.session_token} />
 								</Suspense>
 								)
+								: activePage === 'stock-inventory'
+									? (
+										<Suspense fallback={<p className="other-deduction-message" role="status">Loading stock inventory...</p>}>
+											<TafiStockInventory sessionToken={tafiAdmin.session_token} />
+										</Suspense>
+									)
+									: activePage === 'stock-requests'
+										? (
+											<Suspense fallback={<p className="other-deduction-message" role="status">Loading stock requests...</p>}>
+												<TafiRequestStockOrder sessionToken={tafiAdmin.session_token} />
+											</Suspense>
+										)
 								: activePage === 'other-additions'
 									? (
 										<Suspense fallback={<p className="other-deduction-message" role="status">Loading payroll addition tools…</p>}>

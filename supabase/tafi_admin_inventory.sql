@@ -3,26 +3,41 @@ begin;
 -- Run after accountant_management.sql and tafi_admin_management.sql.
 do $$
 begin
-  if to_regclass('public.accountant_inventory_information') is not null
-    and to_regclass('public.tafi_inventory_information') is null then
+  if to_regclass('public.inventory_information') is not null then
+    if to_regclass('public.accountant_inventory_information') is not null
+      or to_regclass('public.tafi_inventory_information') is not null
+      or to_regclass('public.tafi_invintory_information') is not null then
+      raise exception 'Multiple inventory tables exist. Resolve or merge their records before renaming.';
+    end if;
+  elsif to_regclass('public.accountant_inventory_information') is not null then
+    if to_regclass('public.tafi_inventory_information') is not null
+      or to_regclass('public.tafi_invintory_information') is not null then
+      raise exception 'Multiple inventory tables exist. Resolve or merge their records before renaming.';
+    end if;
     alter table public.accountant_inventory_information
-      rename to tafi_inventory_information;
-  elsif to_regclass('public.accountant_inventory_information') is not null
-    and to_regclass('public.tafi_inventory_information') is not null then
-    raise exception 'Both inventory tables exist. Resolve or merge their records before renaming.';
-  elsif to_regclass('public.tafi_inventory_information') is null then
+      rename to inventory_information;
+  elsif to_regclass('public.tafi_inventory_information') is not null then
+    if to_regclass('public.tafi_invintory_information') is not null then
+      raise exception 'Multiple inventory tables exist. Resolve or merge their records before renaming.';
+    end if;
+    alter table public.tafi_inventory_information
+      rename to inventory_information;
+  elsif to_regclass('public.tafi_invintory_information') is not null then
+    alter table public.tafi_invintory_information
+      rename to inventory_information;
+  else
     raise exception 'Inventory table not found. Run accountant_management.sql first.';
   end if;
 end;
 $$;
 
-alter table public.tafi_inventory_information
+alter table public.inventory_information
   alter column created_by_accountant_id drop not null,
   add column if not exists created_by_tafi_admin_id uuid
     references public.tafi_admin(id) on delete restrict;
 
-alter table public.tafi_inventory_information enable row level security;
-revoke all on table public.tafi_inventory_information from public, anon, authenticated;
+alter table public.inventory_information enable row level security;
+revoke all on table public.inventory_information from public, anon, authenticated;
 
 do $$
 begin
@@ -30,26 +45,54 @@ begin
     select 1
     from pg_constraint
     where conname = 'accountant_inventory_information_one_creator'
-      and conrelid = 'public.tafi_inventory_information'::regclass
+      and conrelid = 'public.inventory_information'::regclass
   ) and not exists (
     select 1
     from pg_constraint
-    where conname = 'tafi_inventory_information_one_creator'
-      and conrelid = 'public.tafi_inventory_information'::regclass
+    where conname = 'inventory_information_one_creator'
+      and conrelid = 'public.inventory_information'::regclass
   ) then
-    alter table public.tafi_inventory_information
+    alter table public.inventory_information
       rename constraint accountant_inventory_information_one_creator
-      to tafi_inventory_information_one_creator;
+      to inventory_information_one_creator;
+  elsif exists (
+    select 1
+    from pg_constraint
+    where conname = 'tafi_inventory_information_one_creator'
+      and conrelid = 'public.inventory_information'::regclass
+  ) and not exists (
+    select 1
+    from pg_constraint
+    where conname = 'inventory_information_one_creator'
+      and conrelid = 'public.inventory_information'::regclass
+  ) then
+    alter table public.inventory_information
+      rename constraint tafi_inventory_information_one_creator
+      to inventory_information_one_creator;
+  elsif exists (
+    select 1
+    from pg_constraint
+    where conname = 'tafi_invintory_information_one_creator'
+      and conrelid = 'public.inventory_information'::regclass
+  ) and not exists (
+    select 1
+    from pg_constraint
+    where conname = 'inventory_information_one_creator'
+      and conrelid = 'public.inventory_information'::regclass
+  ) then
+    alter table public.inventory_information
+      rename constraint tafi_invintory_information_one_creator
+      to inventory_information_one_creator;
   end if;
 
   if not exists (
     select 1
     from pg_constraint
-    where conname = 'tafi_inventory_information_one_creator'
-      and conrelid = 'public.tafi_inventory_information'::regclass
+    where conname = 'inventory_information_one_creator'
+      and conrelid = 'public.inventory_information'::regclass
   ) then
-    alter table public.tafi_inventory_information
-      add constraint tafi_inventory_information_one_creator
+    alter table public.inventory_information
+      add constraint inventory_information_one_creator
       check (
         (created_by_accountant_id is not null)
         <> (created_by_tafi_admin_id is not null)
@@ -92,7 +135,7 @@ begin
          inventory.unit_of_measure,
          inventory.supplier,
          inventory.created_at
-  from public.tafi_inventory_information as inventory
+  from public.inventory_information as inventory
   order by inventory.stock_no, inventory.created_at desc;
 end;
 $$;
@@ -132,7 +175,7 @@ begin
     raise exception 'Stock number, category, item description, unit of measure, and supplier are required';
   end if;
 
-  insert into public.tafi_inventory_information (
+  insert into public.inventory_information (
     stock_no,
     category,
     item_description,
@@ -190,7 +233,7 @@ begin
          inventory.unit_of_measure,
          inventory.supplier,
          inventory.created_at
-  from public.tafi_inventory_information as inventory
+  from public.inventory_information as inventory
   order by inventory.stock_no, inventory.created_at desc;
 end;
 $$;
@@ -230,7 +273,7 @@ begin
     raise exception 'Stock number, category, item description, unit of measure, and supplier are required';
   end if;
 
-  insert into public.tafi_inventory_information (
+  insert into public.inventory_information (
     stock_no,
     category,
     item_description,

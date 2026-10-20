@@ -1132,6 +1132,7 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 												<option value="Sibling">Sibling</option>
 												<option value="Relatives">Relatives</option>
 												<option value="Relatives">Spouse</option>
+												<option value="Relative">Child</option>
 											</select>
 										</label>
 									</fieldset>

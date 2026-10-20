@@ -3,9 +3,11 @@ import { Link, useLocation } from 'react-router-dom'
 import {
   CalendarCheck,
   CalendarDays,
+  ClipboardList,
   CircleDollarSign,
   LogOut,
   MinusCircle,
+  Package,
   PlusCircle,
   Users,
   Wallet
@@ -20,6 +22,8 @@ import BranchCashAdvance from './Branch_Cash_advance'
 import BranchOtherDeduction from './Branch_Other_deduction'
 import BranchOtherAdditionPay from './Branch_Other_Addition_pay'
 import BranchEmployeeLeaveCredits from './Branch_employee_leave_credits'
+import BranchInventory from './Branch_Inventory'
+import BranchRequestStock from './Branch_Request_Stock'
 import { revokeBranchAdminSession } from '../../lib/supabase'
 
 const tabs = [
@@ -31,6 +35,8 @@ const tabs = [
   { name: 'Others Deduction Pay', component: BranchOtherDeduction, icon: MinusCircle },
   { name: 'Others Addition Pay', component: BranchOtherAdditionPay, icon: PlusCircle },
   { name: 'Branch payroll', component: BranchPayroll, icon: Wallet },
+  { name: 'Branch Inventory', component: BranchInventory, icon: Package },
+  { name: 'Request Stock', component: BranchRequestStock, icon: ClipboardList },
   //{ name: 'Branch reports', component: BranchReport }
 ]
 

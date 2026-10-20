@@ -94,6 +94,96 @@ export async function createTafiAdminInventoryInformation(sessionToken, item) {
   }
 }
 
+export async function listTafiAdminStockInventory(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_stock_inventory', {
+    	p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+    	data: null,
+    	error: error instanceof Error ? error : new Error('Unable to load stock inventory.')
+    }
+  }
+}
+
+export async function createTafiAdminStockInventory(sessionToken, inventoryId, onhand) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_create_stock_inventory', {
+    	p_session_token: sessionToken,
+    	p_inventory_id: inventoryId,
+    	p_onhand: onhand
+    })
+  } catch (error) {
+    return {
+    	data: null,
+    	error: error instanceof Error ? error : new Error('Unable to add the stock item.')
+    }
+  }
+}
+
+export async function listTafiAdminStockInventoryArrivals(sessionToken) {
+  try {
+  	const supabaseClient = await getSupabaseClient()
+  	return await supabaseClient.rpc('tafi_admin_list_stock_inventory_arrivals', {
+  		p_session_token: sessionToken
+  	})
+  } catch (error) {
+  	return {
+  		data: null,
+  		error: error instanceof Error ? error : new Error('Unable to load stock arrivals.')
+  	}
+  }
+}
+
+export async function createTafiAdminStockInventoryArrival(sessionToken, stockInventoryId, qty) {
+  try {
+  	const supabaseClient = await getSupabaseClient()
+  	return await supabaseClient.rpc('tafi_admin_create_stock_inventory_arrival', {
+  		p_session_token: sessionToken,
+  		p_stock_inventory_id: stockInventoryId,
+  		p_qty: qty
+  	})
+  } catch (error) {
+  	return {
+  		data: null,
+  		error: error instanceof Error ? error : new Error('Unable to record the stock arrival.')
+  	}
+  }
+}
+
+export async function listTafiAdminStockRequests(sessionToken) {
+  try {
+  	const supabaseClient = await getSupabaseClient()
+  	return await supabaseClient.rpc('tafi_admin_list_stock_requests', {
+  		p_session_token: sessionToken
+  	})
+  } catch (error) {
+  	return {
+  		data: null,
+  		error: error instanceof Error ? error : new Error('Unable to load stock requests.')
+  	}
+  }
+}
+
+export async function deliverTafiAdminStockRequest(sessionToken, requestId, quantityDelivered) {
+  try {
+  	const supabaseClient = await getSupabaseClient()
+  	return await supabaseClient.rpc('tafi_admin_deliver_stock_request', {
+  		p_session_token: sessionToken,
+  		p_request_id: requestId,
+  		p_quantity_delivered: quantityDelivered
+  	})
+  } catch (error) {
+  	return {
+  		data: null,
+  		error: error instanceof Error ? error : new Error('Unable to mark the stock request as delivered.')
+  	}
+  }
+}
+
 export async function listTafiAdminEmployeeContributions(sessionToken, branchId) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -1322,6 +1412,128 @@ export async function verifyBranchAdminCredentials(email, password) {
       profile: null,
       error: error instanceof Error ? error : new Error('Unable to connect to the Branch Admin login service.')
     }
+  }
+}
+
+export async function listBranchTafiStockItems(sessionToken) {
+  try {
+  	const supabaseClient = await getSupabaseClient()
+  	return await supabaseClient.rpc('branch_admin_list_tafi_stock_items', {
+  		p_session_token: sessionToken
+  	})
+  } catch (error) {
+  	return {
+  		data: null,
+  		error: error instanceof Error ? error : new Error('Unable to load TAFI stock items.')
+  	}
+  }
+}
+
+export async function listBranchInventory(sessionToken) {
+  try {
+  	const supabaseClient = await getSupabaseClient()
+  	return await supabaseClient.rpc('branch_admin_list_inventory', {
+  		p_session_token: sessionToken
+  	})
+  } catch (error) {
+  	return {
+  		data: null,
+  		error: error instanceof Error ? error : new Error('Unable to load branch inventory.')
+  	}
+  }
+}
+
+export async function addBranchInventoryItem(sessionToken, stockInventoryId, onhand) {
+  try {
+  	const supabaseClient = await getSupabaseClient()
+  	return await supabaseClient.rpc('branch_admin_add_inventory_item', {
+  		p_session_token: sessionToken,
+  		p_stock_inventory_id: stockInventoryId,
+  		p_onhand: onhand
+  	})
+  } catch (error) {
+  	return {
+  		data: null,
+  		error: error instanceof Error ? error : new Error('Unable to add the branch inventory item.')
+  	}
+  }
+}
+
+export async function listBranchStockRequests(sessionToken) {
+  try {
+  	const supabaseClient = await getSupabaseClient()
+  	return await supabaseClient.rpc('branch_admin_list_stock_requests', {
+  		p_session_token: sessionToken
+  	})
+  } catch (error) {
+  	return {
+  		data: null,
+  		error: error instanceof Error ? error : new Error('Unable to load stock requests.')
+  	}
+  }
+}
+
+export async function createBranchStockRequest(sessionToken, stockInventoryId, quantityRequested) {
+  try {
+  	const supabaseClient = await getSupabaseClient()
+  	return await supabaseClient.rpc('branch_admin_create_stock_request', {
+  		p_session_token: sessionToken,
+  		p_stock_inventory_id: stockInventoryId,
+  		p_quantity_requested: quantityRequested
+  	})
+  } catch (error) {
+  	return {
+  		data: null,
+  		error: error instanceof Error ? error : new Error('Unable to submit the stock request.')
+  	}
+  }
+}
+
+export async function createBranchStockRequestBatch(sessionToken, items) {
+  try {
+  	const supabaseClient = await getSupabaseClient()
+  	return await supabaseClient.rpc('branch_admin_create_stock_request_batch', {
+  		p_session_token: sessionToken,
+  		p_items: items.map((item) => ({
+  			stock_inventory_id: item.stockInventoryId,
+  			quantity_requested: item.quantityRequested
+  		}))
+  	})
+  } catch (error) {
+  	return {
+  		data: null,
+  		error: error instanceof Error ? error : new Error('Unable to submit the stock request.')
+  	}
+  }
+}
+
+export async function listBranchStockReceiptHistory(sessionToken) {
+  try {
+  	const supabaseClient = await getSupabaseClient()
+  	return await supabaseClient.rpc('branch_admin_list_stock_receipt_history', {
+  		p_session_token: sessionToken
+  	})
+  } catch (error) {
+  	return {
+  		data: null,
+  		error: error instanceof Error ? error : new Error('Unable to load stock receipt history.')
+  	}
+  }
+}
+
+export async function receiveBranchStockRequest(sessionToken, requestId, quantityReceived) {
+  try {
+  	const supabaseClient = await getSupabaseClient()
+  	return await supabaseClient.rpc('branch_admin_receive_stock_request', {
+  		p_session_token: sessionToken,
+  		p_request_id: requestId,
+  		p_quantity_received: quantityReceived
+  	})
+  } catch (error) {
+  	return {
+  		data: null,
+  		error: error instanceof Error ? error : new Error('Unable to receive the stock order.')
+  	}
   }
 }
 

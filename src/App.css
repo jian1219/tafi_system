@@ -5155,7 +5155,8 @@ fieldset.employee-emergency-contact-box {
 }
 
 .accountant-inventory-form input,
-.accountant-inventory-form textarea {
+.accountant-inventory-form textarea,
+.accountant-inventory-form select {
   width: 100%;
   min-height: 42px;
   padding: 9px 11px;
@@ -5172,7 +5173,48 @@ fieldset.employee-emergency-contact-box {
 }
 
 .accountant-inventory-form input:focus-visible,
-.accountant-inventory-form textarea:focus-visible {
+.accountant-inventory-form textarea:focus-visible,
+.accountant-inventory-form select:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.accountant-inventory-field-note {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 400;
+}
+
+.tafi-stock-inventory-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr);
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.tafi-stock-inventory-filters label {
+  display: grid;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.tafi-stock-inventory-filters input,
+.tafi-stock-inventory-filters select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #0f172a;
+  background: white;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.tafi-stock-inventory-filters input:focus-visible,
+.tafi-stock-inventory-filters select:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 1px;
 }
@@ -5252,13 +5294,147 @@ fieldset.employee-emergency-contact-box {
   color: #1e293b;
 }
 
+.branch-stock-received-field {
+  display: grid;
+  min-width: 150px;
+  gap: 5px;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.branch-stock-received-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #94a3b8;
+  border-radius: 7px;
+  color: #0f172a;
+  background: #fff;
+  font: inherit;
+  font-size: 0.86rem;
+}
+
+.branch-stock-received-input:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.branch-stock-received-input:disabled {
+  background: #f1f5f9;
+  cursor: wait;
+}
+
+.branch-stock-request-line {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+}
+
+.branch-stock-request-line legend {
+  padding: 0 6px;
+  color: #334155;
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.branch-stock-request-filters {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.branch-stock-request-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.branch-stock-remove-line,
+.branch-stock-add-line {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #334155;
+  background: #fff;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.branch-stock-remove-line {
+  margin-top: 12px;
+  color: #b91c1c;
+}
+
+.branch-stock-add-line {
+  justify-self: start;
+  color: #1d4ed8;
+}
+
+.branch-stock-remove-line:hover:not(:disabled),
+.branch-stock-add-line:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.branch-stock-remove-line:disabled,
+.branch-stock-add-line:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .accountant-inventory-table tbody tr:last-child td {
   border-bottom: 0;
+}
+
+.branch-stock-request-group + .branch-stock-request-group .branch-stock-request-group-heading th {
+  border-top: 10px solid #fff;
+}
+
+.branch-stock-request-group-heading th {
+  color: #1d4ed8;
+  background: #eff6ff;
+  white-space: normal;
+}
+
+.branch-stock-request-group-heading span {
+  float: right;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 @media (max-width: 720px) {
   .accountant-inventory-form {
     grid-template-columns: 1fr;
+  }
+
+  .tafi-stock-inventory-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .branch-stock-request-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .branch-stock-request-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .branch-stock-request-group-heading span {
+    display: block;
+    float: none;
+    margin-top: 4px;
   }
 
   .accountant-inventory-description,
