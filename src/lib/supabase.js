@@ -108,6 +108,20 @@ export async function listTafiAdminStockInventory(sessionToken) {
   }
 }
 
+export async function listTafiAdminBranchInventory(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_branch_inventory', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load branch inventory stock.')
+    }
+  }
+}
+
 export async function createTafiAdminStockInventory(sessionToken, inventoryId, onhand) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -280,6 +294,22 @@ export async function listTafiAdminEmployees(sessionToken) {
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to load employees.')
+    }
+  }
+}
+
+export async function listTafiAdminEmployeeRankings(sessionToken, startDate, endDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_employee_rankings', {
+      p_session_token: sessionToken,
+      p_start_date: startDate,
+      p_end_date: endDate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load employee rankings.')
     }
   }
 }
@@ -874,7 +904,9 @@ export async function updateTafiAdminEmployeeProfile(sessionToken, employeeId, p
       p_sss_number: profile.sssNumber,
       p_pagibig_number: profile.pagibigNumber,
       p_philhealth_number: profile.philhealthNumber,
-      p_employment_classification: profile.employmentClassification
+      p_employment_classification: profile.employmentClassification,
+      p_place_of_birth: profile.placeOfBirth?.trim() || null,
+      p_employment_status: profile.employmentStatus
     })
   } catch (error) {
     return {
@@ -968,6 +1000,36 @@ export async function getTafiAdminEmployeeDocument(sessionToken, documentId) {
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to download the employee document.')
+    }
+  }
+}
+
+export async function listGuestEmployeeDocuments(sessionToken, employeeId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('guest_list_employee_documents', {
+      p_session_token: sessionToken,
+      p_employee_id: employeeId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load employee records.')
+    }
+  }
+}
+
+export async function getGuestEmployeeDocument(sessionToken, documentId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('guest_get_employee_document', {
+      p_session_token: sessionToken,
+      p_document_id: documentId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the employee record.')
     }
   }
 }

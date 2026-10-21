@@ -7,25 +7,41 @@ import {
 	getLocalDateKey,
 	hasEarnedMonthlyCredit
 } from './branchAttendanceRecords'
+import { recordLegend, statusCodeClassNames, statusCodes } from '../attendanceStatusDisplay'
 
 const currentDate = new Date()
 const todayDateKey = getLocalDateKey(currentDate)
 const currentMonthKey = todayDateKey.slice(0, 7)
 
 const attendanceStatusDetails = {
-	present: { label: 'Present', className: 'p' },
-	present_late: { label: 'Late', className: 'l' },
-	half_day: { label: 'Half Day', className: 'half-day' },
-	absent: { label: 'Absent', className: 'a' },
-	maternity_leave: { label: 'Leave', className: 'v' },
-	paternity_leave: { label: 'Leave', className: 'v' },
-	authorized_leave: { label: 'Leave', className: 'v' },
-	birthday_leave: { label: 'Leave', className: 'v' },
-	vl_with_pay: { label: 'Leave with Pay', className: 'v' },
-	vl_without_pay: { label: 'Leave', className: 'v' },
-	day_off: { label: 'Day off', className: 'o' },
-	not_marked: { label: 'Not marked', className: '' }
+	present: { label: '✓', description: 'Present', className: statusCodeClassNames[statusCodes.present] },
+	present_late: { label: 'Late', description: 'Present (Late)', className: statusCodeClassNames[statusCodes.present_late] },
+	half_day: { label: 'HD', description: 'Half day', className: statusCodeClassNames[statusCodes.half_day] },
+	absent: { label: 'A', description: 'Absent', className: statusCodeClassNames[statusCodes.absent] },
+	maternity_leave: { label: 'ML', description: 'Maternity leave', className: statusCodeClassNames[statusCodes.maternity_leave] },
+	paternity_leave: { label: 'PL', description: 'Paternity leave', className: statusCodeClassNames[statusCodes.paternity_leave] },
+	authorized_leave: { label: 'AL', description: 'Authorized leave', className: statusCodeClassNames[statusCodes.authorized_leave] },
+	birthday_leave: { label: 'BL', description: 'Birthday leave', className: statusCodeClassNames[statusCodes.birthday_leave] },
+	vl_with_pay: { label: 'VLP', description: 'Vacation leave with pay', className: statusCodeClassNames[statusCodes.vl_with_pay] },
+	vl_without_pay: { label: 'VLwP', description: 'Vacation leave without pay', className: statusCodeClassNames[statusCodes.vl_without_pay] },
+	day_off: { label: 'DAY OFF', description: 'Day off', className: statusCodeClassNames[statusCodes.day_off] },
+	not_marked: { label: '—', description: 'Not marked', className: '' }
 }
+
+const attendanceShiftDetails = [
+	{ value: '9am-2pm | 6pm-9pm', label: '9am - 2pm | 6pm - 9pm' },
+	{ value: '11am-4pm | 6pm-9pm', label: '11am - 4pm | 6pm - 9pm' },
+	{ value: '1pm-9pm', label: '1pm - 9pm' }
+]
+
+const leaveAttendanceStatuses = new Set([
+	'maternity_leave',
+	'paternity_leave',
+	'authorized_leave',
+	'birthday_leave',
+	'vl_with_pay',
+	'vl_without_pay'
+])
 
 const formatMonth = (monthKey) => {
 	if (!monthKey) return ''
@@ -51,8 +67,15 @@ const getAge = (birthday) => {
 
 const getEmployeeProfile = (employee) => ({
 	address: employee.address,
+	placeOfBirth: employee.placeOfBirth,
 	gender: employee.gender,
+	civilStatus: employee.civilStatus,
 	birthday: employee.birthday,
+	email: employee.email,
+	phone: employee.phone,
+	emergencyContactName: employee.emergencyContactName,
+	emergencyContactNumber: employee.emergencyContactNumber,
+	emergencyContactRelationship: employee.emergencyContactRelationship,
 	hireDate: employee.hireDate ?? '',
 	probationaryDate: employee.probationaryDate ?? '',
 	regularDate: employee.regularDate ?? '',
@@ -233,8 +256,15 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 			present: monthlyStatuses.reduce((total, status) => total + getAttendanceDayValue(status), 0),
 			late: monthlyStatuses.filter((status) => status === 'present_late').length,
 			absent: monthlyStatuses.filter((status) => status === 'absent').length,
-			leave: monthlyStatuses.filter((status) => attendanceStatusDetails[status]?.className === 'v').length
+			leave: monthlyStatuses.filter((status) => leaveAttendanceStatuses.has(status)).length
 		}
+		const monthlyShiftCounts = attendanceShiftDetails.map((shift) => ({
+			...shift,
+			total: [...recordsByDate.values()].filter((record) =>
+				record.shift === shift.value
+				&& ['present', 'present_late', 'half_day'].includes(record.status)
+			).length
+		}))
 		const attendanceRate = Math.round((monthlyAttendance.present / attendanceDaysInMonth) * 100)
 		const attendanceRemark = getAttendanceRemark(attendanceRate)
 
@@ -325,12 +355,28 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 							<dd>{currentProfile.address || 'Not provided'}</dd>
 						</div>
 						<div className="employee-profile-field">
+							<dt>Place of birth</dt>
+							<dd>{currentProfile.placeOfBirth || 'Not provided'}</dd>
+						</div>
+						<div className="employee-profile-field">
 							<dt>Gender</dt>
 							<dd>{currentProfile.gender || 'Not specified'}</dd>
 						</div>
 						<div className="employee-profile-field">
+							<dt>Civil status</dt>
+							<dd>{currentProfile.civilStatus || 'Not specified'}</dd>
+						</div>
+						<div className="employee-profile-field">
 							<dt>Birthday</dt>
 							<dd>{formatBirthday(currentProfile.birthday)}</dd>
+						</div>
+						<div className="employee-profile-field">
+							<dt>Email</dt>
+							<dd>{currentProfile.email || 'Not provided'}</dd>
+						</div>
+						<div className="employee-profile-field">
+							<dt>Phone</dt>
+							<dd>{currentProfile.phone || 'Not provided'}</dd>
 						</div>
 						<div className="employee-profile-field">
 							<dt>Trainee / date hired</dt>
@@ -381,6 +427,23 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 							</div>
 						)}
 					</dl>
+					<section className="employee-emergency-contact-box employee-emergency-contact-summary">
+						<h5>Emergency contact</h5>
+						<dl className="employee-profile-fields">
+							<div className="employee-profile-field">
+								<dt>Contact name</dt>
+								<dd>{currentProfile.emergencyContactName || 'Not provided'}</dd>
+							</div>
+							<div className="employee-profile-field">
+								<dt>Contact number</dt>
+								<dd>{currentProfile.emergencyContactNumber || 'Not provided'}</dd>
+							</div>
+							<div className="employee-profile-field">
+								<dt>Relationship</dt>
+								<dd>{currentProfile.emergencyContactRelationship || 'Not provided'}</dd>
+							</div>
+						</dl>
+					</section>
 					<div className="employee-employment-history">
 						<h5>Employment record</h5>
 						<div>
@@ -417,11 +480,9 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 							</label>
 						</div>
 						<div className="employee-attendance-legend">
-							<span><i className="present" /> Present</span>
-							<span><i className="late" /> Present (Late)</span>
-							<span><i className="absent" /> Absent</span>
-							<span><i className="leave" /> Leave</span>
-							<span><i className="day-off" /> Day off</span>
+							{recordLegend.map(({ className, label }) => (
+								<span key={className}><i className={className} /> {label}</span>
+							))}
 						</div>
 						{isLoadingAttendanceHistory ? (
 							<p className="employee-detail-empty" role="status">Loading attendance records…</p>
@@ -431,6 +492,21 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 							</p>
 						) : (
 							<>
+								<div className="employee-shift-month-record">
+									<div className="employee-shift-month-heading">
+										<h5>Shift month record</h5>
+										<span>{formatMonth(attendanceMonth)}</span>
+									</div>
+									<div className="employee-shift-month-grid">
+										{monthlyShiftCounts.map((shift) => (
+											<div className="employee-shift-month-card" key={shift.value}>
+												<span>{shift.label}</span>
+												<strong>{shift.total}</strong>
+												<small>{shift.total === 1 ? 'shift' : 'shifts'}</small>
+											</div>
+										))}
+									</div>
+								</div>
 								<div className="employee-attendance-summary">
 									<span>Total present <strong>{monthlyAttendance.present}</strong></span>
 									<span>Late <strong>{monthlyAttendance.late}</strong></span>
@@ -461,17 +537,26 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 											const lateMinutes = status === 'present_late'
 												? Number(record.late_minutes) || 0
 												: null
+											const shiftLabel = attendanceShiftDetails.find(
+												(shift) => shift.value === record?.shift
+											)?.label
+											const displayedShiftLabel = ['present', 'present_late', 'half_day'].includes(status)
+												? shiftLabel
+												: ''
 
 											return (
 												<div
 													className={`employee-attendance-day${className}`}
 													key={dateKey}
-													title={`${dateKey}: ${statusDetail?.label ?? (status ? 'Not marked' : 'No record')}${lateMinutes === null ? '' : `, ${lateMinutes} minutes late`}`}
+													title={`${dateKey}: ${statusDetail?.description ?? (status ? 'Not marked' : 'No record')}${lateMinutes === null ? '' : `, ${lateMinutes} minutes late`}${displayedShiftLabel ? `, ${displayedShiftLabel}` : ''}`}
 												>
 													<strong>{day}</strong>
 													<span>{lateMinutes === null
 														? statusDetail?.label ?? (status ? 'Not marked' : '—')
 														: `${lateMinutes} min late`}</span>
+													{displayedShiftLabel && (
+														<span className="employee-attendance-day-shift">{displayedShiftLabel}</span>
+													)}
 												</div>
 											)
 										})}

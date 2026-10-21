@@ -5,6 +5,7 @@ import {
   CalendarDays,
   ClipboardList,
   CircleDollarSign,
+  ChevronDown,
   LogOut,
   MinusCircle,
   Package,
@@ -26,23 +27,41 @@ import BranchInventory from './Branch_Inventory'
 import BranchRequestStock from './Branch_Request_Stock'
 import { revokeBranchAdminSession } from '../../lib/supabase'
 
-const tabs = [
-  { name: 'Employee Info', component: BranchAdminEmployee, icon: Users },
-  { name: 'Attendance monitoring', component: BranchAttendanceMonitoring, icon: CalendarDays },
-  //{ name: 'Mandatory Contribution Employee', component: BranchMandatoryContributionEmployee },
-  { name: 'Cash Advance Pay', component: BranchCashAdvance, icon: CircleDollarSign },
-  { name: 'Employee Leave Credits', component: BranchEmployeeLeaveCredits, icon: CalendarCheck },
-  { name: 'Others Deduction Pay', component: BranchOtherDeduction, icon: MinusCircle },
-  { name: 'Others Addition Pay', component: BranchOtherAdditionPay, icon: PlusCircle },
-  { name: 'Branch payroll', component: BranchPayroll, icon: Wallet },
-  { name: 'Branch Inventory', component: BranchInventory, icon: Package },
-  { name: 'Request Stock', component: BranchRequestStock, icon: ClipboardList },
-  //{ name: 'Branch reports', component: BranchReport }
+const navigationGroups = [
+  {
+    id: 'employee-management',
+    label: 'Employee Management',
+    items: [
+      { name: 'Employee Info', label: 'Employee', component: BranchAdminEmployee, icon: Users },
+      { name: 'Attendance monitoring', label: 'Employee Attendance', component: BranchAttendanceMonitoring, icon: CalendarDays },
+      { name: 'Employee Leave Credits', label: 'Leave Credits', component: BranchEmployeeLeaveCredits, icon: CalendarCheck }
+    ]
+  },
+  {
+    id: 'payroll-finance',
+    label: 'Payroll & Finance',
+    items: [
+      { name: 'Others Addition Pay', label: 'Other Addition Pay', component: BranchOtherAdditionPay, icon: PlusCircle },
+      { name: 'Others Deduction Pay', label: 'Other Deduction Pay', component: BranchOtherDeduction, icon: MinusCircle },
+      { name: 'Cash Advance Pay', label: 'Cash Advance', component: BranchCashAdvance, icon: CircleDollarSign },
+      { name: 'Branch payroll', label: 'Branch Payroll', component: BranchPayroll, icon: Wallet }
+    ]
+  },
+  {
+    id: 'inventory',
+    label: 'Inventory',
+    items: [
+      { name: 'Branch Inventory', label: 'Branch Inventory', component: BranchInventory, icon: Package },
+      { name: 'Request Stock', label: 'Request Stock', component: BranchRequestStock, icon: ClipboardList }
+    ]
+  }
 ]
+const tabs = navigationGroups.flatMap((group) => group.items)
 
 export default function BranchAdminDashboard() {
   const location = useLocation()
   const [activeTab, setActiveTab] = useState('Employee Info')
+  const [expandedGroups, setExpandedGroups] = useState({ 'employee-management': true })
   const [currentDateTime, setCurrentDateTime] = useState(() => new Date())
   const [branchAdmin] = useState(() => {
     if (location.state?.branchAdmin) return location.state.branchAdmin
@@ -83,21 +102,54 @@ export default function BranchAdminDashboard() {
             <img src={logoImage} alt="Triton ACCE Food Inc. logo" />
           </div>
 
-          <div className="sidebar-section">
-            <div className="sidebar-label">Quick actions</div>
-            {tabs.map(({ name, icon: Icon }) => (
-              <button
-                key={name}
-                type="button"
-                className={`sidebar-action ${activeTab === name ? 'active' : ''}`}
-                onClick={() => setActiveTab(name)}
-                aria-current={activeTab === name ? 'page' : undefined}
-              >
-                <Icon size={18} strokeWidth={2} aria-hidden="true" />
-                <span>{name}</span>
-              </button>
-            ))}
-          </div>
+          <p className="tafi-admin-nav-label">Workspace</p>
+          <nav className="tafi-admin-nav" aria-label="Dashboard sections">
+            {navigationGroups.map((group) => {
+              const isExpanded = Boolean(expandedGroups[group.id])
+              const containsActivePage = group.items.some((item) => item.name === activeTab)
+              const groupItemsId = `branch-admin-nav-group-${group.id}`
+              return (
+                <div className="tafi-admin-nav-group" key={group.id}>
+                  <button
+                    type="button"
+                    className={`tafi-admin-nav-group-toggle${containsActivePage ? ' has-active' : ''}`}
+                    aria-expanded={isExpanded}
+                    aria-controls={groupItemsId}
+                    onClick={() => setExpandedGroups((current) => ({
+                      ...current,
+                      [group.id]: !current[group.id]
+                    }))}
+                  >
+                    <span>{group.label}</span>
+                    <ChevronDown size={16} aria-hidden="true" />
+                  </button>
+                  <div
+                    className="tafi-admin-nav-group-items"
+                    id={groupItemsId}
+                    role="group"
+                    aria-label={group.label}
+                    hidden={!isExpanded}
+                  >
+                    {group.items.map(({ name, label, icon: Icon }) => (
+                      <button
+                        key={name}
+                        type="button"
+                        className={`tafi-admin-nav-item${activeTab === name ? ' active' : ''}`}
+                        aria-current={activeTab === name ? 'page' : undefined}
+                        onClick={() => {
+                          setActiveTab(name)
+                          setExpandedGroups((current) => ({ ...current, [group.id]: true }))
+                        }}
+                      >
+                        <Icon size={19} aria-hidden="true" />
+                        <span>{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </nav>
         </aside>
 
         <main className="dashboard-main">

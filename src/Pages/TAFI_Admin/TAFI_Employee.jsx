@@ -31,6 +31,14 @@ const todayDateKey = [
 	String(today.getDate()).padStart(2, '0')
 ].join('-')
 const currentMonthKey = todayDateKey.slice(0, 7)
+const employmentStatusLabels = {
+	active: 'Active',
+	resign: 'Resign',
+	awol: 'AWOL',
+	terminated: 'Terminated',
+	suspended: 'Suspended',
+	inactive: 'Inactive'
+}
 
 const attendanceStatusDetails = {
 	present: { label: '✓', description: 'Present', className: statusCodeClassNames[statusCodes.present] },
@@ -99,6 +107,7 @@ function displayValue(value) {
 function getEmployeeProfile(employee) {
 	return {
 		address: employee.address ?? '',
+		placeOfBirth: employee.place_of_birth ?? '',
 		gender: employee.gender ?? '',
 		civilStatus: employee.civil_status ?? '',
 		birthday: employee.birthday ?? '',
@@ -114,6 +123,7 @@ function getEmployeeProfile(employee) {
 		sssNumber: employee.sss_number ?? '',
 		pagibigNumber: employee.pagibig_number ?? '',
 		philhealthNumber: employee.philhealth_number ?? '',
+		employmentStatus: employee.employment_status ?? 'active',
 		employmentClassification: employee.employment_classification ?? ''
 	}
 }
@@ -145,6 +155,7 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 	const [selectedEmployeeId, setSelectedEmployeeId] = useState(null)
 	const [searchTerm, setSearchTerm] = useState('')
 	const [positionFilter, setPositionFilter] = useState('All positions')
+	const [employmentStatusFilter, setEmploymentStatusFilter] = useState('all')
 	const [employeeSortOrder, setEmployeeSortOrder] = useState('asc')
 	const [isLoading, setIsLoading] = useState(true)
 	const [errorMessage, setErrorMessage] = useState('')
@@ -230,7 +241,9 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 				.includes(normalizedSearch)
 			const matchesPosition = positionFilter === 'All positions'
 				|| employee.employee_position === positionFilter
-			return matchesSearch && matchesPosition
+			const matchesEmploymentStatus = employmentStatusFilter === 'all'
+				|| employee.employment_status === employmentStatusFilter
+			return matchesSearch && matchesPosition && matchesEmploymentStatus
 		}).sort((first, second) => {
 			const nameOrder = first.employee_name.localeCompare(
 				second.employee_name,
@@ -242,7 +255,7 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 				? first.employee_code.localeCompare(second.employee_code, undefined, { numeric: true }) * order
 				: nameOrder * order
 		})
-	}, [filteredEmployees, searchTerm, positionFilter, employeeSortOrder])
+	}, [filteredEmployees, searchTerm, positionFilter, employmentStatusFilter, employeeSortOrder])
 	const selectedEmployee = filteredEmployees.find((employee) => employee.employee_id === selectedEmployeeId)
 	const selectedEmployeeBranchId = selectedEmployee?.branch_id
 	const selectedEmployeeCode = selectedEmployee?.employee_code
@@ -603,6 +616,7 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 
 		const normalizedProfile = {
 			address: profileForm.address.trim() || null,
+			place_of_birth: profileForm.placeOfBirth.trim() || null,
 			gender: profileForm.gender || null,
 			civil_status: profileForm.civilStatus || null,
 			birthday: profileForm.birthday || null,
@@ -618,6 +632,7 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 			sss_number: profileForm.sssNumber.trim() || null,
 			pagibig_number: profileForm.pagibigNumber.trim() || null,
 			philhealth_number: profileForm.philhealthNumber.trim() || null,
+			employment_status: profileForm.employmentStatus,
 			employment_classification: profileForm.employmentClassification
 		}
 		setEmployees((current) => current.map((employee) =>
@@ -824,7 +839,7 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 								</div>
 							</div>
 							<span className={`tafi-employee-status ${selectedEmployee.employment_status}`}>
-								{selectedEmployee.employment_status}
+								{employmentStatusLabels[selectedEmployee.employment_status] ?? selectedEmployee.employment_status}
 							</span>
 						</header>
 						{isEmployeePhotoExpanded && currentEmployeePhoto?.imageUrl && (
@@ -964,7 +979,9 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 							</div>
 							<div className="employee-detail-stat">
 								<span>Employee status</span>
-								<strong>{selectedEmployee.employment_status}</strong>
+								<strong>
+									{employmentStatusLabels[selectedEmployee.employment_status] ?? selectedEmployee.employment_status}
+								</strong>
 							</div>
 						</div>
 
@@ -998,6 +1015,13 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 											rows="2"
 											value={profileForm.address}
 											onChange={(event) => updateProfileField('address', event.target.value)}
+										/>
+									</label>
+									<label>
+										<span>Place of birth</span>
+										<input
+											value={profileForm.placeOfBirth}
+											onChange={(event) => updateProfileField('placeOfBirth', event.target.value)}
 										/>
 									</label>
 									<label>
@@ -1088,13 +1112,30 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 										/>
 									</label>
 									<label>
-										<span>Employment status</span>
+										<span>Employee status</span>
+										<select
+											value={profileForm.employmentStatus}
+											onChange={(event) => updateProfileField('employmentStatus', event.target.value)}
+											required
+										>
+											<option value="active">Active</option>
+											<option value="resign">Resign</option>
+											<option value="awol">AWOL</option>
+											<option value="terminated">Terminated</option>
+											<option value="suspended">Suspended</option>
+											{profileForm.employmentStatus === 'inactive' && (
+												<option value="inactive">Inactive (legacy)</option>
+											)}
+										</select>
+									</label>
+									<label>
+										<span>Employment classification</span>
 										<select
 											value={profileForm.employmentClassification}
 											onChange={(event) => updateProfileField('employmentClassification', event.target.value)}
 											required
 										>
-											<option value="">Select employment status</option>
+											<option value="">Select employment classification</option>
 											<option value="Regular">Regular</option>
 											<option value="Probationary">Probationary</option>
 											<option value="Trainee">Trainee</option>
@@ -1196,6 +1237,10 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 								<div className="employee-profile-field employee-profile-address">
 									<dt>Address</dt>
 									<dd>{displayValue(selectedEmployee.address)}</dd>
+								</div>
+								<div className="employee-profile-field">
+									<dt>Place of birth</dt>
+									<dd>{displayValue(selectedEmployee.place_of_birth)}</dd>
 								</div>
 								<div className="employee-profile-field">
 									<dt>Gender</dt>
@@ -1344,12 +1389,11 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 							{dailyRateMessage && <p className="employee-personal-saved" role="status">{dailyRateMessage}</p>}
 						</section>
 
-						{!readOnly && (
-							<TafiEmployeeDocuments
-								sessionToken={sessionToken}
-								employeeId={selectedEmployee.employee_id}
-							/>
-						)}
+						<TafiEmployeeDocuments
+							sessionToken={sessionToken}
+							employeeId={selectedEmployee.employee_id}
+							readOnly={readOnly}
+						/>
 
 						<section className="employee-detail-panel employee-personal-details">
 							<div className="employee-detail-panel-heading">
@@ -1535,6 +1579,21 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 								</select>
 							</label>
 							<label className="employee-filter-label">
+								<span>Employment status</span>
+								<select
+									value={employmentStatusFilter}
+									onChange={(event) => setEmploymentStatusFilter(event.target.value)}
+								>
+									<option value="all">All statuses</option>
+									<option value="active">Active</option>
+									<option value="resign">Resign</option>
+									<option value="awol">AWOL</option>
+									<option value="terminated">Terminated</option>
+									<option value="suspended">Suspended</option>
+									<option value="inactive">Inactive (legacy)</option>
+								</select>
+							</label>
+							<label className="employee-filter-label">
 								<span>Sort by name</span>
 								<select
 									value={employeeSortOrder}
@@ -1636,7 +1695,9 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 													</td>
 													<td>{employee.employee_code}</td>
 													<td>{employee.employee_position}</td>
-													<td>{employee.employment_status}</td>
+													<td>
+														{employmentStatusLabels[employee.employment_status] ?? employee.employment_status}
+													</td>
 													{selectedBranchId === 'all' && <td>{employee.branch_name}</td>}
 												</tr>
 											))}
@@ -1646,7 +1707,7 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 							) : (
 								<p className="tafi-employee-empty">
 									{filteredEmployees.length
-										? 'No employees match your search or position filter.'
+										? 'No employees match your search or selected filters.'
 										: branches.length
 											? 'There are no employees for this branch.'
 											: 'No branches have been created yet.'}

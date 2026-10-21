@@ -7,6 +7,10 @@ import {
 	listBranchTafiStockItems,
 	receiveBranchStockRequest
 } from '../../lib/supabase'
+import {
+	downloadBranchStockRequestWorkbook,
+	getBranchStockRequestDate
+} from './branchStockRequestXlsxExport'
 
 let nextRequestLineId = 0
 
@@ -47,6 +51,9 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 	const [receivingRequestId, setReceivingRequestId] = useState('')
 	const [errorMessage, setErrorMessage] = useState('')
 	const [notice, setNotice] = useState('')
+	const [pendingRequestExport, setPendingRequestExport] = useState(null)
+	const [requestExportFormat, setRequestExportFormat] = useState('')
+	const [requestExportError, setRequestExportError] = useState('')
 	const [receiptError, setReceiptError] = useState('')
 	const [receiptNotice, setReceiptNotice] = useState('')
 
@@ -127,6 +134,22 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 			return
 		}
 
+		const requestedItems = requestLines.map((line) => {
+			const stockItem = stockItems.find((item) => item.stock_inventory_id === line.stockInventoryId)
+			return stockItem ? {
+				stockNo: stockItem.stock_no,
+				description: stockItem.item_description,
+				unit: stockItem.unit_of_measure,
+				quantityRequested: Number(line.quantityRequested),
+				currentStock: stockItem.onhand
+			} : null
+		})
+		if (requestedItems.some((item) => !item)) {
+			setErrorMessage('A selected TAFI stock item could not be found. Refresh the page and try again.')
+			return
+		}
+
+		const requestDate = getBranchStockRequestDate()
 		setIsSubmitting(true)
 		const { error } = await createBranchStockRequestBatch(
 			sessionToken,
@@ -146,15 +169,52 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 		const result = await loadRequestData(sessionToken)
 		setIsSubmitting(false)
 		if (result.error) {
+			setPendingRequestExport({ branchName, requestedItems, requestDate, submittedItemCount })
+			setRequestExportError('')
 			setErrorMessage(result.error.message)
-			setNotice('Request submitted, but the request list could not be refreshed.')
+			setNotice('Request submitted, but the request list could not be refreshed. You can still download the Excel requisition.')
 			return
 		}
 
 		setStockItems(result.stockItems)
 		setRequests(result.requests)
 		setReceiptHistory(result.history)
-		setNotice(`${submittedItemCount} item${submittedItemCount === 1 ? '' : 's'} submitted in one stock request to TAFI Admin.`)
+		setPendingRequestExport({ branchName, requestedItems, requestDate, submittedItemCount })
+		setRequestExportError('')
+		setNotice(`${submittedItemCount} item${submittedItemCount === 1 ? '' : 's'} submitted in one stock request to TAFI Admin. Download the Excel requisition from the prompt.`)
+	}
+
+	const handleDownloadRequestExport = async () => {
+		if (!pendingRequestExport || requestExportFormat) return
+		setRequestExportFormat('xlsx')
+		setRequestExportError('')
+
+		try {
+			const fileName = await downloadBranchStockRequestWorkbook(
+				pendingRequestExport.branchName,
+				pendingRequestExport.requestedItems,
+				pendingRequestExport.requestDate
+			)
+			setNotice(
+				`${pendingRequestExport.submittedItemCount} item${pendingRequestExport.submittedItemCount === 1 ? '' : 's'} submitted in one stock request to TAFI Admin. Downloaded ${fileName}.`
+			)
+			setPendingRequestExport(null)
+		} catch (error) {
+			setRequestExportError(
+				error instanceof Error ? error.message : 'Unable to prepare the requested download.'
+			)
+		} finally {
+			setRequestExportFormat('')
+		}
+	}
+
+	const cancelRequestExport = () => {
+		if (!pendingRequestExport || requestExportFormat) return
+		setNotice(
+			`${pendingRequestExport.submittedItemCount} item${pendingRequestExport.submittedItemCount === 1 ? '' : 's'} submitted in one stock request to TAFI Admin. No file was downloaded.`
+		)
+		setPendingRequestExport(null)
+		setRequestExportError('')
 	}
 
 	const handleReceive = async (request) => {
@@ -535,6 +595,59 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 					<p className="accountant-inventory-empty">No receipt history yet.</p>
 				)}
 			</div>
+			{pendingRequestExport && (
+				<div
+					className="payroll-xlsx-dialog-backdrop"
+					role="presentation"
+					onMouseDown={(event) => {
+						if (event.target === event.currentTarget) cancelRequestExport()
+					}}
+				>
+					<section
+						className="payroll-xlsx-dialog"
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby="branch-stock-request-export-title"
+					>
+						<div className="payroll-xlsx-dialog-heading">
+							<div>
+								<h4 id="branch-stock-request-export-title">Download the requisition</h4>
+								<p>Your stock request was submitted. Download the requisition as an Excel workbook.</p>
+							</div>
+							<button
+								type="button"
+								className="payroll-xlsx-dialog-close"
+								aria-label="Close download prompt"
+								onClick={cancelRequestExport}
+								disabled={Boolean(requestExportFormat)}
+							>
+								×
+							</button>
+						</div>
+						{requestExportError && (
+							<p className="accountant-inventory-error" role="alert">{requestExportError}</p>
+						)}
+						<div className="payroll-xlsx-dialog-actions">
+							<button
+								type="button"
+								className="payroll-xlsx-cancel-button"
+								onClick={cancelRequestExport}
+								disabled={Boolean(requestExportFormat)}
+							>
+								Cancel
+							</button>
+							<button
+								type="button"
+								className="report-download-button"
+								onClick={handleDownloadRequestExport}
+								disabled={Boolean(requestExportFormat)}
+							>
+								{requestExportFormat === 'xlsx' ? 'Preparing Excel...' : 'Download Excel (.xlsx)'}
+							</button>
+						</div>
+					</section>
+				</div>
+			)}
 		</section>
 	)
 }

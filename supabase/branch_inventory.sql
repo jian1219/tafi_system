@@ -1,4 +1,4 @@
--- Run after branch_management.sql and tafi_stock_inventory.sql.
+-- Run after branch_management.sql, tafi_admin_management.sql, and tafi_stock_inventory.sql.
 begin;
 
 create table if not exists public.branch_inventory (
@@ -158,12 +158,65 @@ begin
 end;
 $$;
 
+create or replace function public.tafi_admin_list_branch_inventory(
+  p_session_token uuid
+)
+returns table (
+  branch_inventory_id uuid,
+  branch_name text,
+  stock_inventory_id uuid,
+  stock_no text,
+  item_description text,
+  unit_of_measure text,
+  category text,
+  onhand numeric,
+  allocated numeric,
+  available numeric
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1
+    from public.tafi_admin_session as admin_session
+    where admin_session.session_token = p_session_token
+      and admin_session.expires_at > now()
+  ) then
+    raise exception 'Invalid or expired TAFI Admin session' using errcode = '28000';
+  end if;
+
+  return query
+  select branch_stock.id,
+         branch.name,
+         stock.id,
+         stock.stock_no,
+         stock.item_description,
+         stock.unit_of_measure,
+         inventory.category,
+         branch_stock.onhand,
+         branch_stock.allocated,
+         branch_stock.available
+  from public.branch_inventory as branch_stock
+  join public.branch as branch
+    on branch.id = branch_stock.branch_id
+  join public.tafi_stock_inventory as stock
+    on stock.id = branch_stock.stock_inventory_id
+  join public.inventory_information as inventory
+    on inventory.id = stock.inventory_id
+  order by branch.name, inventory.category, stock.stock_no;
+end;
+$$;
+
 revoke all on function public.branch_admin_list_tafi_stock_items(uuid) from public;
 revoke all on function public.branch_admin_list_inventory(uuid) from public;
 revoke all on function public.branch_admin_add_inventory_item(uuid, uuid, numeric) from public;
+revoke all on function public.tafi_admin_list_branch_inventory(uuid) from public;
 
 grant execute on function public.branch_admin_list_tafi_stock_items(uuid) to anon, authenticated;
 grant execute on function public.branch_admin_list_inventory(uuid) to anon, authenticated;
 grant execute on function public.branch_admin_add_inventory_item(uuid, uuid, numeric) to anon, authenticated;
+grant execute on function public.tafi_admin_list_branch_inventory(uuid) to anon, authenticated;
 
 commit;

@@ -5794,6 +5794,26 @@ fieldset.employee-emergency-contact-box {
   background: #fee2e2;
 }
 
+.tafi-employee-status.resign {
+  color: #475569;
+  background: #e2e8f0;
+}
+
+.tafi-employee-status.awol {
+  color: #9a3412;
+  background: #ffedd5;
+}
+
+.tafi-employee-status.terminated {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.tafi-employee-status.suspended {
+  color: #854d0e;
+  background: #fef9c3;
+}
+
 .tafi-employee-empty,
 .tafi-employee-error {
   margin: 0;
@@ -7607,5 +7627,659 @@ fieldset.employee-emergency-contact-box {
     width: auto;
     min-height: 0;
     margin-left: 0;
+  }
+}
+
+.tafi-rankings-page {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+  color: #172033;
+}
+
+.tafi-rankings-hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 158px;
+  overflow: hidden;
+  padding: 28px 34px;
+  border: 1px solid rgba(226, 232, 240, 0.45);
+  border-radius: 20px;
+  color: #f8fafc;
+  background:
+    radial-gradient(circle at 86% 10%, rgba(250, 204, 21, 0.25), transparent 30%),
+    linear-gradient(118deg, #10233f 0%, #173d59 58%, #176b69 100%);
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.15);
+}
+
+.tafi-rankings-hero::after {
+  position: absolute;
+  right: 105px;
+  bottom: -102px;
+  width: 230px;
+  height: 230px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  content: '';
+}
+
+.tafi-rankings-hero-copy {
+  position: relative;
+  z-index: 1;
+}
+
+.tafi-rankings-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 11px;
+  color: #f6d77a;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.tafi-rankings-hero h2 {
+  margin: 0;
+  font-size: clamp(1.6rem, 3vw, 2.25rem);
+  letter-spacing: -0.035em;
+}
+
+.tafi-rankings-hero p {
+  max-width: 590px;
+  margin: 9px 0 0;
+  color: rgba(241, 245, 249, 0.78);
+  line-height: 1.55;
+}
+
+.tafi-rankings-trophy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 92px;
+  height: 92px;
+  flex: 0 0 auto;
+  place-items: center;
+  margin-right: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 28px;
+  color: #ffe08a;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.18), 0 14px 28px rgba(4, 18, 32, 0.2);
+  transform: rotate(4deg);
+}
+
+.ranking-period-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 18px 22px;
+  border: 1px solid #e4eaf1;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.045);
+}
+
+.ranking-period-heading,
+.ranking-period-controls,
+.ranking-period-tabs,
+.ranking-period-caption {
+  display: flex;
+  align-items: center;
+}
+
+.ranking-period-heading {
+  gap: 12px;
+  color: #1c4c67;
+}
+
+.ranking-period-heading > div,
+.ranking-period-select {
+  display: grid;
+  gap: 4px;
+}
+
+.ranking-period-heading strong {
+  color: #172033;
+  font-size: 0.95rem;
+}
+
+.ranking-period-heading span {
+  color: #718096;
+  font-size: 0.82rem;
+}
+
+.ranking-period-controls {
+  gap: 16px;
+}
+
+.ranking-period-tabs {
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 11px;
+  background: #f7f9fc;
+}
+
+.ranking-period-tabs button {
+  min-height: 36px;
+  padding: 7px 13px;
+  border: 0;
+  border-radius: 8px;
+  color: #64748b;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 700;
+  transition: color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ranking-period-tabs button.active {
+  color: #13364f;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.12);
+}
+
+.ranking-period-tabs button:focus-visible,
+.ranking-period-select input:focus-visible,
+.ranking-period-select select:focus-visible {
+  outline: 3px solid rgba(14, 116, 144, 0.28);
+  outline-offset: 2px;
+}
+
+.ranking-period-select {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.ranking-period-select input,
+.ranking-period-select select {
+  min-width: 156px;
+  min-height: 39px;
+  padding: 7px 10px;
+  border: 1px solid #d6dee8;
+  border-radius: 9px;
+  color: #172033;
+  background: #fff;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.ranking-period-caption {
+  gap: 8px;
+  margin-top: -7px;
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+.ranking-period-caption strong {
+  color: #153b54;
+}
+
+.ranking-caption-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #14a38b;
+  box-shadow: 0 0 0 4px rgba(20, 163, 139, 0.12);
+}
+
+.ranking-categories {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+}
+
+.ranking-category-card {
+  min-width: 0;
+  padding: 18px 15px 16px;
+  border: 1px solid #e3e9f0;
+  border-radius: 17px;
+  background: linear-gradient(180deg, #fff 0%, #fbfcfe 100%);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.055);
+}
+
+.ranking-category-heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 46px;
+  padding: 0 2px 13px;
+  border-bottom: 1px solid #edf1f5;
+}
+
+.ranking-category-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 12px;
+  color: #176b69;
+  background: #e8f6f2;
+}
+
+.ranking-category-heading h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.ranking-category-heading p {
+  margin: 4px 0 0;
+  color: #718096;
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.ranking-podium {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 7px;
+  min-height: 286px;
+  margin: 17px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ranking-podium-entry {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 5px 0;
+  border: 1px solid transparent;
+  border-radius: 14px 14px 9px 9px;
+  text-align: center;
+}
+
+.ranking-place-1 {
+  grid-column: 2;
+  grid-row: 1;
+  border-color: #f4df9a;
+  background: linear-gradient(180deg, #fff9e5 0%, #fff 68%);
+}
+
+.ranking-place-2 {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.ranking-place-3 {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.ranking-medal {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-bottom: 9px;
+  padding: 4px 7px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  color: #64748b;
+  background: #fff;
+  font-size: 0.69rem;
+  font-weight: 800;
+}
+
+.ranking-place-1 .ranking-medal {
+  border-color: #efd270;
+  color: #8a6500;
+  background: #fff2c5;
+}
+
+.ranking-place-2 .ranking-medal {
+  border-color: #d4dce5;
+  color: #526172;
+  background: #f1f4f7;
+}
+
+.ranking-place-3 .ranking-medal {
+  border-color: #edc8a7;
+  color: #8b512b;
+  background: #fff0e3;
+}
+
+.ranking-employee-avatar {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  border: 3px solid #dbe4ec;
+  border-radius: 50%;
+  object-fit: cover;
+  color: #30506a;
+  background: #eaf0f5;
+}
+
+.ranking-employee-avatar-fallback {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.ranking-place-1 .ranking-podium-avatar {
+  width: 72px;
+  height: 72px;
+  border-color: #dfb635;
+  box-shadow: 0 5px 14px rgba(189, 143, 12, 0.22);
+}
+
+.ranking-place-2 .ranking-podium-avatar {
+  border-color: #aab7c4;
+}
+
+.ranking-place-3 .ranking-podium-avatar {
+  border-color: #c78b5e;
+}
+
+.ranking-employee-name {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  margin-top: 9px;
+  color: #233246;
+  font-size: 0.78rem;
+  line-height: 1.28;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ranking-employee-branch {
+  max-width: 100%;
+  overflow: hidden;
+  margin-top: 4px;
+  color: #7a8797;
+  font-size: 0.67rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ranking-score {
+  display: grid;
+  justify-items: center;
+  margin-top: 7px;
+  color: #64748b;
+}
+
+.ranking-score strong {
+  color: #152b3c;
+  font-size: 1.1rem;
+  line-height: 1.1;
+}
+
+.ranking-place-1 .ranking-score strong {
+  color: #946c00;
+  font-size: 1.28rem;
+}
+
+.ranking-score span {
+  margin-top: 2px;
+  font-size: 0.65rem;
+}
+
+.ranking-podium-base {
+  display: grid;
+  width: 100%;
+  place-items: center;
+  margin-top: 10px;
+  border-radius: 7px 7px 0 0;
+  color: rgba(45, 55, 72, 0.78);
+  background: linear-gradient(180deg, #edf1f5, #dde4eb);
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.ranking-place-1 .ranking-podium-base {
+  height: 42px;
+  color: #755600;
+  background: linear-gradient(180deg, #f5df86, #e5c14e);
+}
+
+.ranking-place-2 .ranking-podium-base {
+  height: 32px;
+  color: #46576a;
+  background: linear-gradient(180deg, #dce3e9, #c7d0d9);
+}
+
+.ranking-place-3 .ranking-podium-base {
+  height: 24px;
+  color: #7b4928;
+  background: linear-gradient(180deg, #edc7a5, #dba77b);
+}
+
+.ranking-next-places {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 12px 0 0;
+  border-top: 1px solid #edf1f5;
+  list-style: none;
+  counter-reset: ranking-place 3;
+}
+
+.ranking-next-place {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid #edf1f5;
+  border-radius: 11px;
+  background: #fff;
+}
+
+.ranking-next-rank {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 7px;
+  color: #536579;
+  background: #f0f3f7;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.ranking-list-avatar {
+  width: 34px;
+  height: 34px;
+  border-width: 2px;
+  font-size: 0.8rem;
+}
+
+.ranking-next-employee {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+
+.ranking-next-employee strong,
+.ranking-next-employee span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ranking-next-employee strong {
+  color: #29384b;
+  font-size: 0.76rem;
+}
+
+.ranking-next-employee span {
+  color: #8491a0;
+  font-size: 0.67rem;
+}
+
+.ranking-next-score {
+  display: grid;
+  flex: 0 0 auto;
+  justify-items: end;
+  color: #667588;
+}
+
+.ranking-next-score strong {
+  color: #1e3448;
+  font-size: 0.89rem;
+}
+
+.ranking-next-score span {
+  font-size: 0.64rem;
+}
+
+.ranking-empty {
+  display: grid;
+  min-height: 230px;
+  align-content: center;
+  justify-items: center;
+  gap: 10px;
+  color: #8491a0;
+  text-align: center;
+}
+
+.ranking-empty svg {
+  color: #c3a857;
+}
+
+.ranking-empty p {
+  margin: 0;
+  font-size: 0.86rem;
+}
+
+.ranking-loading {
+  padding: 32px 20px;
+  border: 1px solid #e3e9f0;
+  border-radius: 15px;
+  color: #64748b;
+  background: #fff;
+  text-align: center;
+}
+
+.ranking-message {
+  margin: 0;
+  padding: 12px 15px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #991b1b;
+  background: #fef2f2;
+  font-size: 0.86rem;
+}
+
+@media (max-width: 1120px) {
+  .ranking-categories {
+    grid-template-columns: 1fr;
+  }
+
+  .ranking-category-card {
+    padding: 20px;
+  }
+
+  .ranking-podium {
+    max-width: 560px;
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .ranking-next-places {
+    max-width: 560px;
+    margin-right: auto;
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .tafi-rankings-page {
+    gap: 14px;
+  }
+
+  .tafi-rankings-hero {
+    min-height: 140px;
+    padding: 23px 20px;
+    border-radius: 16px;
+  }
+
+  .tafi-rankings-hero p {
+    max-width: 300px;
+    font-size: 0.88rem;
+  }
+
+  .tafi-rankings-trophy {
+    width: 54px;
+    height: 54px;
+    margin-right: 0;
+    border-radius: 17px;
+  }
+
+  .tafi-rankings-trophy svg {
+    width: 29px;
+    height: 29px;
+  }
+
+  .ranking-period-panel {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 15px;
+    padding: 16px;
+  }
+
+  .ranking-period-controls {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .ranking-period-tabs button {
+    flex: 1;
+  }
+
+  .ranking-period-select input,
+  .ranking-period-select select {
+    width: 100%;
+  }
+
+  .ranking-category-card {
+    padding: 16px 12px;
+  }
+
+  .ranking-podium {
+    gap: 3px;
+    min-height: 260px;
+  }
+
+  .ranking-podium-entry {
+    padding-right: 3px;
+    padding-left: 3px;
+  }
+
+  .ranking-employee-avatar {
+    width: 48px;
+    height: 48px;
+  }
+
+  .ranking-place-1 .ranking-podium-avatar {
+    width: 60px;
+    height: 60px;
+  }
+
+  .ranking-employee-name {
+    font-size: 0.72rem;
+  }
+
+  .ranking-employee-branch {
+    font-size: 0.62rem;
   }
 }

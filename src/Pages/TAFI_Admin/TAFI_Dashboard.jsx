@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { CalendarDays, ChevronDown, CircleDollarSign, ClipboardList, LogOut, MinusCircle, Package, PlusCircle, ShieldCheck, Users, Wallet } from 'lucide-react'
+import { CalendarDays, ChevronDown, CircleDollarSign, ClipboardList, LogOut, MinusCircle, Package, PlusCircle, ShieldCheck, Trophy, Users, Wallet } from 'lucide-react'
 import { revokeTafiAdminSession } from '../../lib/supabase'
 import TafiEmployee from './TAFI_Employee'
 import TafiEmployeeContributions from './TAFI_Employee_Contributions'
@@ -10,6 +10,7 @@ import TafiBranchPayroll from './TAFI_Branch_Payroll'
 const TafiOtherAdditionPay = lazy(() => import('./TAFI_Other_Addition_Pay'))
 const TafiOtherDeductionPay = lazy(() => import('./TAFI_Other_Deduction_Pay'))
 const TafiCashAdvance = lazy(() => import('./TAFI_Cash_Advance'))
+const TafiRankings = lazy(() => import('./TAFI_Rankings'))
 const TafiInventory = lazy(() => import('./TAFI_Inventory'))
 const TafiStockInventory = lazy(() => import('./TAFI_Stock_Inventory'))
 const TafiRequestStockOrder = lazy(() => import('./TAFI_Request_Stock_Order'))
@@ -22,6 +23,7 @@ const navigationGroups = [
 		items: [
 			{ id: 'employees', label: 'Employee', icon: Users },
 			{ id: 'attendance', label: 'Employee Attendance', icon: CalendarDays },
+			{ id: 'rankings', label: 'Employee Rankings', icon: Trophy },
 			{ id: 'leave-credits', label: 'Leave Credits', icon: PlusCircle }
 		]
 	},
@@ -155,6 +157,12 @@ export default function TafiDashboard() {
 						? <TafiEmployee sessionToken={tafiAdmin.session_token} />
 						: activePage === 'attendance'
 							? <TafiEmployeeAttendance sessionToken={tafiAdmin.session_token} />
+							: activePage === 'rankings'
+								? (
+									<Suspense fallback={<p className="other-deduction-message" role="status">Loading employee rankings…</p>}>
+										<TafiRankings sessionToken={tafiAdmin.session_token} />
+									</Suspense>
+								)
 							: activePage === 'leave-credits'
 								? <TafiLeaveCredits sessionToken={tafiAdmin.session_token} />
 								: activePage === 'contributions'

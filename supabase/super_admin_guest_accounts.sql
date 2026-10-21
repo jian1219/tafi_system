@@ -1,6 +1,6 @@
 begin;
 
--- Run after super_admin_login.sql and tafi_employee_emergency_contacts.sql.
+-- Run after super_admin_login.sql, tafi_employee_emergency_contacts.sql, and tafi_employee_documents.sql.
 create table if not exists public.guest_account (
   id uuid primary key default gen_random_uuid(),
   name text not null,
@@ -207,6 +207,7 @@ returns table (
   gender text,
   civil_status text,
   birthday date,
+  place_of_birth text,
   tin_number text,
   sss_number text,
   pagibig_number text,
@@ -236,7 +237,7 @@ begin
     employee.name, employee.position, employee.employment_status, employee.email,
     employee.phone, employee.emergency_contact_name, employee.emergency_contact_number,
     employee.emergency_contact_relationship, employee.address, employee.gender,
-    employee.civil_status, employee.birthday,
+    employee.civil_status, employee.birthday, employee.place_of_birth,
     employee.tin_number, employee.sss_number, employee.pagibig_number,
     employee.philhealth_number, employee.employment_classification,
     employee.daily_rate, employee.hire_date, employee.probationary_start_date,
@@ -244,6 +245,88 @@ begin
   from public.employee as employee
   join public.branch as branch on branch.id = employee.branch_id
   order by branch.name, employee.name;
+end;
+$$;
+
+create or replace function public.guest_list_employee_documents(
+  p_session_token uuid,
+  p_employee_id uuid
+)
+returns table (
+  document_id uuid,
+  document_type text,
+  file_name text,
+  content_type text,
+  file_size_bytes integer,
+  uploaded_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1
+    from public.guest_session as guest_session
+    where guest_session.session_token = p_session_token
+      and guest_session.expires_at > now()
+  ) then
+    raise exception 'Invalid or expired Guest session' using errcode = '28000';
+  end if;
+
+  if p_employee_id is null or not exists (
+    select 1
+    from public.employee as employee
+    where employee.id = p_employee_id
+  ) then
+    raise exception 'Employee was not found';
+  end if;
+
+  return query
+  select record.id, record.document_type, record.file_name, record.content_type,
+    octet_length(record.file_data), record.uploaded_at
+  from public.tafi_employee_document_record as record
+  where record.employee_id = p_employee_id
+  order by record.uploaded_at desc, record.id;
+end;
+$$;
+
+create or replace function public.guest_get_employee_document(
+  p_session_token uuid,
+  p_document_id uuid
+)
+returns table (
+  file_name text,
+  content_type text,
+  file_base64 text
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1
+    from public.guest_session as guest_session
+    where guest_session.session_token = p_session_token
+      and guest_session.expires_at > now()
+  ) then
+    raise exception 'Invalid or expired Guest session' using errcode = '28000';
+  end if;
+
+  if p_document_id is null or not exists (
+    select 1
+    from public.tafi_employee_document_record as record
+    where record.id = p_document_id
+  ) then
+    raise exception 'Employee document was not found';
+  end if;
+
+  return query
+  select record.file_name, record.content_type,
+    replace(encode(record.file_data, 'base64'), E'\n', '')
+  from public.tafi_employee_document_record as record
+  where record.id = p_document_id;
 end;
 $$;
 
@@ -479,6 +562,8 @@ revoke all on function public.guest_login(text, text) from public;
 revoke all on function public.guest_logout(uuid) from public;
 revoke all on function public.guest_list_employee_branches(uuid) from public;
 revoke all on function public.guest_list_employees(uuid) from public;
+revoke all on function public.guest_list_employee_documents(uuid, uuid) from public;
+revoke all on function public.guest_get_employee_document(uuid, uuid) from public;
 revoke all on function public.guest_get_employee_photo(uuid, uuid) from public;
 revoke all on function public.guest_list_employee_attendance(uuid, uuid, date, date) from public;
 revoke all on function public.guest_list_overtime_hours(uuid, uuid, date, date) from public;
@@ -491,6 +576,8 @@ grant execute on function public.guest_login(text, text) to anon, authenticated;
 grant execute on function public.guest_logout(uuid) to anon, authenticated;
 grant execute on function public.guest_list_employee_branches(uuid) to anon, authenticated;
 grant execute on function public.guest_list_employees(uuid) to anon, authenticated;
+grant execute on function public.guest_list_employee_documents(uuid, uuid) to anon, authenticated;
+grant execute on function public.guest_get_employee_document(uuid, uuid) to anon, authenticated;
 grant execute on function public.guest_get_employee_photo(uuid, uuid) to anon, authenticated;
 grant execute on function public.guest_list_employee_attendance(uuid, uuid, date, date) to anon, authenticated;
 grant execute on function public.guest_list_overtime_hours(uuid, uuid, date, date) to anon, authenticated;

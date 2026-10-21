@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Download, Eye, FileText, Upload, X } from 'lucide-react'
 import {
+	getGuestEmployeeDocument,
 	getTafiAdminEmployeeDocument,
+	listGuestEmployeeDocuments,
 	listTafiAdminEmployeeDocuments,
 	uploadTafiAdminEmployeeDocument
 } from '../../lib/supabase'
@@ -86,7 +88,7 @@ function createDocumentBlob(file) {
 	return new Blob([bytes], { type: file.content_type })
 }
 
-export default function TafiEmployeeDocuments({ sessionToken, employeeId }) {
+export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOnly = false }) {
 	const [documents, setDocuments] = useState([])
 	const [selectedCategory, setSelectedCategory] = useState(documentCategories[0].id)
 	const [selectedFile, setSelectedFile] = useState(null)
@@ -119,7 +121,9 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId }) {
 		const loadDocuments = async () => {
 			setIsLoading(true)
 			setLoadError('')
-			const { data, error } = await listTafiAdminEmployeeDocuments(sessionToken, employeeId)
+			const { data, error } = readOnly
+				? await listGuestEmployeeDocuments(sessionToken, employeeId)
+				: await listTafiAdminEmployeeDocuments(sessionToken, employeeId)
 			if (!isCurrent) return
 
 			if (error) {
@@ -135,7 +139,7 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId }) {
 		return () => {
 			isCurrent = false
 		}
-	}, [sessionToken, employeeId])
+	}, [sessionToken, employeeId, readOnly])
 
 	const handleUpload = async (event) => {
 		event.preventDefault()
@@ -194,7 +198,9 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId }) {
 	const handleView = async (record) => {
 		setDownloadError('')
 		setViewingId(record.document_id)
-		const { data, error } = await getTafiAdminEmployeeDocument(sessionToken, record.document_id)
+		const { data, error } = readOnly
+			? await getGuestEmployeeDocument(sessionToken, record.document_id)
+			: await getTafiAdminEmployeeDocument(sessionToken, record.document_id)
 		setViewingId('')
 		if (error) {
 			setDownloadError(error.message)
@@ -223,7 +229,9 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId }) {
 	const handleDownload = async (record) => {
 		setDownloadError('')
 		setDownloadingId(record.document_id)
-		const { data, error } = await getTafiAdminEmployeeDocument(sessionToken, record.document_id)
+		const { data, error } = readOnly
+			? await getGuestEmployeeDocument(sessionToken, record.document_id)
+			: await getTafiAdminEmployeeDocument(sessionToken, record.document_id)
 		setDownloadingId('')
 		if (error) {
 			setDownloadError(error.message)
@@ -255,11 +263,16 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId }) {
 			<div className="employee-detail-panel-heading">
 				<div>
 					<h4>Employee Records</h4>
-					<p>Upload and keep incident, contract, and evaluation files for this employee.</p>
+					<p>
+						{readOnly
+							? 'View or download incident, investigation, contract, and evaluation records for this employee.'
+							: 'Upload and manage incident, investigation, contract, and evaluation records for this employee.'}
+					</p>
 				</div>
 			</div>
 
-			<form className="employee-document-upload-form" onSubmit={handleUpload}>
+			{!readOnly && (
+				<form className="employee-document-upload-form" onSubmit={handleUpload}>
 				<label>
 					<span>Record type</span>
 					<select
@@ -290,15 +303,16 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId }) {
 					<Upload size={16} aria-hidden="true" />
 					{isUploading ? 'Uploading…' : 'Upload file'}
 				</button>
-			</form>
+				</form>
+			)}
 
-			{selectedFile && (
+			{!readOnly && selectedFile && (
 				<p className="employee-document-selected-file">
 					Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
 				</p>
 			)}
-			{uploadError && <p className="employee-document-message error" role="alert">{uploadError}</p>}
-			{uploadMessage && <p className="employee-document-message success" role="status">{uploadMessage}</p>}
+			{!readOnly && uploadError && <p className="employee-document-message error" role="alert">{uploadError}</p>}
+			{!readOnly && uploadMessage && <p className="employee-document-message success" role="status">{uploadMessage}</p>}
 			{downloadError && <p className="employee-document-message error" role="alert">{downloadError}</p>}
 			{loadError && <p className="employee-document-message error" role="alert">Could not load employee records: {loadError}</p>}
 			{isLoading ? (

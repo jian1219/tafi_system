@@ -86,7 +86,15 @@ alter table public.employee
   add column if not exists emergency_contact_name text,
   add column if not exists emergency_contact_number text,
   add column if not exists emergency_contact_relationship text,
-  add column if not exists civil_status text;
+  add column if not exists civil_status text,
+  add column if not exists place_of_birth text;
+
+alter table public.employee
+  drop constraint if exists employee_employment_status_check;
+
+alter table public.employee
+  add constraint employee_employment_status_check
+  check (employment_status in ('active', 'resign', 'awol', 'terminated', 'suspended', 'inactive'));
 
 do $$
 begin
@@ -645,6 +653,7 @@ returns table (
   gender text,
   civil_status text,
   birthday date,
+  place_of_birth text,
   tin_number text,
   sss_number text,
   pagibig_number text,
@@ -672,7 +681,7 @@ begin
   select e.id, e.branch_id, b.name, e.employee_code, e.name, e.position,
     e.employment_status, e.email, e.phone, e.emergency_contact_name,
     e.emergency_contact_number, e.emergency_contact_relationship,
-    e.address, e.gender, e.civil_status, e.birthday,
+    e.address, e.gender, e.civil_status, e.birthday, e.place_of_birth,
     e.tin_number, e.sss_number, e.pagibig_number, e.philhealth_number,
     e.employment_classification, e.daily_rate, e.hire_date,
     e.probationary_start_date, e.regular_start_date
@@ -1765,6 +1774,14 @@ drop function if exists public.tafi_admin_update_employee_profile(
   uuid, uuid, text, text, date, text, text, date, date, date,
   text, text, text, text, text, text, text, text
 );
+drop function if exists public.tafi_admin_update_employee_profile(
+  uuid, uuid, text, text, date, text, text, date, date, date,
+  text, text, text, text, text, text, text, text, text
+);
+drop function if exists public.tafi_admin_update_employee_profile(
+  uuid, uuid, text, text, date, text, text, date, date, date,
+  text, text, text, text, text, text, text, text, text, text
+);
 
 create or replace function public.tafi_admin_update_employee_profile(
   p_session_token uuid,
@@ -1785,7 +1802,9 @@ create or replace function public.tafi_admin_update_employee_profile(
   p_employment_classification text,
   p_emergency_contact_name text,
   p_emergency_contact_number text,
-  p_emergency_contact_relationship text
+  p_emergency_contact_relationship text,
+  p_place_of_birth text,
+  p_employment_status text
 )
 returns boolean
 language plpgsql
@@ -1830,6 +1849,12 @@ begin
     raise exception 'Select a valid emergency contact relationship';
   end if;
 
+  if p_employment_status is null or p_employment_status not in (
+    'active', 'resign', 'awol', 'terminated', 'suspended', 'inactive'
+  ) then
+    raise exception 'Select a valid employee status';
+  end if;
+
   update public.employee
   set address = nullif(trim(p_address), ''),
     gender = p_gender,
@@ -1837,6 +1862,7 @@ begin
     birthday = p_birthday,
     email = nullif(trim(p_email), ''),
     phone = nullif(trim(p_phone), ''),
+    place_of_birth = nullif(trim(p_place_of_birth), ''),
     emergency_contact_name = nullif(trim(p_emergency_contact_name), ''),
     emergency_contact_number = nullif(trim(p_emergency_contact_number), ''),
     emergency_contact_relationship = nullif(trim(p_emergency_contact_relationship), ''),
@@ -1848,6 +1874,7 @@ begin
     pagibig_number = nullif(trim(p_pagibig_number), ''),
     philhealth_number = nullif(trim(p_philhealth_number), ''),
     employment_classification = p_employment_classification,
+    employment_status = p_employment_status,
     updated_at = now()
   where id = p_employee_id;
 
@@ -2327,7 +2354,7 @@ revoke all on function public.tafi_admin_list_overtime_hours(uuid, uuid, date, d
 revoke all on function public.tafi_admin_list_undertime_deductions(uuid, uuid, date, date) from public;
 revoke all on function public.tafi_admin_create_employee(uuid, uuid, text, text, text) from public;
 revoke all on function public.tafi_admin_save_attendance(uuid, uuid, date, jsonb) from public;
-revoke all on function public.tafi_admin_update_employee_profile(uuid, uuid, text, text, text, date, text, text, date, date, date, text, text, text, text, text, text, text, text) from public;
+revoke all on function public.tafi_admin_update_employee_profile(uuid, uuid, text, text, text, date, text, text, date, date, date, text, text, text, text, text, text, text, text, text, text) from public;
 revoke all on function public.tafi_admin_get_weekly_payroll_data(uuid, uuid, date, date) from public;
 revoke all on function public.tafi_admin_update_employee_daily_rate(uuid, uuid, numeric) from public;
 revoke all on function public.tafi_admin_list_attendance(uuid, uuid, date, date) from public;
@@ -2360,7 +2387,7 @@ grant execute on function public.tafi_admin_list_overtime_hours(uuid, uuid, date
 grant execute on function public.tafi_admin_list_undertime_deductions(uuid, uuid, date, date) to anon, authenticated;
 grant execute on function public.tafi_admin_create_employee(uuid, uuid, text, text, text) to anon, authenticated;
 grant execute on function public.tafi_admin_save_attendance(uuid, uuid, date, jsonb) to anon, authenticated;
-grant execute on function public.tafi_admin_update_employee_profile(uuid, uuid, text, text, text, date, text, text, date, date, date, text, text, text, text, text, text, text, text) to anon, authenticated;
+grant execute on function public.tafi_admin_update_employee_profile(uuid, uuid, text, text, text, date, text, text, date, date, date, text, text, text, text, text, text, text, text, text, text) to anon, authenticated;
 grant execute on function public.tafi_admin_get_weekly_payroll_data(uuid, uuid, date, date) to anon, authenticated;
 grant execute on function public.tafi_admin_update_employee_daily_rate(uuid, uuid, numeric) to anon, authenticated;
 grant execute on function public.tafi_admin_list_attendance(uuid, uuid, date, date) to anon, authenticated;

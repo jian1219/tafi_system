@@ -1085,6 +1085,7 @@ returns table (
   employee_name text,
   employee_position text,
   attendance_date date,
+  shift text,
   status text,
   late_minutes integer,
   daily_rate_snapshot numeric
@@ -1112,7 +1113,7 @@ begin
 
   return query
   select employee.employee_code, employee.name, employee.position,
-    attendance.attendance_date, attendance.status, attendance.late_minutes,
+    attendance.attendance_date, attendance.shift, attendance.status, attendance.late_minutes,
     attendance.daily_rate_snapshot
   from public.employee_attendance as attendance
   join public.employee as employee on employee.id = attendance.employee_id
