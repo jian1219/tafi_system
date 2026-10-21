@@ -1815,7 +1815,8 @@ fieldset.employee-emergency-contact-box {
 }
 
 .employee-document-upload-form .add-employee-submit,
-.employee-document-download {
+.employee-document-download,
+.employee-document-delete {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1823,7 +1824,8 @@ fieldset.employee-emergency-contact-box {
 }
 
 .employee-document-upload-form .add-employee-submit:disabled,
-.employee-document-download:disabled {
+.employee-document-download:disabled,
+.employee-document-delete:disabled {
   cursor: wait;
   opacity: 0.65;
 }
@@ -1922,6 +1924,23 @@ fieldset.employee-emergency-contact-box {
   background: #eff6ff;
 }
 
+.employee-document-delete {
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #b91c1c;
+  background: #fff;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.employee-document-delete:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
 .employee-document-actions {
   display: flex;
   flex: 0 0 auto;
@@ -1948,6 +1967,71 @@ fieldset.employee-emergency-contact-box {
   border-radius: 12px;
   background: #fff;
   box-shadow: 0 24px 64px rgb(15 23 42 / 30%);
+}
+
+.employee-document-delete-dialog {
+  width: min(100%, 480px);
+  padding: 24px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 24px 64px rgb(15 23 42 / 30%);
+}
+
+.employee-document-delete-dialog h5 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.05rem;
+}
+
+.employee-document-delete-dialog > p:not(.employee-document-message) {
+  margin: 12px 0 0;
+  color: #475569;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.employee-document-delete-dialog > p strong {
+  color: #1e293b;
+}
+
+.employee-document-delete-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 22px;
+}
+
+.employee-document-delete-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 8px 13px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.83rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.employee-document-delete-cancel {
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  background: #fff;
+}
+
+.employee-document-delete-confirm {
+  border: 1px solid #b91c1c;
+  color: #fff;
+  background: #b91c1c;
+}
+
+.employee-document-delete-actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .employee-document-preview-heading {

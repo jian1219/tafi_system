@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Download, Eye, FileText, Upload, X } from 'lucide-react'
+import { Download, Eye, FileText, Trash2, Upload, X } from 'lucide-react'
 import {
+	deleteTafiAdminEmployeeDocument,
 	getGuestEmployeeDocument,
 	getTafiAdminEmployeeDocument,
 	listGuestEmployeeDocuments,
@@ -97,9 +98,13 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOn
 	const [isUploading, setIsUploading] = useState(false)
 	const [downloadingId, setDownloadingId] = useState('')
 	const [viewingId, setViewingId] = useState('')
+	const [recordToDelete, setRecordToDelete] = useState(null)
+	const [isDeleting, setIsDeleting] = useState(false)
 	const [loadError, setLoadError] = useState('')
 	const [uploadError, setUploadError] = useState('')
 	const [downloadError, setDownloadError] = useState('')
+	const [deleteError, setDeleteError] = useState('')
+	const [deleteMessage, setDeleteMessage] = useState('')
 	const [uploadMessage, setUploadMessage] = useState('')
 
 	useEffect(() => {
@@ -110,6 +115,15 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOn
 		window.addEventListener('keydown', handleKeyDown)
 		return () => window.removeEventListener('keydown', handleKeyDown)
 	}, [previewDocument])
+
+	useEffect(() => {
+		if (!recordToDelete || isDeleting) return undefined
+		const handleKeyDown = (event) => {
+			if (event.key === 'Escape') setRecordToDelete(null)
+		}
+		window.addEventListener('keydown', handleKeyDown)
+		return () => window.removeEventListener('keydown', handleKeyDown)
+	}, [recordToDelete, isDeleting])
 
 	useEffect(() => () => {
 		if (previewDocument?.url) URL.revokeObjectURL(previewDocument.url)
@@ -258,6 +272,38 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOn
 		}
 	}
 
+	const handleDelete = async () => {
+		if (!recordToDelete || readOnly || isDeleting) return
+
+		const selectedRecord = recordToDelete
+		setIsDeleting(true)
+		setDeleteError('')
+		setDeleteMessage('')
+
+		const { data, error } = await deleteTafiAdminEmployeeDocument(
+			sessionToken,
+			selectedRecord.document_id
+		)
+		setIsDeleting(false)
+		if (error) {
+			setDeleteError(error.message)
+			return
+		}
+		if (data !== true) {
+			setDeleteError('The employee record was not deleted.')
+			return
+		}
+
+		setDocuments((current) => current.filter(
+			(record) => record.document_id !== selectedRecord.document_id
+		))
+		if (previewDocument?.documentId === selectedRecord.document_id) {
+			setPreviewDocument(null)
+		}
+		setRecordToDelete(null)
+		setDeleteMessage(`${selectedRecord.file_name} was deleted.`)
+	}
+
 	return (
 		<section className="employee-detail-panel employee-personal-details employee-document-records">
 			<div className="employee-detail-panel-heading">
@@ -313,6 +359,7 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOn
 			)}
 			{!readOnly && uploadError && <p className="employee-document-message error" role="alert">{uploadError}</p>}
 			{!readOnly && uploadMessage && <p className="employee-document-message success" role="status">{uploadMessage}</p>}
+			{!readOnly && deleteMessage && <p className="employee-document-message success" role="status">{deleteMessage}</p>}
 			{downloadError && <p className="employee-document-message error" role="alert">{downloadError}</p>}
 			{loadError && <p className="employee-document-message error" role="alert">Could not load employee records: {loadError}</p>}
 			{isLoading ? (
@@ -358,6 +405,22 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOn
 														<Download size={16} aria-hidden="true" />
 														{downloadingId === record.document_id ? 'Preparing…' : 'Download'}
 													</button>
+													{!readOnly && (
+														<button
+															type="button"
+															className="employee-document-delete"
+															disabled={isDeleting || viewingId === record.document_id || downloadingId === record.document_id}
+															aria-label={`Delete ${record.file_name}`}
+															onClick={() => {
+																setRecordToDelete(record)
+																setDeleteError('')
+																setDeleteMessage('')
+															}}
+														>
+															<Trash2 size={16} aria-hidden="true" />
+															Delete
+														</button>
+													)}
 												</div>
 											</li>
 										))}
@@ -416,6 +479,49 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOn
 							)}
 						</div>
 						{downloadError && <p className="employee-document-message error" role="alert">{downloadError}</p>}
+					</section>
+				</div>
+			)}
+			{!readOnly && recordToDelete && (
+				<div
+					className="employee-document-preview-backdrop"
+					role="presentation"
+					onMouseDown={(event) => {
+						if (!isDeleting && event.target === event.currentTarget) setRecordToDelete(null)
+					}}
+				>
+					<section
+						className="employee-document-delete-dialog"
+						role="alertdialog"
+						aria-modal="true"
+						aria-labelledby="employee-document-delete-title"
+						aria-describedby="employee-document-delete-description"
+					>
+						<h5 id="employee-document-delete-title">Delete employee record?</h5>
+						<p id="employee-document-delete-description">
+							This will permanently delete <strong>{recordToDelete.file_name}</strong> and its stored file data.
+							This action cannot be undone.
+						</p>
+						{deleteError && <p className="employee-document-message error" role="alert">{deleteError}</p>}
+						<div className="employee-document-delete-actions">
+							<button
+								type="button"
+								className="employee-document-delete-cancel"
+								disabled={isDeleting}
+								onClick={() => setRecordToDelete(null)}
+							>
+								Cancel
+							</button>
+							<button
+								type="button"
+								className="employee-document-delete-confirm"
+								disabled={isDeleting}
+								onClick={handleDelete}
+							>
+								<Trash2 size={16} aria-hidden="true" />
+								{isDeleting ? 'Deleting…' : 'Delete file'}
+							</button>
+						</div>
 					</section>
 				</div>
 			)}

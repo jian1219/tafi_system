@@ -1004,6 +1004,21 @@ export async function getTafiAdminEmployeeDocument(sessionToken, documentId) {
   }
 }
 
+export async function deleteTafiAdminEmployeeDocument(sessionToken, documentId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_delete_employee_document', {
+      p_session_token: sessionToken,
+      p_document_id: documentId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to delete the employee document.')
+    }
+  }
+}
+
 export async function listGuestEmployeeDocuments(sessionToken, employeeId) {
   try {
     const supabaseClient = await getSupabaseClient()

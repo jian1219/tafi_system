@@ -20,6 +20,7 @@ returns uuid
 language plpgsql
 security definer
 set search_path = ''
+set statement_timeout = '60s'
 as $$
 declare
   v_tafi_admin_id uuid;
