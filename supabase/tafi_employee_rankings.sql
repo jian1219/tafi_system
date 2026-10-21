@@ -1,7 +1,10 @@
 begin;
 
 -- Run after tafi_admin_management.sql and tafi_employee_documents.sql.
-create or replace function public.tafi_admin_list_employee_rankings(
+drop function if exists public.tafi_admin_list_employee_ranking_photos(uuid, uuid[]);
+drop function if exists public.tafi_admin_list_employee_rankings(uuid, date, date);
+
+create function public.tafi_admin_list_employee_rankings(
   p_session_token uuid,
   p_start_date date,
   p_end_date date

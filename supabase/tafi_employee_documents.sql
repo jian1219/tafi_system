@@ -18,7 +18,7 @@ create table if not exists public.tafi_employee_document_record (
     'image/png',
     'image/webp'
   )),
-  file_data bytea not null check (octet_length(file_data) between 1 and 5242880),
+  file_data bytea not null check (octet_length(file_data) between 1 and 20971520),
   uploaded_by_tafi_admin_id uuid references public.tafi_admin(id) on delete set null,
   uploaded_at timestamptz not null default now()
 );
@@ -142,13 +142,13 @@ begin
 
   if p_file_base64 is null
     or length(p_file_base64) = 0
-    or length(p_file_base64) > 6990508 then
-    raise exception 'Employee documents must be no larger than 5 MB';
+    or length(p_file_base64) > 27962028 then
+    raise exception 'Employee documents must be no larger than 20 MB';
   end if;
 
   v_file_data := decode(p_file_base64, 'base64');
-  if octet_length(v_file_data) = 0 or octet_length(v_file_data) > 5242880 then
-    raise exception 'Employee documents must be no larger than 5 MB';
+  if octet_length(v_file_data) = 0 or octet_length(v_file_data) > 20971520 then
+    raise exception 'Employee documents must be no larger than 20 MB';
   end if;
 
   insert into public.tafi_employee_document_record (

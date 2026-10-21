@@ -8,7 +8,7 @@ import {
 	uploadTafiAdminEmployeeDocument
 } from '../../lib/supabase'
 
-const maxFileSize = 5 * 1024 * 1024
+const maxFileSize = 20 * 1024 * 1024
 const acceptedContentTypes = new Set([
 	'application/pdf',
 	'application/msword',
@@ -155,7 +155,7 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOn
 			return
 		}
 		if (selectedFile.size === 0 || selectedFile.size > maxFileSize) {
-			setUploadError('Choose a file larger than 0 bytes and no larger than 5 MB.')
+			setUploadError('Choose a file larger than 0 bytes and no larger than 20 MB.')
 			return
 		}
 
@@ -286,7 +286,7 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOn
 					</select>
 				</label>
 				<label>
-					<span>File (PDF, Word, JPEG, PNG, or WebP · max 5 MB)</span>
+					<span>File (PDF, Word, JPEG, PNG, or WebP · max 20 MB)</span>
 					<input
 						type="file"
 						accept={acceptedFileTypes}

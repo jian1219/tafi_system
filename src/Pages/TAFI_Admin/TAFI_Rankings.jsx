@@ -117,7 +117,7 @@ function RankingCategory({ category, employees, photos }) {
 									<strong className="ranking-employee-name">{employee.employee_name}</strong>
 									<span className="ranking-employee-branch">{employee.branch_name}</span>
 									<span className="ranking-score">
-										<strong>{count}</strong>
+									<strong>{count}</strong>
 										<span>{category.unit(count)}</span>
 									</span>
 									<span className="ranking-podium-base" aria-hidden="true">{rank}</span>
