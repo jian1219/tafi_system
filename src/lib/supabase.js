@@ -1077,6 +1077,22 @@ export async function listGuestEmployees(sessionToken) {
   }
 }
 
+export async function listGuestEmployeeRankings(sessionToken, startDate, endDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('guest_list_employee_rankings', {
+      p_session_token: sessionToken,
+      p_start_date: startDate,
+      p_end_date: endDate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load employee rankings.')
+    }
+  }
+}
+
 export async function getGuestEmployeePhoto(sessionToken, employeeId) {
   try {
     const supabaseClient = await getSupabaseClient()

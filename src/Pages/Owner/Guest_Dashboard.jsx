@@ -1,16 +1,18 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { CalendarDays, LayoutDashboard, LogOut, ShieldCheck, Users } from 'lucide-react'
+import { CalendarDays, LayoutDashboard, LogOut, ShieldCheck, Trophy, Users } from 'lucide-react'
 import { revokeGuestSession } from '../../lib/supabase'
 import GuestOverview from './Guest_Overview'
 import GuestEmployee from './Guest_Employee'
 import GuestAttendance from './Guest_Attendance'
+const GuestRankings = lazy(() => import('./Guest_Rankings'))
 import logoImage from '../../images/Tafi logo transparent.png'
 
 const navigationItems = [
 	{ id: 'overview', label: 'Overview', icon: LayoutDashboard },
 	{ id: 'employee', label: 'Employee', icon: Users },
-	{ id: 'attendance', label: 'Attendance', icon: CalendarDays }
+	{ id: 'attendance', label: 'Attendance', icon: CalendarDays },
+	{ id: 'rankings', label: 'Employee Rankings', icon: Trophy }
 ]
 
 export default function GuestDashboard() {
@@ -96,7 +98,13 @@ export default function GuestDashboard() {
 						? <GuestOverview guest={guest} />
 						: activePage === 'employee'
 							? <GuestEmployee sessionToken={guest.session_token} />
-							: <GuestAttendance sessionToken={guest.session_token} />}
+							: activePage === 'attendance'
+								? <GuestAttendance sessionToken={guest.session_token} />
+								: (
+									<Suspense fallback={<p className="ranking-loading" role="status">Loading employee rankings…</p>}>
+										<GuestRankings sessionToken={guest.session_token} />
+									</Suspense>
+								)}
 				</section>
 			</main>
 		</div>

@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CalendarDays, Clock3, FileWarning, Medal, Trophy, UserRound } from 'lucide-react'
-import { getTafiAdminEmployeePhoto, listTafiAdminEmployeeRankings } from '../../lib/supabase'
+import {
+	getGuestEmployeePhoto,
+	getTafiAdminEmployeePhoto,
+	listGuestEmployeeRankings,
+	listTafiAdminEmployeeRankings
+} from '../../lib/supabase'
 
 const rankingCategories = [
 	{
@@ -163,7 +168,7 @@ function RankingCategory({ category, employees, photos }) {
 	)
 }
 
-export default function TafiRankings({ sessionToken }) {
+export default function TafiRankings({ sessionToken, readOnly = false }) {
 	const [periodMode, setPeriodMode] = useState('monthly')
 	const [selectedMonth, setSelectedMonth] = useState(currentMonth)
 	const [selectedYear, setSelectedYear] = useState(String(currentDate.getFullYear()))
@@ -200,11 +205,9 @@ export default function TafiRankings({ sessionToken }) {
 			setIsLoading(true)
 			setLoadError('')
 			setEmployeeMetrics([])
-			const { data, error } = await listTafiAdminEmployeeRankings(
-				sessionToken,
-				dateRange.startDate,
-				dateRange.endDate
-			)
+			const { data, error } = readOnly
+				? await listGuestEmployeeRankings(sessionToken, dateRange.startDate, dateRange.endDate)
+				: await listTafiAdminEmployeeRankings(sessionToken, dateRange.startDate, dateRange.endDate)
 			if (!isCurrent) return
 
 			if (error) {
@@ -220,7 +223,7 @@ export default function TafiRankings({ sessionToken }) {
 		return () => {
 			isCurrent = false
 		}
-	}, [sessionToken, dateRange])
+	}, [sessionToken, dateRange, readOnly])
 
 	useEffect(() => {
 		let isCurrent = true
@@ -231,7 +234,9 @@ export default function TafiRankings({ sessionToken }) {
 			if (!rankedEmployees.length) return
 
 			const results = await Promise.all(rankedEmployees.map(async (employee) => {
-				const { data, error } = await getTafiAdminEmployeePhoto(sessionToken, employee.employee_id)
+				const { data, error } = readOnly
+					? await getGuestEmployeePhoto(sessionToken, employee.employee_id)
+					: await getTafiAdminEmployeePhoto(sessionToken, employee.employee_id)
 				if (error) {
 					return { employee, photoUrl: '', error: `${employee.employee_name}: ${error.message}` }
 				}
@@ -257,7 +262,7 @@ export default function TafiRankings({ sessionToken }) {
 		return () => {
 			isCurrent = false
 		}
-	}, [sessionToken, rankedEmployees])
+	}, [sessionToken, rankedEmployees, readOnly])
 
 	return (
 		<div className="tafi-rankings-page">
