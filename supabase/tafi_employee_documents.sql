@@ -23,6 +23,18 @@ create table if not exists public.tafi_employee_document_record (
   uploaded_at timestamptz not null default now()
 );
 
+alter table public.tafi_employee_document_record
+  drop constraint if exists tafi_employee_document_record_document_type_check;
+
+alter table public.tafi_employee_document_record
+  add constraint tafi_employee_document_record_document_type_check
+  check (document_type in (
+    'incident_report',
+    'investigation_report',
+    'employee_contract',
+    'employee_evaluation'
+  ));
+
 create index if not exists tafi_employee_document_record_employee_type_idx
   on public.tafi_employee_document_record (employee_id, document_type, uploaded_at desc);
 
@@ -106,6 +118,7 @@ begin
 
   if p_document_type is null or p_document_type not in (
     'incident_report',
+    'investigation_report',
     'employee_contract',
     'employee_evaluation'
   ) then

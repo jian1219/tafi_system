@@ -7,22 +7,18 @@ alter table public.employee
   add column if not exists emergency_contact_relationship text,
   add column if not exists civil_status text;
 
+alter table public.employee
+  drop constraint if exists employee_emergency_contact_relationship_check;
+
+alter table public.employee
+  add constraint employee_emergency_contact_relationship_check
+  check (
+    emergency_contact_relationship is null
+    or emergency_contact_relationship in ('Parents', 'Guardian', 'Sibling', 'Child', 'Relatives', 'Spouse')
+  );
+
 do $$
 begin
-  if not exists (
-    select 1
-    from pg_constraint
-    where conrelid = 'public.employee'::regclass
-      and conname = 'employee_emergency_contact_relationship_check'
-  ) then
-    alter table public.employee
-      add constraint employee_emergency_contact_relationship_check
-      check (
-        emergency_contact_relationship is null
-        or emergency_contact_relationship in ('Parents', 'Guardian', 'Sibling', 'Relatives')
-      );
-  end if;
-
   if not exists (
     select 1
     from pg_constraint
@@ -173,7 +169,7 @@ begin
   end if;
 
   if p_emergency_contact_relationship is not null
-    and p_emergency_contact_relationship not in ('Parents', 'Guardian', 'Sibling', 'Relatives') then
+    and p_emergency_contact_relationship not in ('Parents', 'Guardian', 'Sibling', 'Child', 'Relatives', 'Spouse') then
     raise exception 'Select a valid emergency contact relationship';
   end if;
 

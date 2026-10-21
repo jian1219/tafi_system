@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Download, FileText, Upload } from 'lucide-react'
+import { Download, Eye, FileText, Upload, X } from 'lucide-react'
 import {
 	getTafiAdminEmployeeDocument,
 	listTafiAdminEmployeeDocuments,
@@ -33,6 +33,7 @@ const acceptedFileTypes = [
 
 const documentCategories = [
 	{ id: 'incident_report', label: 'Incident Report' },
+	{ id: 'investigation_report', label: 'Investigation Report' },
 	{ id: 'employee_contract', label: 'Employee Contract Records' },
 	{ id: 'employee_evaluation', label: 'Employee Evaluation Records' }
 ]
@@ -76,17 +77,41 @@ function formatUploadedAt(value) {
 	}).format(date)
 }
 
+function createDocumentBlob(file) {
+	const binary = window.atob(file.file_base64)
+	const bytes = new Uint8Array(binary.length)
+	for (let index = 0; index < binary.length; index += 1) {
+		bytes[index] = binary.charCodeAt(index)
+	}
+	return new Blob([bytes], { type: file.content_type })
+}
+
 export default function TafiEmployeeDocuments({ sessionToken, employeeId }) {
 	const [documents, setDocuments] = useState([])
 	const [selectedCategory, setSelectedCategory] = useState(documentCategories[0].id)
 	const [selectedFile, setSelectedFile] = useState(null)
+	const [previewDocument, setPreviewDocument] = useState(null)
 	const [isLoading, setIsLoading] = useState(true)
 	const [isUploading, setIsUploading] = useState(false)
 	const [downloadingId, setDownloadingId] = useState('')
+	const [viewingId, setViewingId] = useState('')
 	const [loadError, setLoadError] = useState('')
 	const [uploadError, setUploadError] = useState('')
 	const [downloadError, setDownloadError] = useState('')
 	const [uploadMessage, setUploadMessage] = useState('')
+
+	useEffect(() => {
+		if (!previewDocument) return undefined
+		const handleKeyDown = (event) => {
+			if (event.key === 'Escape') setPreviewDocument(null)
+		}
+		window.addEventListener('keydown', handleKeyDown)
+		return () => window.removeEventListener('keydown', handleKeyDown)
+	}, [previewDocument])
+
+	useEffect(() => () => {
+		if (previewDocument?.url) URL.revokeObjectURL(previewDocument.url)
+	}, [previewDocument])
 
 	useEffect(() => {
 		let isCurrent = true
@@ -166,6 +191,35 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId }) {
 		setUploadMessage('File uploaded successfully.')
 	}
 
+	const handleView = async (record) => {
+		setDownloadError('')
+		setViewingId(record.document_id)
+		const { data, error } = await getTafiAdminEmployeeDocument(sessionToken, record.document_id)
+		setViewingId('')
+		if (error) {
+			setDownloadError(error.message)
+			return
+		}
+
+		const file = data?.[0]
+		if (!file) {
+			setDownloadError('The selected employee document was not returned.')
+			return
+		}
+
+		try {
+			const fileUrl = URL.createObjectURL(createDocumentBlob(file))
+			setPreviewDocument({
+				documentId: record.document_id,
+				fileName: file.file_name,
+				contentType: file.content_type,
+				url: fileUrl
+			})
+		} catch (error) {
+			setDownloadError(error instanceof Error ? error.message : 'Unable to prepare the employee document preview.')
+		}
+	}
+
 	const handleDownload = async (record) => {
 		setDownloadError('')
 		setDownloadingId(record.document_id)
@@ -183,12 +237,7 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId }) {
 		}
 
 		try {
-			const binary = window.atob(file.file_base64)
-			const bytes = new Uint8Array(binary.length)
-			for (let index = 0; index < binary.length; index += 1) {
-				bytes[index] = binary.charCodeAt(index)
-			}
-			const fileUrl = URL.createObjectURL(new Blob([bytes], { type: file.content_type }))
+			const fileUrl = URL.createObjectURL(createDocumentBlob(file))
 			const link = document.createElement('a')
 			link.href = fileUrl
 			link.download = file.file_name
@@ -276,15 +325,26 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId }) {
 														</span>
 													</div>
 												</div>
-												<button
-													type="button"
-													className="employee-document-download"
-													disabled={downloadingId === record.document_id}
-													onClick={() => handleDownload(record)}
-												>
-													<Download size={16} aria-hidden="true" />
-													{downloadingId === record.document_id ? 'Preparing…' : 'Download'}
-												</button>
+												<div className="employee-document-actions">
+													<button
+														type="button"
+														className="employee-document-download"
+														disabled={viewingId === record.document_id || downloadingId === record.document_id}
+														onClick={() => handleView(record)}
+													>
+														<Eye size={16} aria-hidden="true" />
+														{viewingId === record.document_id ? 'Loading…' : 'View'}
+													</button>
+													<button
+														type="button"
+														className="employee-document-download"
+														disabled={viewingId === record.document_id || downloadingId === record.document_id}
+														onClick={() => handleDownload(record)}
+													>
+														<Download size={16} aria-hidden="true" />
+														{downloadingId === record.document_id ? 'Preparing…' : 'Download'}
+													</button>
+												</div>
 											</li>
 										))}
 									</ul>
@@ -296,6 +356,55 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId }) {
 					})}
 				</div>
 			) : null}
+			{previewDocument && (
+				<div
+					className="employee-document-preview-backdrop"
+					role="presentation"
+					onMouseDown={(event) => {
+						if (event.target === event.currentTarget) setPreviewDocument(null)
+					}}
+				>
+					<section
+						className="employee-document-preview"
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby="employee-document-preview-title"
+					>
+						<header className="employee-document-preview-heading">
+							<h5 id="employee-document-preview-title">{previewDocument.fileName}</h5>
+							<button
+								type="button"
+								className="employee-document-preview-close"
+								aria-label="Close document preview"
+								onClick={() => setPreviewDocument(null)}
+							>
+								<X size={20} aria-hidden="true" />
+							</button>
+						</header>
+						<div className="employee-document-preview-content">
+							{previewDocument.contentType === 'application/pdf' ? (
+								<iframe src={previewDocument.url} title={`Preview of ${previewDocument.fileName}`} />
+							) : previewDocument.contentType.startsWith('image/') ? (
+								<img src={previewDocument.url} alt={previewDocument.fileName} />
+							) : (
+								<div className="employee-document-preview-unsupported">
+									<p>Preview is not available for Word documents. Download the file to open it.</p>
+									<button
+										type="button"
+										className="employee-document-download"
+										disabled={downloadingId === previewDocument.documentId}
+										onClick={() => handleDownload({ document_id: previewDocument.documentId })}
+									>
+										<Download size={16} aria-hidden="true" />
+										{downloadingId === previewDocument.documentId ? 'Preparing…' : 'Download file'}
+									</button>
+								</div>
+							)}
+						</div>
+						{downloadError && <p className="employee-document-message error" role="alert">{downloadError}</p>}
+					</section>
+				</div>
+			)}
 		</section>
 	)
 }

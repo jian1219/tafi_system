@@ -93,7 +93,7 @@ create table if not exists public.employee (
   emergency_contact_relationship text
     check (
       emergency_contact_relationship is null
-      or emergency_contact_relationship in ('Parents', 'Guardian', 'Sibling', 'Relatives')
+      or emergency_contact_relationship in ('Parents', 'Guardian', 'Sibling', 'Child', 'Relatives', 'Spouse')
     ),
   tin_number text,
   sss_number text,

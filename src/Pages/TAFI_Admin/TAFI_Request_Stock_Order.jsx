@@ -70,6 +70,16 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 		})
 	}, [branchFilter, requests, searchTerm])
 
+	const filteredRequestGroups = useMemo(() => {
+		const groups = new Map()
+		filteredRequests.forEach((request) => {
+			const groupId = request.request_group_id ?? request.request_id
+			if (!groups.has(groupId)) groups.set(groupId, [])
+			groups.get(groupId).push(request)
+		})
+		return [...groups.entries()].map(([groupId, items]) => ({ groupId, items }))
+	}, [filteredRequests])
+
 	const pendingRequests = requests.filter((request) => request.status === 'pending')
 
 	const handleDeliver = async (event, request) => {
@@ -132,7 +142,7 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 					aria-controls="tafi-stock-deliver-panel"
 					onClick={() => setActiveTab('deliver')}
 				>
-					Order Deliver ({pendingRequests.length})
+					Purchase Order Request Form ({pendingRequests.length})
 				</button>
 			</div>
 
@@ -146,7 +156,7 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 				<div className="accountant-inventory-list-heading">
 					<div>
 						<h2>Branch stock requests</h2>
-						<p>{filteredRequests.length} of {requests.length} requests</p>
+						<p>{filteredRequestGroups.length} orders · {filteredRequests.length} items</p>
 					</div>
 					<button
 						type="button"
@@ -202,23 +212,31 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 									<th scope="col">Requested on</th>
 								</tr>
 							</thead>
-							<tbody>
-								{filteredRequests.map((request) => (
-									<tr key={request.request_id}>
-										<td>{formatOrderNumber(request.request_group_id)}</td>
-										<td>{request.branch_name}</td>
-										<td>{request.stock_no}</td>
-										<td>{request.item_description}</td>
-										<td>{request.unit_of_measure}</td>
-										<td>{request.quantity_requested}</td>
-										<td>{request.quantity_delivered ?? '—'}</td>
-										<td>{request.quantity_received ?? '—'}</td>
-										<td>{request.status}</td>
-										<td>{request.received_at ? new Date(request.received_at).toLocaleString() : '—'}</td>
-										<td>{new Date(request.created_at).toLocaleString()}</td>
+							{filteredRequestGroups.map(({ groupId, items }) => (
+								<tbody className="tafi-stock-request-group" key={groupId}>
+									<tr className="tafi-stock-request-group-heading">
+										<th scope="rowgroup" colSpan="11">
+											Order {formatOrderNumber(groupId)} — {items[0].branch_name}
+											<span>{new Date(items[0].created_at).toLocaleString()}</span>
+										</th>
 									</tr>
-								))}
-							</tbody>
+									{items.map((request) => (
+										<tr key={request.request_id}>
+											<td>{formatOrderNumber(request.request_group_id)}</td>
+											<td>{request.branch_name}</td>
+											<td>{request.stock_no}</td>
+											<td>{request.item_description}</td>
+											<td>{request.unit_of_measure}</td>
+											<td>{request.quantity_requested}</td>
+											<td>{request.quantity_delivered ?? '—'}</td>
+											<td>{request.quantity_received ?? '—'}</td>
+											<td>{request.status}</td>
+											<td>{request.received_at ? new Date(request.received_at).toLocaleString() : '—'}</td>
+											<td>{new Date(request.created_at).toLocaleString()}</td>
+										</tr>
+									))}
+								</tbody>
+							))}
 						</table>
 					</div>
 				) : errorMessage ? null : (
