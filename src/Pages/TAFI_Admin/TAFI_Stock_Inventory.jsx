@@ -148,9 +148,11 @@ export default function TafiStockInventory({ sessionToken }) {
 	)
 
 	const filteredBranchStockItems = useMemo(() => {
+		if (!branchStockBranch) return []
+
 		const query = branchStockSearch.trim().toLocaleLowerCase()
 		return branchStockItems.filter((item) => {
-			if (branchStockBranch && item.branch_name !== branchStockBranch) return false
+			if (item.branch_name !== branchStockBranch) return false
 			if (!query) return true
 			return [
 				item.branch_name,
@@ -466,9 +468,9 @@ export default function TafiStockInventory({ sessionToken }) {
 						<h2>Branch inventory stock</h2>
 						<p>Current quantities recorded in each branch's inventory.</p>
 						<p>
-							{filteredBranchStockItems.length} stock item{filteredBranchStockItems.length === 1 ? '' : 's'}
-							{' across '}
-							{branchNames.length} branch{branchNames.length === 1 ? '' : 'es'}
+							{branchStockBranch
+								? `${filteredBranchStockItems.length} stock item${filteredBranchStockItems.length === 1 ? '' : 's'} in ${branchStockBranch}`
+								: 'Select a branch to view its inventory.'}
 						</p>
 					</div>
 					<button
@@ -503,7 +505,7 @@ export default function TafiStockInventory({ sessionToken }) {
 									value={branchStockBranch}
 									onChange={(event) => setBranchStockBranch(event.target.value)}
 								>
-									<option value="">All branches</option>
+									<option value="">Select a branch</option>
 									{branchNames.map((branch) => (
 										<option key={branch} value={branch}>{branch}</option>
 									))}
@@ -519,8 +521,6 @@ export default function TafiStockInventory({ sessionToken }) {
 											<th scope="col">Stock no.</th>
 											<th scope="col">Item description</th>
 											<th scope="col">Unit</th>
-											<th scope="col">Current stock (branch on hand)</th>
-											<th scope="col">Allocated</th>
 											<th scope="col">Available</th>
 										</tr>
 									</thead>
@@ -531,16 +531,16 @@ export default function TafiStockInventory({ sessionToken }) {
 												<td>{item.stock_no}</td>
 												<td>{item.item_description}</td>
 												<td>{item.unit_of_measure}</td>
-												<td>{item.onhand}</td>
-												<td>{item.allocated}</td>
 												<td>{item.available}</td>
 											</tr>
 										))}
 									</tbody>
 								</table>
 							</div>
-						) : (
+						) : branchStockBranch ? (
 							<p className="accountant-inventory-empty">No branch stock items match those filters.</p>
+						) : (
+							<p className="accountant-inventory-empty">Select a branch to view its inventory.</p>
 						)}
 					</>
 				) : branchStockLoadError ? null : (

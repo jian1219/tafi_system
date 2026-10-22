@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import {
 	createBranchStockRequestBatch,
@@ -21,6 +21,22 @@ const createRequestLine = () => ({
 })
 
 const formatOrderNumber = (groupId) => groupId?.slice(0, 8).toUpperCase() ?? '—'
+const requestDateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
+	timeZone: 'Asia/Manila',
+	year: 'numeric',
+	month: '2-digit',
+	day: '2-digit'
+})
+const requestDateLabelFormatter = new Intl.DateTimeFormat(undefined, {
+	timeZone: 'Asia/Manila',
+	dateStyle: 'full'
+})
+const getRequestDateKey = (createdAt) => {
+	const parts = requestDateKeyFormatter.formatToParts(new Date(createdAt))
+	return ['year', 'month', 'day']
+		.map((partType) => parts.find((part) => part.type === partType).value)
+		.join('-')
+}
 
 const loadRequestData = async (sessionToken) => {
 	const [stockResult, requestResult, historyResult] = await Promise.all([
@@ -45,6 +61,7 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 	const [categoryFilter, setCategoryFilter] = useState('')
 	const [itemSearch, setItemSearch] = useState('')
 	const [activeTab, setActiveTab] = useState('request')
+	const [selectedRequestMonth, setSelectedRequestMonth] = useState('')
 	const [receivedQuantities, setReceivedQuantities] = useState({})
 	const [isLoading, setIsLoading] = useState(Boolean(sessionToken))
 	const [isSubmitting, setIsSubmitting] = useState(false)
@@ -113,7 +130,29 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 		})
 		return [...groups.entries()].map(([groupId, items]) => ({ groupId, items }))
 	}, [requests])
-	const requestGroupCount = requestGroups.length
+	const filteredRequestGroups = useMemo(() => requestGroups.filter((group) => (
+		!selectedRequestMonth
+		|| getRequestDateKey(group.items[0].created_at).startsWith(selectedRequestMonth)
+	)), [requestGroups, selectedRequestMonth])
+	const requestDateGroups = useMemo(() => {
+		const groups = new Map()
+		filteredRequestGroups.forEach((group) => {
+			const createdAt = group.items[0].created_at
+			const dateKey = getRequestDateKey(createdAt)
+			if (!groups.has(dateKey)) {
+				groups.set(dateKey, { dateKey, createdAt, orderGroups: [] })
+			}
+			groups.get(dateKey).orderGroups.push(group)
+		})
+		return [...groups.values()].sort(
+			(first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
+		)
+	}, [filteredRequestGroups])
+	const requestGroupCount = filteredRequestGroups.length
+	const displayedRequestCount = filteredRequestGroups.reduce(
+		(total, group) => total + group.items.length,
+		0
+	)
 
 	const handleSubmit = async (event) => {
 		event.preventDefault()
@@ -285,6 +324,17 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 				</button>
 				<button
 					type="button"
+					id="branch-stock-my-requests-tab"
+					className={`accountant-inventory-tab${activeTab === 'my-requests' ? ' active' : ''}`}
+					role="tab"
+					aria-selected={activeTab === 'my-requests'}
+					aria-controls="branch-stock-my-requests-panel"
+					onClick={() => setActiveTab('my-requests')}
+				>
+					My Request Stock
+				</button>
+				<button
+					type="button"
 					id="branch-stock-receive-tab"
 					className={`accountant-inventory-tab${activeTab === 'receive' ? ' active' : ''}`}
 					role="tab"
@@ -418,20 +468,44 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 						{isSubmitting ? 'Submitting...' : 'Submit stock request'}
 					</button>
 				</form>
+			</div>
 
-				<div className="accountant-inventory-heading">
+			<div
+				id="branch-stock-my-requests-panel"
+				className="accountant-inventory-panel"
+				role="tabpanel"
+				aria-labelledby="branch-stock-my-requests-tab"
+				hidden={activeTab !== 'my-requests'}
+			>
+				<div className="accountant-inventory-list-heading">
 					<div>
 						<h2>My stock requests</h2>
 						<p>
 							{requestGroupCount} order
 							{requestGroupCount === 1 ? '' : 's'}
-							, {requests.length} item{requests.length === 1 ? '' : 's'}
+							, {displayedRequestCount} item{displayedRequestCount === 1 ? '' : 's'}
 						</p>
 					</div>
+					<label className="branch-inventory-history-date">
+						<span>Filter by month</span>
+						<input
+							type="month"
+							value={selectedRequestMonth}
+							onChange={(event) => setSelectedRequestMonth(event.target.value)}
+						/>
+					</label>
+					<button
+						type="button"
+						className="accountant-inventory-add-toggle"
+						disabled={!selectedRequestMonth}
+						onClick={() => setSelectedRequestMonth('')}
+					>
+						All months
+					</button>
 				</div>
 				{isLoading ? (
 					<p className="accountant-inventory-empty" role="status">Loading stock requests...</p>
-				) : requests.length ? (
+				) : filteredRequestGroups.length ? (
 					<div className="accountant-inventory-table-wrap">
 						<table className="accountant-inventory-table">
 							<thead>
@@ -446,30 +520,43 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 									<th scope="col">Requested on</th>
 								</tr>
 							</thead>
-							{requestGroups.map(({ groupId, items }) => (
-								<tbody className="branch-stock-request-group" key={groupId}>
-									<tr className="branch-stock-request-group-heading">
+							{requestDateGroups.map(({ dateKey, createdAt, orderGroups }) => (
+								<tbody className="branch-stock-request-date-group" key={dateKey}>
+									<tr className="branch-stock-request-date-heading">
 										<th scope="rowgroup" colSpan="8">
-											Order {formatOrderNumber(groupId)}
-											<span>{new Date(items[0].created_at).toLocaleString()}</span>
+											{requestDateLabelFormatter.format(new Date(createdAt))}
 										</th>
 									</tr>
-									{items.map((request) => (
-										<tr key={request.request_id}>
-											<td>{formatOrderNumber(request.request_group_id)}</td>
-											<td>{request.stock_no}</td>
-											<td>{request.item_description}</td>
-											<td>{request.unit_of_measure}</td>
-											<td>{request.quantity_requested}</td>
-											<td>{request.quantity_delivered ?? '—'}</td>
-											<td>{request.status}</td>
-											<td>{new Date(request.created_at).toLocaleString()}</td>
-										</tr>
+									{orderGroups.map(({ groupId, items }) => (
+										<Fragment key={groupId}>
+											<tr className="branch-stock-request-group-heading">
+												<th scope="row" colSpan="8">
+													Order {formatOrderNumber(groupId)}
+													<span>{new Date(items[0].created_at).toLocaleString()}</span>
+												</th>
+											</tr>
+											{items.map((request) => (
+												<tr key={request.request_id}>
+													<td>{formatOrderNumber(request.request_group_id)}</td>
+													<td>{request.stock_no}</td>
+													<td>{request.item_description}</td>
+													<td>{request.unit_of_measure}</td>
+													<td>{request.quantity_requested}</td>
+													<td>{request.quantity_delivered ?? '—'}</td>
+													<td>{request.status}</td>
+													<td>{new Date(request.created_at).toLocaleString()}</td>
+												</tr>
+											))}
+										</Fragment>
 									))}
 								</tbody>
 							))}
 						</table>
 					</div>
+				) : requests.length ? (
+					<p className="accountant-inventory-empty">
+						No stock requests were found for {selectedRequestMonth}.
+					</p>
 				) : (
 					<p className="accountant-inventory-empty">No stock requests have been submitted yet.</p>
 				)}

@@ -1,6 +1,13 @@
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
 let supabaseClientPromise
+const roleSessionDurationMs = 12 * 60 * 60 * 1000
+
+function addRoleSessionExpiry(profile) {
+  return profile
+    ? { ...profile, session_expires_at: new Date(Date.now() + roleSessionDurationMs).toISOString() }
+    : null
+}
 
 export async function getSupabaseClient() {
   if (!supabaseUrl || !supabasePublishableKey) {
@@ -38,7 +45,7 @@ export async function verifyTafiAdminCredentials(email, password) {
       p_password: password
     })
 
-    return { profile: data?.[0] ?? null, error }
+    return { profile: addRoleSessionExpiry(data?.[0] ?? null), error }
   } catch (error) {
     return {
       profile: null,
@@ -57,6 +64,38 @@ export async function listTafiAdminBranches(sessionToken) {
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to load branches.')
+    }
+  }
+}
+
+export async function listTafiAdminBranchInventoryUsageHistory(sessionToken, branchId, usageDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_branch_inventory_usage_history', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_usage_date: usageDate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load branch inventory usage history.')
+    }
+  }
+}
+
+export async function listTafiAdminBranchInventoryMonthlyUsage(sessionToken, branchId, monthStart) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_branch_inventory_monthly_usage', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_month_start: monthStart
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load branch monthly inventory usage.')
     }
   }
 }
@@ -1406,7 +1445,7 @@ export async function verifyAccountantCredentials(email, password) {
       p_password: password
     })
 
-    return { profile: data?.[0] ?? null, error }
+    return { profile: addRoleSessionExpiry(data?.[0] ?? null), error }
   } catch (error) {
     return {
       profile: null,
@@ -1436,7 +1475,7 @@ export async function verifyGuestCredentials(email, password) {
       p_password: password
     })
 
-    return { profile: data?.[0] ?? null, error }
+    return { profile: addRoleSessionExpiry(data?.[0] ?? null), error }
   } catch (error) {
     return {
       profile: null,
@@ -1472,6 +1511,80 @@ export async function listAccountantInventoryInformation(sessionToken) {
   }
 }
 
+export async function listAccountantTafiStockInventory(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_list_tafi_stock_inventory', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load TAFI stock.')
+    }
+  }
+}
+
+export async function listAccountantBranchStockInventory(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_list_branch_stock_inventory', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load branch stock.')
+    }
+  }
+}
+
+export async function listAccountantInventoryBranches(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_list_inventory_branches', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load branches.')
+    }
+  }
+}
+
+export async function listAccountantBranchInventoryUsageHistory(sessionToken, branchId, usageDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_list_branch_inventory_usage_history', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_usage_date: usageDate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load branch inventory usage history.')
+    }
+  }
+}
+
+export async function listAccountantBranchInventoryMonthlyUsage(sessionToken, branchId, monthStart) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_list_branch_inventory_monthly_usage', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_month_start: monthStart
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load branch monthly inventory usage.')
+    }
+  }
+}
+
 export async function createAccountantInventoryInformation(sessionToken, item) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -1499,7 +1612,7 @@ export async function verifyBranchAdminCredentials(email, password) {
       p_password: password
     })
 
-    return { profile: data?.[0] ?? null, error }
+    return { profile: addRoleSessionExpiry(data?.[0] ?? null), error }
   } catch (error) {
     return {
       profile: null,
@@ -1536,19 +1649,93 @@ export async function listBranchInventory(sessionToken) {
   }
 }
 
-export async function addBranchInventoryItem(sessionToken, stockInventoryId, onhand) {
+export async function addBranchInventoryItem(sessionToken, stockInventoryId, available) {
   try {
   	const supabaseClient = await getSupabaseClient()
   	return await supabaseClient.rpc('branch_admin_add_inventory_item', {
   		p_session_token: sessionToken,
   		p_stock_inventory_id: stockInventoryId,
-  		p_onhand: onhand
+  		p_available: available
   	})
   } catch (error) {
   	return {
   		data: null,
   		error: error instanceof Error ? error : new Error('Unable to add the branch inventory item.')
   	}
+  }
+}
+
+export async function listBranchAdminInventoryDailyLog(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_list_inventory_daily_log', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the daily inventory log.')
+    }
+  }
+}
+
+export async function listBranchAdminInventoryUsageDates(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_list_inventory_usage_dates', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load inventory usage history dates.')
+    }
+  }
+}
+
+export async function listBranchAdminInventoryUsageHistory(sessionToken, usageDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_list_inventory_usage_history', {
+      p_session_token: sessionToken,
+      p_usage_date: usageDate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load inventory usage history.')
+    }
+  }
+}
+
+export async function listBranchAdminInventoryMonthlyUsage(sessionToken, monthStart) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_list_inventory_monthly_usage', {
+      p_session_token: sessionToken,
+      p_month_start: monthStart
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load monthly inventory usage.')
+    }
+  }
+}
+
+export async function recordBranchAdminInventoryDailyUsage(sessionToken, branchInventoryId, usageQuantity) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_record_inventory_daily_usage', {
+      p_session_token: sessionToken,
+      p_branch_inventory_id: branchInventoryId,
+      p_usage_quantity: usageQuantity
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save daily inventory usage.')
+    }
   }
 }
 

@@ -6,7 +6,32 @@ Run `supabase/accountant_management.sql` in the Supabase SQL Editor after
 `supabase/super_admin_login.sql` and `supabase/tafi_admin_management.sql`.
 This sets up TAFI Accountant accounts and their inventory information table.
 Super Admins can create Accountant accounts; signed-in Accountants can add and
-view inventory entries in the Accountant Dashboard.
+view inventory entries in the Accountant Dashboard. To let Accountants view
+TAFI and Branch stock, run `supabase/tafi_stock_inventory.sql` after
+`supabase/tafi_admin_inventory.sql`, then run `supabase/branch_inventory.sql`
+after `supabase/branch_management.sql`, `supabase/tafi_admin_management.sql`,
+`supabase/tafi_stock_inventory.sql`, and `supabase/accountant_management.sql`.
+
+## Branch daily inventory usage
+
+Run the updated `supabase/branch_inventory.sql` after
+`supabase/branch_management.sql`, `supabase/tafi_admin_management.sql`,
+`supabase/tafi_stock_inventory.sql`, and `supabase/accountant_management.sql`.
+Branch Admins can record each item's usage for the current day in the Daily
+Inventory Log. The first beginning stock uses Branch Inventory's available
+quantity; following days carry forward the previous day's ending stock. Saving
+usage updates Branch Inventory automatically, and the Daily Usage History
+section lets Branch Admins review saved entries by date. The Monthly Usage tab
+summarizes each inventory item's total usage for a selected month. Re-run the
+updated script to migrate Branch Inventory to a single Available quantity,
+preserve existing available balances, create the daily log table, and update
+its session-checked RPCs. Re-run `supabase/stock_request_delivery_receipt.sql`
+afterward so received stock adds to Available.
+TAFI Admins can use the Branch Usage Log in the TAFI Dashboard to select a
+branch and review its daily usage history or monthly usage totals.
+Accountants can use the Branch Usage Log in the Accountant Dashboard to review
+the same reports by branch. Re-run the updated script to install the
+Accountant-authorized reporting functions.
 
 ## Attendance period access mode
 

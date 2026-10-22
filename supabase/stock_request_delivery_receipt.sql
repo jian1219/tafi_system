@@ -1,4 +1,4 @@
--- Run after branch_stock_requests.sql.
+-- Run after branch_stock_requests.sql and branch_inventory.sql.
 begin;
 
 alter table public.branch_stock_requests
@@ -137,7 +137,9 @@ begin
 end;
 $$;
 
-create or replace function public.branch_admin_list_stock_receipt_history(
+drop function if exists public.branch_admin_list_stock_receipt_history(uuid);
+
+create function public.branch_admin_list_stock_receipt_history(
   p_session_token uuid
 )
 returns table (
@@ -248,10 +250,10 @@ begin
     raise exception 'Counted quantity cannot exceed the delivered quantity';
   end if;
 
-  insert into public.branch_inventory (branch_id, stock_inventory_id, onhand)
+  insert into public.branch_inventory (branch_id, stock_inventory_id, available)
   values (v_branch_id, v_stock_inventory_id, p_quantity_received)
   on conflict (branch_id, stock_inventory_id)
-  do update set onhand = public.branch_inventory.onhand + excluded.onhand;
+  do update set available = public.branch_inventory.available + excluded.available;
 
   insert into public.branch_stock_receipt_history (
     request_id,

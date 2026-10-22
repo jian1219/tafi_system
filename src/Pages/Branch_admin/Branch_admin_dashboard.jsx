@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import {
   CalendarCheck,
   CalendarDays,
@@ -24,8 +24,10 @@ import BranchOtherDeduction from './Branch_Other_deduction'
 import BranchOtherAdditionPay from './Branch_Other_Addition_pay'
 import BranchEmployeeLeaveCredits from './Branch_employee_leave_credits'
 import BranchInventory from './Branch_Inventory'
+import BranchInventoryLog from './Branch_Inventory_log'
 import BranchRequestStock from './Branch_Request_Stock'
 import { revokeBranchAdminSession } from '../../lib/supabase'
+import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
 
 const navigationGroups = [
   {
@@ -52,6 +54,7 @@ const navigationGroups = [
     label: 'Inventory',
     items: [
       { name: 'Branch Inventory', label: 'Branch Inventory', component: BranchInventory, icon: Package },
+      { name: 'Daily Inventory Log', label: 'Daily Inventory Log', component: BranchInventoryLog, icon: CalendarDays },
       { name: 'Request Stock', label: 'Request Stock', component: BranchRequestStock, icon: ClipboardList }
     ]
   }
@@ -71,6 +74,11 @@ export default function BranchAdminDashboard() {
       return null
     }
   })
+  const isSessionActive = useRoleSessionExpiry(
+    branchAdmin,
+    '/branch-admin-login',
+    'tafi-branch-admin-session'
+  )
   const branchName = branchAdmin?.branch_name || 'Bansasi Branch'
 
   const ActiveComponent = tabs.find((tab) => tab.name === activeTab)?.component || BranchAdminEmployee
@@ -93,6 +101,8 @@ export default function BranchAdminDashboard() {
     const timerId = window.setInterval(() => setCurrentDateTime(new Date()), 1000)
     return () => window.clearInterval(timerId)
   }, [])
+
+  if (!isSessionActive) return <Navigate to="/branch-admin-login" replace />
 
   return (
     <div className="dashboard-page">

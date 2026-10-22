@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { CalendarDays, ChevronDown, CircleDollarSign, ClipboardList, LogOut, MinusCircle, Package, PlusCircle, ShieldCheck, Trophy, Users, Wallet } from 'lucide-react'
 import { revokeTafiAdminSession } from '../../lib/supabase'
+import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
 import TafiEmployee from './TAFI_Employee'
 import TafiEmployeeContributions from './TAFI_Employee_Contributions'
 import TafiEmployeeAttendance from './TAFI_Employee_Attendance'
@@ -14,6 +15,7 @@ const TafiRankings = lazy(() => import('./TAFI_Rankings'))
 const TafiInventory = lazy(() => import('./TAFI_Inventory'))
 const TafiStockInventory = lazy(() => import('./TAFI_Stock_Inventory'))
 const TafiRequestStockOrder = lazy(() => import('./TAFI_Request_Stock_Order'))
+const TafiInventoryLog = lazy(() => import('./TAFI_Inventory_log'))
 import logoImage from '../../images/Tafi logo transparent.png'
 
 const navigationGroups = [
@@ -44,7 +46,8 @@ const navigationGroups = [
 		items: [
 			{ id: 'inventory', label: 'Inventory Information', icon: Package },
 			{ id: 'stock-inventory', label: 'Stock Inventory', icon: Package },
-			{ id: 'stock-requests', label: 'Stock Requests', icon: ClipboardList }
+			{ id: 'stock-requests', label: 'Stock Requests', icon: ClipboardList },
+			{ id: 'inventory-log', label: 'Branch Usage Log', icon: ClipboardList }
 		]
 	}
 ]
@@ -54,11 +57,12 @@ export default function TafiDashboard() {
 	const location = useLocation()
 	const navigate = useNavigate()
 	const tafiAdmin = location.state?.tafiAdmin
+	const isSessionActive = useRoleSessionExpiry(tafiAdmin, '/tafi-admin-login')
 	const [activePage, setActivePage] = useState('employees')
 	const [expandedGroups, setExpandedGroups] = useState({ 'employee-management': true })
 	const [signOutError, setSignOutError] = useState('')
 
-	if (!tafiAdmin) return <Navigate to="/tafi-admin-login" replace />
+	if (!isSessionActive) return <Navigate to="/tafi-admin-login" replace />
 
 	const handleSignOut = async (event) => {
 		event.preventDefault()
@@ -185,6 +189,12 @@ export default function TafiDashboard() {
 												<TafiRequestStockOrder sessionToken={tafiAdmin.session_token} />
 											</Suspense>
 										)
+										: activePage === 'inventory-log'
+											? (
+												<Suspense fallback={<p className="other-deduction-message" role="status">Loading branch usage log...</p>}>
+													<TafiInventoryLog sessionToken={tafiAdmin.session_token} />
+												</Suspense>
+											)
 								: activePage === 'other-additions'
 									? (
 										<Suspense fallback={<p className="other-deduction-message" role="status">Loading payroll addition tools…</p>}>

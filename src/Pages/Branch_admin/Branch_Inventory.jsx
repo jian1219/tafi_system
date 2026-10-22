@@ -9,7 +9,7 @@ import {
 const emptyForm = {
 	category: '',
 	stockInventoryId: '',
-	onhand: ''
+	available: ''
 }
 
 async function loadInventoryData(sessionToken) {
@@ -94,7 +94,7 @@ export default function BranchInventory({ branchName = 'Branch', branchAdmin }) 
 		const { error } = await addBranchInventoryItem(
 			sessionToken,
 			form.stockInventoryId,
-			Number(form.onhand)
+			Number(form.available)
 		)
 		if (error) {
 			setIsSaving(false)
@@ -192,13 +192,13 @@ export default function BranchInventory({ branchName = 'Branch', branchAdmin }) 
 							)}
 						</label>
 						<label>
-							<span>Branch on hand</span>
+							<span>Available</span>
 							<input
 								type="number"
 								min="0"
 								step="0.001"
-								value={form.onhand}
-								onChange={(event) => setForm((current) => ({ ...current, onhand: event.target.value }))}
+								value={form.available}
+								onChange={(event) => setForm((current) => ({ ...current, available: event.target.value }))}
 								required
 							/>
 						</label>
@@ -245,8 +245,6 @@ export default function BranchInventory({ branchName = 'Branch', branchAdmin }) 
 										<th scope="col">Category</th>
 										<th scope="col">Item description</th>
 										<th scope="col">Unit of measure</th>
-										<th scope="col">On hand</th>
-										<th scope="col">Allocated</th>
 										<th scope="col">Available</th>
 									</tr>
 								</thead>
@@ -257,8 +255,6 @@ export default function BranchInventory({ branchName = 'Branch', branchAdmin }) 
 											<td>{item.category}</td>
 											<td>{item.item_description}</td>
 											<td>{item.unit_of_measure}</td>
-											<td>{item.onhand}</td>
-											<td>{item.allocated}</td>
 											<td>{item.available}</td>
 										</tr>
 									))}

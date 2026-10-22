@@ -70,6 +70,51 @@ begin
 end;
 $$;
 
+create or replace function public.accountant_list_tafi_stock_inventory(
+  p_session_token uuid
+)
+returns table (
+  stock_inventory_id uuid,
+  stock_no text,
+  item_description text,
+  unit_of_measure text,
+  category text,
+  onhand numeric,
+  allocated numeric,
+  available numeric,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1
+    from public.accountant_session as accountant_session
+    where accountant_session.session_token = p_session_token
+      and accountant_session.expires_at > now()
+  ) then
+    raise exception 'Accountant session is invalid or expired' using errcode = '28000';
+  end if;
+
+  return query
+  select stock.id,
+         stock.stock_no,
+         stock.item_description,
+         stock.unit_of_measure,
+         inventory.category,
+         stock.onhand,
+         stock.allocated,
+         stock.available,
+         stock.created_at
+  from public.tafi_stock_inventory as stock
+  join public.inventory_information as inventory
+    on inventory.id = stock.inventory_id
+  order by inventory.stock_no, stock.created_at desc;
+end;
+$$;
+
 create or replace function public.tafi_admin_create_stock_inventory(
   p_session_token uuid,
   p_inventory_id uuid,
@@ -125,9 +170,11 @@ end;
 $$;
 
 revoke all on function public.tafi_admin_list_stock_inventory(uuid) from public;
+revoke all on function public.accountant_list_tafi_stock_inventory(uuid) from public;
 revoke all on function public.tafi_admin_create_stock_inventory(uuid, uuid, numeric) from public;
 
 grant execute on function public.tafi_admin_list_stock_inventory(uuid) to anon, authenticated;
+grant execute on function public.accountant_list_tafi_stock_inventory(uuid) to anon, authenticated;
 grant execute on function public.tafi_admin_create_stock_inventory(uuid, uuid, numeric) to anon, authenticated;
 
 commit;

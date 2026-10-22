@@ -5383,6 +5383,10 @@ fieldset.employee-emergency-contact-box {
   font-weight: 650;
 }
 
+.tafi-stock-request-month-filter {
+  max-width: 200px;
+}
+
 .tafi-stock-inventory-filters input,
 .tafi-stock-inventory-filters select {
   width: 100%;
@@ -5475,6 +5479,54 @@ fieldset.employee-emergency-contact-box {
 
 .accountant-inventory-table td {
   color: #1e293b;
+}
+
+.branch-inventory-log-usage-input {
+  width: 110px;
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 1px solid #94a3b8;
+  border-radius: 7px;
+  color: #0f172a;
+  background: #fff;
+  font: inherit;
+}
+
+.branch-inventory-log-usage-input:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.branch-inventory-log-history {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.branch-inventory-history-date {
+  display: grid;
+  min-width: 180px;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.branch-inventory-history-date input,
+.branch-inventory-history-date select {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #94a3b8;
+  border-radius: 7px;
+  color: #0f172a;
+  background: #fff;
+  font: inherit;
+}
+
+.branch-inventory-history-date input:focus-visible,
+.branch-inventory-history-date select:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
 }
 
 .branch-stock-received-field {
@@ -5580,6 +5632,16 @@ fieldset.employee-emergency-contact-box {
   border-bottom: 0;
 }
 
+.branch-stock-request-date-group + .branch-stock-request-date-group .branch-stock-request-date-heading th {
+  border-top: 10px solid #fff;
+}
+
+.branch-stock-request-date-heading th {
+  color: #0f172a;
+  background: #e2e8f0;
+  white-space: normal;
+}
+
 .branch-stock-request-group + .branch-stock-request-group .branch-stock-request-group-heading th {
   border-top: 10px solid #fff;
 }
@@ -5595,6 +5657,16 @@ fieldset.employee-emergency-contact-box {
   color: #64748b;
   font-size: 0.75rem;
   font-weight: 500;
+}
+
+.tafi-stock-request-date-group + .tafi-stock-request-date-group .tafi-stock-request-date-heading th {
+  border-top: 10px solid #fff;
+}
+
+.tafi-stock-request-date-heading th {
+  color: #0f172a;
+  background: #e2e8f0;
+  white-space: normal;
 }
 
 .tafi-stock-request-group + .tafi-stock-request-group .tafi-stock-request-group-heading th {

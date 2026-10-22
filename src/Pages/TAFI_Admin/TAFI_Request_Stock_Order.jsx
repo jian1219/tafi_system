@@ -1,13 +1,30 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { deliverTafiAdminStockRequest, listTafiAdminStockRequests } from '../../lib/supabase'
 
 const formatOrderNumber = (groupId) => groupId?.slice(0, 8).toUpperCase() ?? '—'
+const requestDateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
+	timeZone: 'Asia/Manila',
+	year: 'numeric',
+	month: '2-digit',
+	day: '2-digit'
+})
+const requestDateLabelFormatter = new Intl.DateTimeFormat(undefined, {
+	timeZone: 'Asia/Manila',
+	dateStyle: 'full'
+})
+const getRequestDateKey = (createdAt) => {
+	const parts = requestDateKeyFormatter.formatToParts(new Date(createdAt))
+	return ['year', 'month', 'day']
+		.map((partType) => parts.find((part) => part.type === partType).value)
+		.join('-')
+}
 
 export default function TafiRequestStockOrder({ sessionToken }) {
 	const [requests, setRequests] = useState([])
 	const [searchTerm, setSearchTerm] = useState('')
 	const [branchFilter, setBranchFilter] = useState('')
+	const [selectedMonth, setSelectedMonth] = useState('')
 	const [deliveryQuantities, setDeliveryQuantities] = useState({})
 	const [activeTab, setActiveTab] = useState('requests')
 	const [isLoading, setIsLoading] = useState(true)
@@ -59,6 +76,7 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 		const query = searchTerm.trim().toLocaleLowerCase()
 		return requests.filter((request) => {
 			if (branchFilter && request.branch_name !== branchFilter) return false
+			if (selectedMonth && !getRequestDateKey(request.created_at).startsWith(selectedMonth)) return false
 			if (!query) return true
 			return [
 				request.request_group_id,
@@ -68,7 +86,7 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 				request.unit_of_measure
 			].some((value) => value?.toLocaleLowerCase().includes(query))
 		})
-	}, [branchFilter, requests, searchTerm])
+	}, [branchFilter, requests, searchTerm, selectedMonth])
 
 	const filteredRequestGroups = useMemo(() => {
 		const groups = new Map()
@@ -79,6 +97,20 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 		})
 		return [...groups.entries()].map(([groupId, items]) => ({ groupId, items }))
 	}, [filteredRequests])
+	const requestDateGroups = useMemo(() => {
+		const groups = new Map()
+		filteredRequestGroups.forEach((group) => {
+			const createdAt = group.items[0].created_at
+			const dateKey = getRequestDateKey(createdAt)
+			if (!groups.has(dateKey)) {
+				groups.set(dateKey, { dateKey, createdAt, orderGroups: [] })
+			}
+			groups.get(dateKey).orderGroups.push(group)
+		})
+		return [...groups.values()].sort(
+			(first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
+		)
+	}, [filteredRequestGroups])
 
 	const pendingRequests = requests.filter((request) => request.status === 'pending')
 
@@ -190,6 +222,14 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 								))}
 							</select>
 						</label>
+						<label className="tafi-stock-request-month-filter">
+							<span>Filter by month</span>
+							<input
+								type="month"
+								value={selectedMonth}
+								onChange={(event) => setSelectedMonth(event.target.value)}
+							/>
+						</label>
 					</div>
 				)}
 				{isLoading ? (
@@ -212,28 +252,37 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 									<th scope="col">Requested on</th>
 								</tr>
 							</thead>
-							{filteredRequestGroups.map(({ groupId, items }) => (
-								<tbody className="tafi-stock-request-group" key={groupId}>
-									<tr className="tafi-stock-request-group-heading">
+							{requestDateGroups.map(({ dateKey, createdAt, orderGroups }) => (
+								<tbody className="tafi-stock-request-date-group" key={dateKey}>
+									<tr className="tafi-stock-request-date-heading">
 										<th scope="rowgroup" colSpan="11">
-											Order {formatOrderNumber(groupId)} — {items[0].branch_name}
-											<span>{new Date(items[0].created_at).toLocaleString()}</span>
+											{requestDateLabelFormatter.format(new Date(createdAt))}
 										</th>
 									</tr>
-									{items.map((request) => (
-										<tr key={request.request_id}>
-											<td>{formatOrderNumber(request.request_group_id)}</td>
-											<td>{request.branch_name}</td>
-											<td>{request.stock_no}</td>
-											<td>{request.item_description}</td>
-											<td>{request.unit_of_measure}</td>
-											<td>{request.quantity_requested}</td>
-											<td>{request.quantity_delivered ?? '—'}</td>
-											<td>{request.quantity_received ?? '—'}</td>
-											<td>{request.status}</td>
-											<td>{request.received_at ? new Date(request.received_at).toLocaleString() : '—'}</td>
-											<td>{new Date(request.created_at).toLocaleString()}</td>
-										</tr>
+									{orderGroups.map(({ groupId, items }) => (
+										<Fragment key={groupId}>
+											<tr className="tafi-stock-request-group-heading">
+												<th scope="row" colSpan="11">
+													Order {formatOrderNumber(groupId)} — {items[0].branch_name}
+													<span>{new Date(items[0].created_at).toLocaleString()}</span>
+												</th>
+											</tr>
+											{items.map((request) => (
+												<tr key={request.request_id}>
+													<td>{formatOrderNumber(request.request_group_id)}</td>
+													<td>{request.branch_name}</td>
+													<td>{request.stock_no}</td>
+													<td>{request.item_description}</td>
+													<td>{request.unit_of_measure}</td>
+													<td>{request.quantity_requested}</td>
+													<td>{request.quantity_delivered ?? '—'}</td>
+													<td>{request.quantity_received ?? '—'}</td>
+													<td>{request.status}</td>
+													<td>{request.received_at ? new Date(request.received_at).toLocaleString() : '—'}</td>
+													<td>{new Date(request.created_at).toLocaleString()}</td>
+												</tr>
+											))}
+										</Fragment>
 									))}
 								</tbody>
 							))}

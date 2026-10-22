@@ -1,6 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus, X } from 'lucide-react'
-import { createAccountantInventoryInformation, listAccountantInventoryInformation } from '../../lib/supabase'
+import {
+	createAccountantInventoryInformation,
+	listAccountantBranchStockInventory,
+	listAccountantInventoryInformation,
+	listAccountantTafiStockInventory
+} from '../../lib/supabase'
 
 const emptyForm = {
 	stockNo: '',
@@ -11,29 +16,79 @@ const emptyForm = {
 }
 
 export default function AccountantInventoryInformation({ sessionToken }) {
+	const [activeTab, setActiveTab] = useState('inventory-info')
+	const [branchStockBranch, setBranchStockBranch] = useState('')
+	const [branchStockCategory, setBranchStockCategory] = useState('')
 	const [form, setForm] = useState(emptyForm)
 	const [inventoryItems, setInventoryItems] = useState([])
+	const [tafiStockItems, setTafiStockItems] = useState([])
+	const [branchStockItems, setBranchStockItems] = useState([])
 	const [isFormOpen, setIsFormOpen] = useState(false)
 	const [isLoading, setIsLoading] = useState(true)
+	const [isTafiStockLoading, setIsTafiStockLoading] = useState(true)
+	const [isBranchStockLoading, setIsBranchStockLoading] = useState(true)
 	const [loadError, setLoadError] = useState(false)
+	const [tafiStockLoadError, setTafiStockLoadError] = useState('')
+	const [branchStockLoadError, setBranchStockLoadError] = useState('')
 	const [isSaving, setIsSaving] = useState(false)
 	const [errorMessage, setErrorMessage] = useState('')
 	const [notice, setNotice] = useState('')
+
+	const branchNames = useMemo(
+		() => [...new Set(branchStockItems.map((item) => item.branch_name).filter(Boolean))]
+			.sort((a, b) => a.localeCompare(b)),
+		[branchStockItems]
+	)
+	const branchStockCategories = useMemo(
+		() => [...new Set(branchStockItems
+			.filter((item) => item.branch_name === branchStockBranch)
+			.map((item) => item.category)
+			.filter(Boolean))]
+			.sort((a, b) => a.localeCompare(b)),
+		[branchStockBranch, branchStockItems]
+	)
+	const filteredBranchStockItems = useMemo(
+		() => branchStockItems.filter((item) => (
+			branchStockBranch
+			&& item.branch_name === branchStockBranch
+			&& (!branchStockCategory || item.category === branchStockCategory)
+		)),
+		[branchStockBranch, branchStockCategory, branchStockItems]
+	)
 
 	useEffect(() => {
 		let isCurrent = true
 
 		const loadInventory = async () => {
-			const { data, error } = await listAccountantInventoryInformation(sessionToken)
+			const [inventoryResult, tafiStockResult, branchStockResult] = await Promise.all([
+				listAccountantInventoryInformation(sessionToken),
+				listAccountantTafiStockInventory(sessionToken),
+				listAccountantBranchStockInventory(sessionToken)
+			])
 			if (!isCurrent) return
 			setIsLoading(false)
-			if (error) {
+			setIsTafiStockLoading(false)
+			setIsBranchStockLoading(false)
+
+			if (inventoryResult.error) {
 				setLoadError(true)
-				setErrorMessage(error.message)
-				return
+				setErrorMessage(inventoryResult.error.message)
+			} else {
+				setLoadError(false)
+				setInventoryItems(inventoryResult.data ?? [])
 			}
-			setLoadError(false)
-			setInventoryItems(data ?? [])
+			if (tafiStockResult.error) {
+				setTafiStockLoadError(tafiStockResult.error.message)
+			} else {
+				setTafiStockLoadError('')
+				setTafiStockItems(tafiStockResult.data ?? [])
+			}
+			if (branchStockResult.error) {
+				setBranchStockLoadError(branchStockResult.error.message)
+			} else {
+				setBranchStockLoadError('')
+				setBranchStockItems(branchStockResult.data ?? [])
+			}
 		}
 
 		loadInventory()
@@ -85,22 +140,31 @@ export default function AccountantInventoryInformation({ sessionToken }) {
 	return (
 		<div className="tafi-admin-section accountant-inventory-section">
 			<div className="accountant-inventory-tabs" role="tablist" aria-label="Inventory information">
-				<button
-					type="button"
-					id="triton-inventory-tab"
-					className="accountant-inventory-tab active"
-					role="tab"
-					aria-selected="true"
-					aria-controls="triton-inventory-panel"
-				>
-					TRITON Inventory Info
-				</button>
+				{[
+					{ id: 'inventory-info', label: 'TRITON Inventory Info' },
+					{ id: 'tafi-stock', label: 'TAFI Stock' },
+					{ id: 'branch-stock', label: 'Branch Inventory' }
+				].map((tab) => (
+					<button
+						key={tab.id}
+						type="button"
+						id={`${tab.id}-tab`}
+						className={`accountant-inventory-tab${activeTab === tab.id ? ' active' : ''}`}
+						role="tab"
+						aria-selected={activeTab === tab.id}
+						aria-controls={`${tab.id}-panel`}
+						onClick={() => setActiveTab(tab.id)}
+					>
+						{tab.label}
+					</button>
+				))}
 			</div>
-			<div
-				id="triton-inventory-panel"
+
+			{activeTab === 'inventory-info' && <div
+				id="inventory-info-panel"
 				className="accountant-inventory-panel"
 				role="tabpanel"
-				aria-labelledby="triton-inventory-tab"
+				aria-labelledby="inventory-info-tab"
 			>
 				<div className="accountant-inventory-list-heading">
 					<div>
@@ -187,7 +251,150 @@ export default function AccountantInventoryInformation({ sessionToken }) {
 				) : loadError ? null : (
 					<p className="accountant-inventory-empty">No inventory items have been added yet.</p>
 				)}
-			</div>
+			</div>}
+
+			{activeTab === 'tafi-stock' && (
+				<div
+					id="tafi-stock-panel"
+					className="accountant-inventory-panel"
+					role="tabpanel"
+					aria-labelledby="tafi-stock-tab"
+				>
+					<div className="accountant-inventory-list-heading">
+						<div>
+							<h2>TAFI Stock</h2>
+							<p>{tafiStockItems.length} item{tafiStockItems.length === 1 ? '' : 's'}</p>
+						</div>
+					</div>
+					{tafiStockLoadError && <p className="accountant-inventory-error" role="alert">{tafiStockLoadError}</p>}
+					{isTafiStockLoading ? (
+						<p className="accountant-inventory-empty" role="status">Loading TAFI stock...</p>
+					) : tafiStockItems.length ? (
+						<div className="accountant-inventory-table-wrap">
+							<table className="accountant-inventory-table">
+								<thead>
+									<tr>
+										<th scope="col">Stock no.</th>
+										<th scope="col">Category</th>
+										<th scope="col">Item Description</th>
+										<th scope="col">Unit of measure</th>
+										<th scope="col">On hand</th>
+										<th scope="col">Allocated</th>
+										<th scope="col">Available</th>
+									</tr>
+								</thead>
+								<tbody>
+									{tafiStockItems.map((item) => (
+										<tr key={item.stock_inventory_id}>
+											<td>{item.stock_no}</td>
+											<td>{item.category}</td>
+											<td>{item.item_description}</td>
+											<td>{item.unit_of_measure}</td>
+											<td>{item.onhand}</td>
+											<td>{item.allocated}</td>
+											<td>{item.available}</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
+					) : !tafiStockLoadError && (
+						<p className="accountant-inventory-empty">No TAFI stock items have been added yet.</p>
+					)}
+				</div>
+			)}
+
+			{activeTab === 'branch-stock' && (
+				<div
+					id="branch-stock-panel"
+					className="accountant-inventory-panel"
+					role="tabpanel"
+					aria-labelledby="branch-stock-tab"
+				>
+					<div className="accountant-inventory-list-heading">
+						<div>
+							<h2>Branch Inventory</h2>
+							<p>
+								{branchStockBranch
+									? `${filteredBranchStockItems.length} item${filteredBranchStockItems.length === 1 ? '' : 's'} in ${branchStockBranch}`
+									: 'Select a branch to view its inventory.'}
+							</p>
+						</div>
+					</div>
+					{branchStockLoadError && <p className="accountant-inventory-error" role="alert">{branchStockLoadError}</p>}
+					{isBranchStockLoading ? (
+						<p className="accountant-inventory-empty" role="status">Loading branch inventory...</p>
+					) : branchStockItems.length ? (
+						<>
+							<div className="tafi-stock-inventory-filters" aria-label="Filter branch inventory">
+								<label>
+									<span>Branch</span>
+									<select
+										value={branchStockBranch}
+										onChange={(event) => {
+											setBranchStockBranch(event.target.value)
+											setBranchStockCategory('')
+										}}
+									>
+										<option value="">Select a branch</option>
+										{branchNames.map((branch) => (
+											<option key={branch} value={branch}>{branch}</option>
+										))}
+									</select>
+								</label>
+								{branchStockBranch && (
+									<label>
+										<span>Category</span>
+										<select
+											value={branchStockCategory}
+											onChange={(event) => setBranchStockCategory(event.target.value)}
+										>
+											<option value="">All categories</option>
+											{branchStockCategories.map((category) => (
+												<option key={category} value={category}>{category}</option>
+											))}
+										</select>
+									</label>
+								)}
+							</div>
+							{filteredBranchStockItems.length ? (
+								<div className="accountant-inventory-table-wrap">
+									<table className="accountant-inventory-table">
+										<thead>
+											<tr>
+												<th scope="col">Branch</th>
+												<th scope="col">Stock no.</th>
+												<th scope="col">Category</th>
+												<th scope="col">Item Description</th>
+												<th scope="col">Unit of measure</th>
+												<th scope="col">Available</th>
+											</tr>
+										</thead>
+										<tbody>
+											{filteredBranchStockItems.map((item) => (
+												<tr key={item.branch_inventory_id}>
+													<td>{item.branch_name}</td>
+													<td>{item.stock_no}</td>
+													<td>{item.category}</td>
+													<td>{item.item_description}</td>
+													<td>{item.unit_of_measure}</td>
+													<td>{item.available}</td>
+												</tr>
+											))}
+										</tbody>
+									</table>
+								</div>
+							) : branchStockBranch ? (
+								<p className="accountant-inventory-empty">No branch inventory items match these filters.</p>
+							) : (
+								<p className="accountant-inventory-empty">Select a branch to view its inventory.</p>
+							)}
+						</>
+					) : !branchStockLoadError && (
+						<p className="accountant-inventory-empty">No branch inventory items have been added yet.</p>
+					)}
+				</div>
+			)}
 		</div>
 	)
 }
