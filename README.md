@@ -40,6 +40,14 @@ Run `supabase/attendance_period_access_mode.sql` after
 or daily attendance access for each branch in the Period Access section. Daily
 periods open for the current day and lock automatically after the day ends.
 
+## Branch Admin employee records
+
+Run `supabase/branch_employee_documents.sql` after
+`supabase/branch_management.sql` and `supabase/tafi_employee_documents.sql`.
+Branch Admins can upload, view, and download incident reports, investigation
+reports, employee contracts, and employee evaluations for employees in their
+assigned branch. These records are also visible to TAFI Admins.
+
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
 Currently, two official plugins are available:

@@ -2,10 +2,13 @@ import { useEffect, useState } from 'react'
 import { Download, Eye, FileText, Trash2, Upload, X } from 'lucide-react'
 import {
 	deleteTafiAdminEmployeeDocument,
+	getBranchEmployeeDocument,
 	getGuestEmployeeDocument,
 	getTafiAdminEmployeeDocument,
+	listBranchEmployeeDocuments,
 	listGuestEmployeeDocuments,
 	listTafiAdminEmployeeDocuments,
+	uploadBranchEmployeeDocument,
 	uploadTafiAdminEmployeeDocument
 } from '../../lib/supabase'
 
@@ -89,7 +92,13 @@ function createDocumentBlob(file) {
 	return new Blob([bytes], { type: file.content_type })
 }
 
-export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOnly = false }) {
+export default function TafiEmployeeDocuments({
+	sessionToken,
+	employeeId,
+	branchEmployeeCode = '',
+	readOnly = false
+}) {
+	const isBranchAdmin = Boolean(branchEmployeeCode)
 	const [documents, setDocuments] = useState([])
 	const [selectedCategory, setSelectedCategory] = useState(documentCategories[0].id)
 	const [selectedFile, setSelectedFile] = useState(null)
@@ -135,9 +144,11 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOn
 		const loadDocuments = async () => {
 			setIsLoading(true)
 			setLoadError('')
-			const { data, error } = readOnly
-				? await listGuestEmployeeDocuments(sessionToken, employeeId)
-				: await listTafiAdminEmployeeDocuments(sessionToken, employeeId)
+			const { data, error } = isBranchAdmin
+				? await listBranchEmployeeDocuments(sessionToken, branchEmployeeCode)
+				: readOnly
+					? await listGuestEmployeeDocuments(sessionToken, employeeId)
+					: await listTafiAdminEmployeeDocuments(sessionToken, employeeId)
 			if (!isCurrent) return
 
 			if (error) {
@@ -153,7 +164,7 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOn
 		return () => {
 			isCurrent = false
 		}
-	}, [sessionToken, employeeId, readOnly])
+	}, [sessionToken, employeeId, branchEmployeeCode, isBranchAdmin, readOnly])
 
 	const handleUpload = async (event) => {
 		event.preventDefault()
@@ -183,14 +194,24 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOn
 			return
 		}
 
-		const { error } = await uploadTafiAdminEmployeeDocument(
-			sessionToken,
-			employeeId,
-			selectedCategory,
-			selectedFile.name,
-			selectedFile.type,
-			fileBase64
-		)
+		const uploadDocument = isBranchAdmin
+			? uploadBranchEmployeeDocument(
+				sessionToken,
+				branchEmployeeCode,
+				selectedCategory,
+				selectedFile.name,
+				selectedFile.type,
+				fileBase64
+			)
+			: uploadTafiAdminEmployeeDocument(
+				sessionToken,
+				employeeId,
+				selectedCategory,
+				selectedFile.name,
+				selectedFile.type,
+				fileBase64
+			)
+		const { error } = await uploadDocument
 		if (error) {
 			setUploadError(error.message)
 			setIsUploading(false)
@@ -198,7 +219,9 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOn
 		}
 
 		setSelectedFile(null)
-		const { data, error: refreshError } = await listTafiAdminEmployeeDocuments(sessionToken, employeeId)
+		const { data, error: refreshError } = isBranchAdmin
+			? await listBranchEmployeeDocuments(sessionToken, branchEmployeeCode)
+			: await listTafiAdminEmployeeDocuments(sessionToken, employeeId)
 		setIsUploading(false)
 		if (refreshError) {
 			setUploadError(`The file was uploaded, but the document list could not be refreshed: ${refreshError.message}`)
@@ -214,7 +237,9 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOn
 		setViewingId(record.document_id)
 		const { data, error } = readOnly
 			? await getGuestEmployeeDocument(sessionToken, record.document_id)
-			: await getTafiAdminEmployeeDocument(sessionToken, record.document_id)
+			: isBranchAdmin
+				? await getBranchEmployeeDocument(sessionToken, record.document_id)
+				: await getTafiAdminEmployeeDocument(sessionToken, record.document_id)
 		setViewingId('')
 		if (error) {
 			setDownloadError(error.message)
@@ -245,7 +270,9 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOn
 		setDownloadingId(record.document_id)
 		const { data, error } = readOnly
 			? await getGuestEmployeeDocument(sessionToken, record.document_id)
-			: await getTafiAdminEmployeeDocument(sessionToken, record.document_id)
+			: isBranchAdmin
+				? await getBranchEmployeeDocument(sessionToken, record.document_id)
+				: await getTafiAdminEmployeeDocument(sessionToken, record.document_id)
 		setDownloadingId('')
 		if (error) {
 			setDownloadError(error.message)
@@ -273,7 +300,7 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOn
 	}
 
 	const handleDelete = async () => {
-		if (!recordToDelete || readOnly || isDeleting) return
+		if (!recordToDelete || readOnly || isBranchAdmin || isDeleting) return
 
 		const selectedRecord = recordToDelete
 		setIsDeleting(true)
@@ -312,7 +339,9 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOn
 					<p>
 						{readOnly
 							? 'View or download incident, investigation, contract, and evaluation records for this employee.'
-							: 'Upload and manage incident, investigation, contract, and evaluation records for this employee.'}
+							: isBranchAdmin
+								? 'Upload, view, or download incident, investigation, contract, and evaluation records for this employee.'
+								: 'Upload and manage incident, investigation, contract, and evaluation records for this employee.'}
 					</p>
 				</div>
 			</div>
@@ -405,7 +434,7 @@ export default function TafiEmployeeDocuments({ sessionToken, employeeId, readOn
 														<Download size={16} aria-hidden="true" />
 														{downloadingId === record.document_id ? 'Preparing…' : 'Download'}
 													</button>
-													{!readOnly && (
+													{!readOnly && !isBranchAdmin && (
 														<button
 															type="button"
 															className="employee-document-delete"

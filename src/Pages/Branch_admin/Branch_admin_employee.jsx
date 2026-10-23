@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getBranchAdminEmployeePhoto, listBranchAttendanceHistory } from '../../lib/supabase'
+import {
+	getBranchAdminEmployeePhoto,
+	listBranchAttendanceHistory
+} from '../../lib/supabase'
 import { getBranchEmployees } from './branchEmployees'
 import {
 	getAttendanceDayValue,
@@ -8,11 +11,11 @@ import {
 	hasEarnedMonthlyCredit
 } from './branchAttendanceRecords'
 import { recordLegend, statusCodeClassNames, statusCodes } from '../attendanceStatusDisplay'
+import TafiEmployeeDocuments from '../TAFI_Admin/TAFI_Employee_Documents'
 
 const currentDate = new Date()
 const todayDateKey = getLocalDateKey(currentDate)
 const currentMonthKey = todayDateKey.slice(0, 7)
-
 const attendanceStatusDetails = {
 	present: { label: '✓', description: 'Present', className: statusCodeClassNames[statusCodes.present] },
 	present_late: { label: 'Late', description: 'Present (Late)', className: statusCodeClassNames[statusCodes.present_late] },
@@ -128,6 +131,11 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 	const [attendanceMonth, setAttendanceMonth] = useState(currentMonthKey)
 	const [employeePhotoState, setEmployeePhotoState] = useState(null)
 	const [isEmployeePhotoExpanded, setIsEmployeePhotoExpanded] = useState(false)
+	const [profileForm, setProfileForm] = useState(null)
+	const [isEditingProfile, setIsEditingProfile] = useState(false)
+	const [isSavingProfile] = useState(false)
+	const [profileError, setProfileError] = useState('')
+	const [profileMessage, setProfileMessage] = useState('')
 	const sessionToken = branchAdmin?.session_token
 
 	useEffect(() => {
@@ -233,6 +241,10 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 			return matchesSearch && matchesPosition
 		})
 	}, [employees, searchTerm, positionFilter])
+
+	const updateProfileField = (field, value) => {
+		setProfileForm((current) => ({ ...current, [field]: value }))
+	}
 
 	if (selectedEmployee) {
 		const hasDailyRate = Number.isFinite(selectedEmployee.dailyRate)
@@ -349,6 +361,8 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 							<p>Personal details, identity, and government contribution information.</p>
 						</div>
 					</div>
+					{!isEditingProfile ? (
+						<>
 					<dl className="employee-profile-fields">
 						<div className="employee-profile-field employee-profile-address">
 							<dt>Address</dt>
@@ -461,7 +475,219 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 							</div>
 						</div>
 					</div>
+						{profileMessage && <p className="employee-personal-saved" role="status">{profileMessage}</p>}
+						</>
+					) : (
+						<form className="employee-personal-form" onSubmit={(event) => event.preventDefault()}>
+							<label className="employee-personal-address">
+								<span>Address</span>
+								<textarea
+									rows="2"
+									value={profileForm.address}
+									onChange={(event) => updateProfileField('address', event.target.value)}
+								/>
+							</label>
+							<label>
+								<span>Place of birth</span>
+								<input
+									value={profileForm.placeOfBirth}
+									onChange={(event) => updateProfileField('placeOfBirth', event.target.value)}
+								/>
+							</label>
+							<label>
+								<span>Gender</span>
+								<select
+									value={profileForm.gender}
+									onChange={(event) => updateProfileField('gender', event.target.value)}
+								>
+									<option value="">Not specified</option>
+									<option value="Female">Female</option>
+									<option value="Male">Male</option>
+									<option value="Other">Other</option>
+									<option value="Prefer not to say">Prefer not to say</option>
+								</select>
+							</label>
+							<label>
+								<span>Civil status</span>
+								<select
+									value={profileForm.civilStatus}
+									onChange={(event) => updateProfileField('civilStatus', event.target.value)}
+								>
+									<option value="">Not specified</option>
+									<option value="Single">Single</option>
+									<option value="Married">Married</option>
+									<option value="Widowed">Widowed</option>
+									<option value="Separated">Separated</option>
+								</select>
+							</label>
+							<label>
+								<span>Birthday</span>
+								<input
+									type="date"
+									max={todayDateKey}
+									value={profileForm.birthday}
+									onChange={(event) => updateProfileField('birthday', event.target.value)}
+								/>
+							</label>
+							<div className="employee-personal-value">
+								<span>Age</span>
+								<strong>{getAge(profileForm.birthday)}</strong>
+							</div>
+							<label>
+								<span>Email</span>
+								<input
+									type="email"
+									value={profileForm.email}
+									onChange={(event) => updateProfileField('email', event.target.value)}
+								/>
+							</label>
+							<label>
+								<span>Phone</span>
+								<input
+									type="tel"
+									value={profileForm.phone}
+									onChange={(event) => updateProfileField('phone', event.target.value)}
+								/>
+							</label>
+							<label>
+								<span>TIN</span>
+								<input
+									value={profileForm.tinNumber}
+									onChange={(event) => updateProfileField('tinNumber', event.target.value)}
+									autoComplete="off"
+								/>
+							</label>
+							<label>
+								<span>SSS number</span>
+								<input
+									value={profileForm.sssNumber}
+									onChange={(event) => updateProfileField('sssNumber', event.target.value)}
+									autoComplete="off"
+								/>
+							</label>
+							<label>
+								<span>Pag-IBIG number</span>
+								<input
+									value={profileForm.pagibigNumber}
+									onChange={(event) => updateProfileField('pagibigNumber', event.target.value)}
+									autoComplete="off"
+								/>
+							</label>
+							<label>
+								<span>PhilHealth number</span>
+								<input
+									value={profileForm.philhealthNumber}
+									onChange={(event) => updateProfileField('philhealthNumber', event.target.value)}
+									autoComplete="off"
+								/>
+							</label>
+							<label>
+								<span>Employment classification</span>
+								<select
+									required
+									value={profileForm.employmentClassification}
+									onChange={(event) => updateProfileField('employmentClassification', event.target.value)}
+								>
+									<option value="">Select employment classification</option>
+									{employmentClassifications.map((classification) => (
+										<option key={classification} value={classification}>{classification}</option>
+									))}
+								</select>
+							</label>
+							<fieldset className="employee-emergency-contact-box">
+								<legend>Emergency contact</legend>
+								<label>
+									<span>Contact name</span>
+									<input
+										value={profileForm.emergencyContactName}
+										onChange={(event) => updateProfileField('emergencyContactName', event.target.value)}
+										autoComplete="off"
+									/>
+								</label>
+								<label>
+									<span>Contact number</span>
+									<input
+										type="tel"
+										value={profileForm.emergencyContactNumber}
+										onChange={(event) => updateProfileField('emergencyContactNumber', event.target.value)}
+										autoComplete="off"
+									/>
+								</label>
+								<label>
+									<span>Relationship</span>
+									<select
+										value={profileForm.emergencyContactRelationship}
+										onChange={(event) => updateProfileField('emergencyContactRelationship', event.target.value)}
+									>
+										<option value="">Select relationship</option>
+										{emergencyContactRelationships.map((relationship) => (
+											<option key={relationship} value={relationship}>{relationship}</option>
+										))}
+									</select>
+								</label>
+							</fieldset>
+							<div className="employee-employment-history-form">
+								<div>
+									<h5>Employment record</h5>
+									<p>Enter the effective date for each employment stage.</p>
+								</div>
+								<label>
+									<span>Trainee / date hired</span>
+									<input
+										type="date"
+										max={todayDateKey}
+										value={profileForm.hireDate}
+										onChange={(event) => updateProfileField('hireDate', event.target.value)}
+									/>
+								</label>
+								<label>
+									<span>Probationary start date</span>
+									<input
+										type="date"
+										max={todayDateKey}
+										min={profileForm.hireDate || undefined}
+										value={profileForm.probationaryDate}
+										onChange={(event) => updateProfileField('probationaryDate', event.target.value)}
+									/>
+								</label>
+								<label>
+									<span>Regular start date</span>
+									<input
+										type="date"
+										max={todayDateKey}
+										min={profileForm.probationaryDate || profileForm.hireDate || undefined}
+										value={profileForm.regularDate}
+										onChange={(event) => updateProfileField('regularDate', event.target.value)}
+									/>
+								</label>
+							</div>
+							<div className="employee-personal-actions">
+								{profileError && <p className="add-employee-error" role="alert">{profileError}</p>}
+								<button
+									type="button"
+									className="employee-profile-cancel"
+									disabled={isSavingProfile}
+									onClick={() => {
+										setProfileForm(null)
+										setProfileError('')
+										setProfileMessage('')
+										setIsEditingProfile(false)
+									}}
+								>
+									Cancel
+								</button>
+								<button type="submit" className="add-employee-submit" disabled={isSavingProfile}>
+									{isSavingProfile ? 'Saving…' : 'Save employee profile'}
+								</button>
+							</div>
+						</form>
+					)}
 				</section>
+
+				<TafiEmployeeDocuments
+					sessionToken={sessionToken}
+					branchEmployeeCode={selectedEmployee.id}
+				/>
 
 				<div className="employee-detail-columns">
 					<section className="employee-detail-panel branch-employee-attendance-record">
@@ -608,7 +834,6 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 					</select>
 				</label>
 			</div>
-
 			<div className="employee-table-wrap">
 				<table className="employee-info-table">
 					<thead>
@@ -630,9 +855,6 @@ export default function BranchAdminEmployee({ branchName = 'Bansasi Branch', bra
 											className="employee-name-button"
 											onClick={() => {
 												setSelectedEmployeeId(employee.id)
-												setDailyRateInput(employee.dailyRate == null ? '' : String(employee.dailyRate))
-												setRateError('')
-												setProfileForm(getEmployeeProfile(employee))
 												setIsEditingProfile(false)
 												setProfileError('')
 												setProfileMessage('')

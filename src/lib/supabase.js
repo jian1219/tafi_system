@@ -1943,6 +1943,62 @@ export async function listBranchEmployees(sessionToken) {
   }
 }
 
+export async function listBranchEmployeeDocuments(sessionToken, employeeCode) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_list_employee_documents', {
+      p_session_token: sessionToken,
+      p_employee_code: employeeCode
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the employee records.')
+    }
+  }
+}
+
+export async function uploadBranchEmployeeDocument(
+  sessionToken,
+  employeeCode,
+  documentType,
+  fileName,
+  contentType,
+  fileBase64
+) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_upload_employee_document', {
+      p_session_token: sessionToken,
+      p_employee_code: employeeCode,
+      p_document_type: documentType,
+      p_file_name: fileName,
+      p_content_type: contentType,
+      p_file_base64: fileBase64
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to upload the employee record.')
+    }
+  }
+}
+
+export async function getBranchEmployeeDocument(sessionToken, documentId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_get_employee_document', {
+      p_session_token: sessionToken,
+      p_document_id: documentId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the employee record.')
+    }
+  }
+}
+
 export async function getBranchAdminEmployeePhoto(sessionToken, employeeCode) {
   try {
     const supabaseClient = await getSupabaseClient()
