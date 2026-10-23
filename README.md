@@ -48,6 +48,18 @@ Run `supabase/attendance_sick_emergency_leave.sql` after
 Sick Leave (SL) and Emergency Leave (EL) in Daily Attendance; the statuses
 appear with rose and orange colors in attendance records.
 
+## Branch Admin filed employee leave
+
+After `supabase/branch_employee_leave_credits.sql` and
+`supabase/branch_employee_contributions.sql` are installed, run
+`supabase/attendance_sick_emergency_leave.sql` and then
+`supabase/branch_employee_filed_leave_requests.sql`. Branch Admins can file
+leave for active employees with one or more PDF forms. Filing immediately adds
+the selected leave status to Daily Attendance for every date in the request.
+Vacation Leave with Pay is limited to Regular employees with enough available
+credits; other leave types do not use credits. The new leave rows are locked
+from attendance status changes.
+
 ## Branch Admin employee records
 
 Run `supabase/branch_employee_documents.sql` after

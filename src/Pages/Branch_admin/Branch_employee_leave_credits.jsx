@@ -1,13 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, X } from 'lucide-react'
+import { Download } from 'lucide-react'
 import {
-	createBranchEmployeeLeaveRequest,
+	fileBranchEmployeeLeaveRequest,
+	getBranchEmployeeLeaveRequestAttachment,
 	listBranchEmployeeLeaveCredits,
-	listBranchEmployeeLeaveRequests,
-	updateBranchEmployeeLeaveRequestStatus
+	listBranchEmployeeLeaveRequests
 } from '../../lib/supabase'
 
 const formatCredits = (value) => `${Number(value ?? 0).toFixed(2)} days`
+const maxAttachmentBytes = 20 * 1024 * 1024
+const leaveTypes = [
+	{ value: 'vl_with_pay', label: 'Vacation leave with pay' },
+	{ value: 'vl_without_pay', label: 'Vacation leave without pay' },
+	{ value: 'maternity_leave', label: 'Maternity leave' },
+	{ value: 'paternity_leave', label: 'Paternity leave' },
+	{ value: 'birthday_leave', label: 'Birthday leave' },
+	{ value: 'authorized_leave', label: 'Authorized leave' },
+	{ value: 'sick_leave', label: 'Sick leave' },
+	{ value: 'emergency_leave', label: 'Emergency leave' }
+]
 
 const getInclusiveDayCount = (startDate, endDate) => {
 	if (!startDate || !endDate) return 0
@@ -24,6 +35,29 @@ const formatDate = (value) => {
 		day: 'numeric'
 	}).format(new Date(`${value}T00:00:00`))
 }
+
+const formatFileSize = (size) => size < 1024 * 1024
+	? `${(size / 1024).toFixed(1)} KB`
+	: `${(size / (1024 * 1024)).toFixed(1)} MB`
+
+const readFileAsBase64 = (file) => new Promise((resolve, reject) => {
+	const reader = new FileReader()
+	reader.onload = () => {
+		if (typeof reader.result !== 'string') {
+			reject(new Error(`Unable to read ${file.name}.`))
+			return
+		}
+		const separatorIndex = reader.result.indexOf(',')
+		if (separatorIndex < 0) {
+			reject(new Error(`Unable to read ${file.name}.`))
+			return
+		}
+		resolve(reader.result.slice(separatorIndex + 1))
+	}
+	reader.onerror = () => reject(reader.error ?? new Error(`Unable to read ${file.name}.`))
+	reader.onabort = () => reject(new Error(`Reading ${file.name} was cancelled.`))
+	reader.readAsDataURL(file)
+})
 
 const getTenure = (hireDate) => {
 	if (!hireDate) return 'Not provided'
@@ -64,15 +98,16 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 	const [requests, setRequests] = useState([])
 	const [isLoading, setIsLoading] = useState(Boolean(sessionToken))
 	const [isSubmitting, setIsSubmitting] = useState(false)
-	const [updatingRequestId, setUpdatingRequestId] = useState('')
 	const [error, setError] = useState('')
 	const [message, setMessage] = useState('')
 	const [searchTerm, setSearchTerm] = useState('')
 	const [employeeCode, setEmployeeCode] = useState('')
 	const [startDate, setStartDate] = useState('')
 	const [endDate, setEndDate] = useState('')
-	const [creditDays, setCreditDays] = useState('1')
+	const [leaveType, setLeaveType] = useState('vl_without_pay')
 	const [reason, setReason] = useState('')
+	const [selectedFiles, setSelectedFiles] = useState([])
+	const [downloadingAttachmentId, setDownloadingAttachmentId] = useState('')
 
 	useEffect(() => {
 		let isCurrent = true
@@ -89,8 +124,6 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 			setRequests(result.requests)
 			setEmployeeCode((current) => current || result.employees.find((employee) =>
 				employee.employment_status === 'active'
-				&& employee.employment_classification === 'Regular'
-				&& Number(employee.balance) > 0
 			)?.employee_code || '')
 			setError('')
 			setIsLoading(false)
@@ -112,12 +145,14 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 		)
 	}, [employees, searchTerm])
 
-	const requestableEmployees = employees.filter((employee) =>
-		employee.employment_status === 'active'
-		&& employee.employment_classification === 'Regular'
-	)
+	const requestableEmployees = employees.filter((employee) => employee.employment_status === 'active')
 	const selectedEmployee = requestableEmployees.find((employee) => employee.employee_code === employeeCode)
-	const availableCredits = Number(selectedEmployee?.balance ?? 0) - Number(selectedEmployee?.pending_credits ?? 0)
+	const availableCredits = Math.max(
+		0,
+		Number(selectedEmployee?.balance ?? 0) - Number(selectedEmployee?.pending_credits ?? 0)
+	)
+	const leaveDays = getInclusiveDayCount(startDate, endDate)
+	const requestedCredits = leaveType === 'vl_with_pay' ? leaveDays : 0
 
 	const refreshLeaveData = async () => {
 		const result = await loadLeaveData(sessionToken)
@@ -133,39 +168,65 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 
 	const submitRequest = async (event) => {
 		event.preventDefault()
-		const requestedCredits = Number(creditDays)
 		if (!sessionToken) {
 			setError('Your login session is missing. Sign out and sign in again.')
 			return
 		}
-		if (!employeeCode || !startDate || !endDate || !reason.trim()
-			|| !Number.isFinite(requestedCredits) || requestedCredits <= 0) {
-			setError('Complete every field and enter a valid number of credits.')
+		if (!selectedEmployee || !startDate || !endDate || !reason.trim()) {
+			setError('Select an employee, leave dates, and enter a reason.')
 			return
 		}
 		if (endDate < startDate) {
 			setError('The end date must be on or after the start date.')
 			return
 		}
-		if (!Number.isInteger(requestedCredits) || requestedCredits < 1
-			|| getInclusiveDayCount(startDate, endDate) !== requestedCredits) {
-			setError('Use whole credits only, with one leave date for each credit day.')
+		if (!leaveTypes.some((type) => type.value === leaveType)) {
+			setError('Select a valid leave type.')
 			return
 		}
-		if (requestedCredits > availableCredits) {
-			setError(`This request exceeds the available balance of ${formatCredits(availableCredits)}.`)
+		if (leaveType === 'vl_with_pay'
+			&& (selectedEmployee.employment_classification !== 'Regular' || requestedCredits > availableCredits)) {
+			setError(`Vacation leave with pay requires enough available credits. This employee has ${formatCredits(availableCredits)}; choose Vacation leave without pay or another leave type if credits are insufficient.`)
+			return
+		}
+		if (selectedFiles.length < 1) {
+			setError('Attach at least one PDF leave form.')
+			return
+		}
+		if (selectedFiles.some((file) =>
+			file.size <= 0 || !file.name.toLowerCase().endsWith('.pdf')
+		)) {
+			setError('Attach valid PDF leave forms only.')
+			return
+		}
+		if (selectedFiles.some((file) => file.size > maxAttachmentBytes)
+			|| selectedFiles.reduce((total, file) => total + file.size, 0) > maxAttachmentBytes) {
+			setError('The combined size of attached PDFs must not exceed 20 MB.')
 			return
 		}
 
 		setIsSubmitting(true)
 		setError('')
 		setMessage('')
-		const { error: submitError } = await createBranchEmployeeLeaveRequest(sessionToken, {
+		let attachments
+		try {
+			attachments = await Promise.all(selectedFiles.map(async (file) => ({
+				fileName: file.name,
+				fileBase64: await readFileAsBase64(file)
+			})))
+		} catch (readError) {
+			setError(readError instanceof Error ? readError.message : 'Unable to read the attached PDF.')
+			setIsSubmitting(false)
+			return
+		}
+
+		const { error: submitError } = await fileBranchEmployeeLeaveRequest(sessionToken, {
 			employeeCode,
 			startDate,
 			endDate,
-			creditDays: requestedCredits,
-			reason: reason.trim()
+			leaveType,
+			reason: reason.trim(),
+			attachments
 		})
 		setIsSubmitting(false)
 		if (submitError) {
@@ -173,30 +234,54 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 			return
 		}
 
-		setMessage('Leave-credit request submitted.')
+		setMessage('Leave request filed. Attendance was recorded for the selected dates and paid-leave credits were deducted if used.')
 		setStartDate('')
 		setEndDate('')
-		setCreditDays('1')
+		setLeaveType('vl_without_pay')
 		setReason('')
+		setSelectedFiles([])
 		await refreshLeaveData()
 	}
 
-	const updateRequestStatus = async (requestId, status) => {
-		setUpdatingRequestId(requestId)
+	const downloadAttachment = async (attachment) => {
+		setDownloadingAttachmentId(attachment.id)
 		setError('')
 		setMessage('')
-		const { error: updateError } = await updateBranchEmployeeLeaveRequestStatus(
-			sessionToken,
-			requestId,
-			status
-		)
-		setUpdatingRequestId('')
-		if (updateError) {
-			setError(updateError.message)
-			return
+		try {
+			const { data, error: downloadError } = await getBranchEmployeeLeaveRequestAttachment(
+				sessionToken,
+				attachment.id
+			)
+			if (downloadError) {
+				setError(downloadError.message)
+				return
+			}
+			const file = data?.[0]
+			if (!file) {
+				setError('The selected leave form was not returned.')
+				return
+			}
+
+			const binary = window.atob(file.file_base64)
+			const bytes = new Uint8Array(binary.length)
+			for (let index = 0; index < binary.length; index += 1) {
+				bytes[index] = binary.charCodeAt(index)
+			}
+			const fileUrl = URL.createObjectURL(new Blob([bytes], { type: file.content_type }))
+			const link = document.createElement('a')
+			link.href = fileUrl
+			link.download = file.file_name
+			document.body.appendChild(link)
+			link.click()
+			link.remove()
+			window.setTimeout(() => URL.revokeObjectURL(fileUrl), 1000)
+		} catch (downloadError) {
+			setError(downloadError instanceof Error
+				? downloadError.message
+				: 'Unable to download the selected leave form.')
+		} finally {
+			setDownloadingAttachmentId('')
 		}
-		setMessage(`Request ${status}.`)
-		await refreshLeaveData()
 	}
 
 	return (
@@ -230,7 +315,16 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 					className={activeTab === 'requests' ? 'monitoring-tab active' : 'monitoring-tab'}
 					onClick={() => setActiveTab('requests')}
 				>
-					Use Credits / Requests
+					Filed Leave Request
+				</button>
+				<button
+					type="button"
+					role="tab"
+					aria-selected={activeTab === 'records'}
+					className={activeTab === 'records' ? 'monitoring-tab active' : 'monitoring-tab'}
+					onClick={() => setActiveTab('records')}
+				>
+					Filed Leaves Records
 				</button>
 			</div>
 
@@ -313,18 +407,18 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 						</table>
 					</div>
 				</>
-			) : (
+			) : activeTab === 'requests' ? (
 				<div className="leave-request-content">
 					<form className="leave-request-form" onSubmit={submitRequest}>
 						<div className="leave-request-form-heading">
 							<div>
-								<h4>Request leave-credit use</h4>
-								<p>Use whole credit days only. Select one leave date for each credit day requested.</p>
+								<h4>File a leave request</h4>
+								<p>Filing records the leave in attendance immediately. Vacation leave with pay deducts available leave credits.</p>
 							</div>
-							{selectedEmployee && (
+							{selectedEmployee && leaveType === 'vl_with_pay' && (
 								<div className="leave-request-balance">
-									<span>Available to request</span>
-									<strong>{formatCredits(Math.max(0, availableCredits))}</strong>
+									<span>Credits available / required</span>
+									<strong>{formatCredits(availableCredits)} / {formatCredits(leaveDays)}</strong>
 								</div>
 							)}
 						</div>
@@ -349,29 +443,76 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 								<input type="date" value={endDate} min={startDate || undefined} onChange={(event) => setEndDate(event.target.value)} required />
 							</label>
 							<label>
-								<span>Credits requested (days)</span>
-								<input type="number" min="1" step="1" value={creditDays} onChange={(event) => setCreditDays(event.target.value)} required />
+								<span>Type of leave</span>
+								<select value={leaveType} onChange={(event) => setLeaveType(event.target.value)} required>
+									{leaveTypes.map((type) => (
+										<option key={type.value} value={type.value}>{type.label}</option>
+									))}
+								</select>
 							</label>
 							<label className="leave-request-reason">
 								<span>Reason</span>
 								<textarea value={reason} onChange={(event) => setReason(event.target.value)} rows="3" maxLength="500" required />
 							</label>
+							<label className="leave-request-attachments-input">
+								<span>Leave form PDF(s) (one or more files, 20 MB combined maximum)</span>
+								<input
+									type="file"
+									accept=".pdf,application/pdf"
+									multiple
+									onChange={(event) => {
+										const addedFiles = Array.from(event.currentTarget.files ?? [])
+										setSelectedFiles((currentFiles) => [...currentFiles, ...addedFiles])
+										event.currentTarget.value = ''
+										setError('')
+									}}
+									required={selectedFiles.length === 0}
+								/>
+							</label>
 						</div>
+						{selectedFiles.length > 0 && (
+							<ul className="leave-request-selected-files">
+								{selectedFiles.map((file, index) => (
+									<li key={`${file.name}-${index}`}>
+										{file.name} · {formatFileSize(file.size)}
+									</li>
+								))}
+							</ul>
+						)}
+						{leaveType === 'vl_with_pay' && selectedEmployee
+							&& selectedEmployee.employment_classification !== 'Regular' && (
+							<p className="leave-credit-hint">Only Regular employees can use earned leave credits. Choose Vacation leave without pay or another type of leave.</p>
+						)}
+						{leaveType === 'vl_with_pay' && selectedEmployee
+							&& requestedCredits > availableCredits && (
+							<p className="leave-credit-hint">There are not enough credits for this date range. Choose Vacation leave without pay or another type of leave.</p>
+						)}
 						<button
 							className="add-employee-submit"
 							type="submit"
-							disabled={isSubmitting || !selectedEmployee || Number(creditDays) > availableCredits}
+							disabled={
+								isSubmitting
+								|| !selectedEmployee
+								|| !startDate
+								|| !endDate
+								|| selectedFiles.length === 0
+								|| (leaveType === 'vl_with_pay'
+									&& (selectedEmployee.employment_classification !== 'Regular'
+										|| requestedCredits > availableCredits))
+							}
 						>
-							{isSubmitting ? 'Submitting…' : 'Submit Request'}
+							{isSubmitting ? 'Filing…' : 'File Leave Request'}
 						</button>
 						{requestableEmployees.length === 0 && !isLoading && (
-							<p className="leave-credit-hint">No active Regular employees are currently eligible to request leave credits.</p>
+							<p className="leave-credit-hint">No active employees are currently available.</p>
 						)}
 					</form>
-
+				</div>
+			) : (
+				<div className="leave-request-content">
 					<section className="leave-requests-list">
 						<div className="leave-requests-heading">
-							<div><h4>Leave-credit requests</h4><p>Pending requests reserve credits until approved or rejected.</p></div>
+							<div><h4>Filed leaves records</h4><p>Filed requests immediately create attendance records. Paid vacation leave uses available credits.</p></div>
 						</div>
 						<div className="employee-table-wrap">
 							<table className="employee-info-table leave-requests-table">
@@ -379,10 +520,13 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 									<tr>
 										<th>Employee</th>
 										<th>Leave dates</th>
-										<th>Credits</th>
+										<th>No. days</th>
+										<th>Type of leave</th>
+										<th>Credits deducted</th>
 										<th>Reason</th>
-										<th>Submitted</th>
-										<th>Status / Action</th>
+										<th>Attached forms</th>
+										<th>Filed on</th>
+										<th>Status</th>
 									</tr>
 								</thead>
 								<tbody>
@@ -390,26 +534,37 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 										<tr key={request.id}>
 											<td><strong>{request.employee_name}</strong><small>{request.employee_code}</small></td>
 											<td>{formatDate(request.start_date)} – {formatDate(request.end_date)}</td>
+											<td>{getInclusiveDayCount(request.start_date, request.end_date)}</td>
+											<td>{leaveTypes.find((type) => type.value === request.leave_type)?.label ?? request.leave_type}</td>
 											<td>{formatCredits(request.credit_days)}</td>
 											<td className="leave-request-reason-cell">{request.reason}</td>
+											<td>
+												<div className="leave-request-attachments">
+													{(request.attachments ?? []).map((attachment) => (
+														<button
+															type="button"
+															key={attachment.id}
+															disabled={downloadingAttachmentId === attachment.id}
+															onClick={() => downloadAttachment(attachment)}
+														>
+															<Download size={15} aria-hidden="true" />
+															{downloadingAttachmentId === attachment.id
+																? 'Loading…'
+																: attachment.file_name}
+														</button>
+													))}
+												</div>
+											</td>
 											<td>{formatDate(request.created_at?.slice(0, 10))}</td>
 											<td>
-												<span className={`leave-request-status ${request.status}`}>{request.status}</span>
-												{request.status === 'pending' && (
-													<div className="leave-request-actions">
-														<button type="button" aria-label={`Approve request for ${request.employee_name}`} disabled={updatingRequestId === request.id} onClick={() => updateRequestStatus(request.id, 'approved')}>
-															<Check size={16} aria-hidden="true" /> Approve
-														</button>
-														<button type="button" aria-label={`Reject request for ${request.employee_name}`} disabled={updatingRequestId === request.id} onClick={() => updateRequestStatus(request.id, 'rejected')}>
-															<X size={16} aria-hidden="true" /> Reject
-														</button>
-													</div>
-												)}
+												<span className={`leave-request-status ${request.status}`}>
+													{request.status === 'approved' ? 'Filed' : request.status}
+												</span>
 											</td>
 										</tr>
 									))}
 									{!isLoading && requests.length === 0 && (
-										<tr><td colSpan="6" className="leave-credit-empty">No leave-credit requests have been submitted.</td></tr>
+										<tr><td colSpan="9" className="leave-credit-empty">No leave requests have been filed.</td></tr>
 									)}
 								</tbody>
 							</table>

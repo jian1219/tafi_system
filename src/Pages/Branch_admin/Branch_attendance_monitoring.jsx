@@ -42,6 +42,16 @@ const shiftOptions = [
 ]
 
 const shiftEligibleStatuses = ['Present', 'Present (Late)', 'Half Day']
+const filedLeaveStatuses = new Set([
+  'Maternity Leave',
+  'Paternity Leave',
+  'Authorized Leave',
+  'Birthday Leave',
+  'Sick Leave',
+  'Emergency Leave',
+  'Leave with Pay',
+  'VL without Pay'
+])
 
 const statusFromDatabase = {
   not_marked: 'Not marked',
@@ -642,6 +652,7 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
                         isAttendancePeriodLocked
                         || isLoadingPeriodControl
                         || Boolean(periodControlError)
+                        || filedLeaveStatuses.has(employee.status)
                       }
                     >
                       {attendanceOptions.map((option) => {

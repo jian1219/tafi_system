@@ -1959,15 +1959,16 @@ begin
       raise exception 'Late minutes do not match attendance status for employee %', v_record->>'employee_code';
     end if;
 
-    if v_status <> 'vl_with_pay' and exists (
+    if exists (
       select 1
       from public.branch_employee_leave_request as leave_request
       where leave_request.branch_id = v_branch_id
         and leave_request.employee_code = trim(v_record->>'employee_code')
         and leave_request.status = 'approved'
         and p_attendance_date between leave_request.start_date and leave_request.end_date
+        and leave_request.leave_type <> v_status
     ) then
-      raise exception 'Attendance date is covered by an approved Leave with Pay request for employee %',
+      raise exception 'Attendance date is covered by a filed leave request for employee %',
         v_record->>'employee_code';
     end if;
 

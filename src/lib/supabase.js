@@ -2042,21 +2042,40 @@ export async function listBranchEmployeeLeaveRequests(sessionToken) {
   }
 }
 
-export async function createBranchEmployeeLeaveRequest(sessionToken, request) {
+export async function fileBranchEmployeeLeaveRequest(sessionToken, request) {
   try {
     const supabaseClient = await getSupabaseClient()
-    return await supabaseClient.rpc('branch_admin_create_employee_leave_request', {
+    return await supabaseClient.rpc('branch_admin_file_employee_leave_request', {
       p_session_token: sessionToken,
       p_employee_code: request.employeeCode,
       p_start_date: request.startDate,
       p_end_date: request.endDate,
-      p_credit_days: request.creditDays,
-      p_reason: request.reason
+      p_leave_type: request.leaveType,
+      p_reason: request.reason,
+      p_attachments: request.attachments.map((attachment) => ({
+        file_name: attachment.fileName,
+        file_base64: attachment.fileBase64
+      }))
     })
   } catch (error) {
     return {
       data: null,
-      error: error instanceof Error ? error : new Error('Unable to submit the employee leave request.')
+      error: error instanceof Error ? error : new Error('Unable to file the employee leave request.')
+    }
+  }
+}
+
+export async function getBranchEmployeeLeaveRequestAttachment(sessionToken, attachmentId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_get_employee_leave_request_attachment', {
+      p_session_token: sessionToken,
+      p_attachment_id: attachmentId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the leave attachment.')
     }
   }
 }
