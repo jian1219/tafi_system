@@ -146,6 +146,8 @@ create table if not exists public.employee_attendance (
     'paternity_leave',
     'authorized_leave',
     'birthday_leave',
+    'sick_leave',
+    'emergency_leave',
     'vl_with_pay',
     'vl_without_pay',
     'day_off'

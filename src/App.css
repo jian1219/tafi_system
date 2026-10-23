@@ -2136,6 +2136,8 @@ fieldset.employee-emergency-contact-box {
 .employee-attendance-legend i.pl { background: #ee82ee; }
 .employee-attendance-legend i.bl { background: #87ceeb; }
 .employee-attendance-legend i.authorized-leave { background: #8b4513; }
+.employee-attendance-legend i.sl { background: #f43f5e; }
+.employee-attendance-legend i.el { background: #f97316; }
 
 .employee-attendance-month-filter {
   display: grid;
@@ -2288,6 +2290,8 @@ fieldset.employee-emergency-contact-box {
 .employee-attendance-day.ml { background: #ffc0cb; color: #0f172a; }
 .employee-attendance-day.pl { background: #ee82ee; color: #0f172a; }
 .employee-attendance-day.authorized-leave { background: #8b4513; color: #fff; }
+.employee-attendance-day.sl { background: #f43f5e; color: #fff; }
+.employee-attendance-day.el { background: #f97316; color: #fff; }
 .employee-attendance-day.bl { background: #87ceeb; color: #0f172a; }
 .employee-attendance-day.vlp { background: #ffff00; color: #0f172a; }
 .employee-attendance-day.vlwp { background: #2563eb; color: #fff; }
@@ -2565,6 +2569,8 @@ fieldset.employee-emergency-contact-box {
 .legend-box.pl { background: #ee82ee; }
 .legend-box.bl { background: #87ceeb; }
 .legend-box.authorized-leave { background: #8b4513; }
+.legend-box.sl { background: #f43f5e; }
+.legend-box.el { background: #f97316; }
 
 .daily-summary-grid {
   display: grid;
@@ -3451,6 +3457,8 @@ fieldset.employee-emergency-contact-box {
 .status-cell.pl { background: #ee82ee; color: #0f172a; }
 .status-cell.bl { background: #87ceeb; color: #0f172a; }
 .status-cell.authorized-leave { background: #8b4513; color: #fff; }
+.status-cell.sl { background: #f43f5e; color: #fff; }
+.status-cell.el { background: #f97316; color: #fff; }
 
 .monthly-attendance-table .attendance-col-day {
   width: 52px;

@@ -40,6 +40,14 @@ Run `supabase/attendance_period_access_mode.sql` after
 or daily attendance access for each branch in the Period Access section. Daily
 periods open for the current day and lock automatically after the day ends.
 
+## Sick leave and emergency leave attendance
+
+Run `supabase/attendance_sick_emergency_leave.sql` after
+`supabase/branch_employee_contributions.sql` and
+`supabase/tafi_admin_management.sql`. Branch and TAFI Admins can then record
+Sick Leave (SL) and Emergency Leave (EL) in Daily Attendance; the statuses
+appear with rose and orange colors in attendance records.
+
 ## Branch Admin employee records
 
 Run `supabase/branch_employee_documents.sql` after

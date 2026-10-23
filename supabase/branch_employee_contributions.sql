@@ -1935,7 +1935,8 @@ begin
     if v_status is null or v_status not in (
       'not_marked', 'present', 'present_late', 'half_day', 'absent',
       'maternity_leave', 'paternity_leave', 'authorized_leave',
-      'birthday_leave', 'vl_with_pay', 'vl_without_pay', 'day_off'
+      'birthday_leave', 'sick_leave', 'emergency_leave',
+      'vl_with_pay', 'vl_without_pay', 'day_off'
     ) then
       raise exception 'Invalid attendance status for employee %', v_record->>'employee_code';
     end if;

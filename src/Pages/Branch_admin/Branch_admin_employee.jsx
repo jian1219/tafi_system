@@ -25,6 +25,8 @@ const attendanceStatusDetails = {
 	paternity_leave: { label: 'PL', description: 'Paternity leave', className: statusCodeClassNames[statusCodes.paternity_leave] },
 	authorized_leave: { label: 'AL', description: 'Authorized leave', className: statusCodeClassNames[statusCodes.authorized_leave] },
 	birthday_leave: { label: 'BL', description: 'Birthday leave', className: statusCodeClassNames[statusCodes.birthday_leave] },
+	sick_leave: { label: 'SL', description: 'Sick leave', className: statusCodeClassNames[statusCodes.sick_leave] },
+	emergency_leave: { label: 'EL', description: 'Emergency leave', className: statusCodeClassNames[statusCodes.emergency_leave] },
 	vl_with_pay: { label: 'VLP', description: 'Vacation leave with pay', className: statusCodeClassNames[statusCodes.vl_with_pay] },
 	vl_without_pay: { label: 'VLwP', description: 'Vacation leave without pay', className: statusCodeClassNames[statusCodes.vl_without_pay] },
 	day_off: { label: 'DAY OFF', description: 'Day off', className: statusCodeClassNames[statusCodes.day_off] },
@@ -42,6 +44,8 @@ const leaveAttendanceStatuses = new Set([
 	'paternity_leave',
 	'authorized_leave',
 	'birthday_leave',
+	'sick_leave',
+	'emergency_leave',
 	'vl_with_pay',
 	'vl_without_pay'
 ])

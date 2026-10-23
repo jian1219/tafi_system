@@ -10,6 +10,8 @@ const statusLabels = {
   paternity_leave: 'Paternity Leave',
   authorized_leave: 'Authorized Leave',
   birthday_leave: 'Birthday Leave',
+  sick_leave: 'Sick Leave',
+  emergency_leave: 'Emergency Leave',
   vl_with_pay: 'Leave with Pay',
   vl_without_pay: 'VL without Pay',
   day_off: 'Day Off'

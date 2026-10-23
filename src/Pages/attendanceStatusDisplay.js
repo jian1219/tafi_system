@@ -9,6 +9,8 @@ export const statusCodes = {
   birthday_leave: 'BL',
   vl_with_pay: 'VLP',
   vl_without_pay: 'VLwP',
+  sick_leave: 'SL',
+  emergency_leave: 'EL',
   day_off: 'DAY OFF'
 }
 
@@ -23,6 +25,8 @@ export const statusCodeClassNames = {
   BL: 'bl',
   VLP: 'vlp',
   VLwP: 'vlwp',
+  SL: 'sl',
+  EL: 'el',
   'DAY OFF': 'day-off'
 }
 
@@ -37,5 +41,7 @@ export const recordLegend = [
   { className: 'ml', label: 'Maternity leave (ML)' },
   { className: 'pl', label: 'Paternity leave (PL)' },
   { className: 'bl', label: 'Birthday leave (BL)' },
-  { className: 'authorized-leave', label: 'Authorized leave (AL)' }
+  { className: 'authorized-leave', label: 'Authorized leave (AL)' },
+  { className: 'sl', label: 'Sick Leave (SL)' },
+  { className: 'el', label: 'Emergency Leave (EL)' }
 ]

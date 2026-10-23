@@ -28,6 +28,8 @@ const attendanceOptions = [
   'Paternity Leave',
   'Authorized Leave',
   'Birthday Leave',
+  'Sick Leave',
+  'Emergency Leave',
   'Leave with Pay',
   'VL without Pay',
   'Day Off'
@@ -51,6 +53,8 @@ const statusFromDatabase = {
   paternity_leave: 'Paternity Leave',
   authorized_leave: 'Authorized Leave',
   birthday_leave: 'Birthday Leave',
+  sick_leave: 'Sick Leave',
+  emergency_leave: 'Emergency Leave',
   vl_with_pay: 'Leave with Pay',
   vl_without_pay: 'VL without Pay',
   day_off: 'Day Off'
