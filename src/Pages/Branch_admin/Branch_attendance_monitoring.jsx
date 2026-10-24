@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   listBranchAttendance,
   getBranchAttendancePeriodControl,
-  listBranchEmployeeLeaveCredits,
   listBranchOvertimeHours,
   listBranchUndertimeDeductions,
   requestBranchAttendancePeriodUnlock,
@@ -42,16 +41,6 @@ const shiftOptions = [
 ]
 
 const shiftEligibleStatuses = ['Present', 'Present (Late)', 'Half Day']
-const filedLeaveStatuses = new Set([
-  'Maternity Leave',
-  'Paternity Leave',
-  'Authorized Leave',
-  'Birthday Leave',
-  'Sick Leave',
-  'Emergency Leave',
-  'Leave with Pay',
-  'VL without Pay'
-])
 
 const statusFromDatabase = {
   not_marked: 'Not marked',
@@ -102,9 +91,6 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
   ))
   const [employees, setEmployees] = useState([])
   const [attendanceRecords, setAttendanceRecords] = useState([])
-  const [leaveCreditBalances, setLeaveCreditBalances] = useState({})
-  const [isLoadingLeaveCredits, setIsLoadingLeaveCredits] = useState(Boolean(branchAdmin?.session_token))
-  const [leaveCreditError, setLeaveCreditError] = useState('')
   const [overtimeRecords, setOvertimeRecords] = useState([])
   const [undertimeRecords, setUndertimeRecords] = useState([])
   const [monthlyMetricsError, setMonthlyMetricsError] = useState('')
@@ -122,8 +108,6 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
     let isCurrent = true
 
     const loadAttendanceData = async () => {
-      setIsLoadingLeaveCredits(true)
-      setLeaveCreditError('')
       const attendanceMonths = new Map([
         [monthStart, monthEnd],
         [selectedAttendanceMonthStart, selectedAttendanceMonthEnd]
@@ -134,31 +118,17 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
       const [employeeResult, ...remainingResults] = await Promise.all([
         getBranchEmployees(sessionToken),
         ...attendanceRequests,
-        listBranchEmployeeLeaveCredits(sessionToken),
         listBranchOvertimeHours(sessionToken, monthStart, monthEnd),
         listBranchUndertimeDeductions(sessionToken, monthStart, monthEnd)
       ])
       if (!isCurrent) return
 
       const attendanceResults = remainingResults.slice(0, attendanceRequests.length)
-      const leaveCreditsResult = remainingResults[attendanceRequests.length]
-      const overtimeResult = remainingResults[attendanceRequests.length + 1]
-      const undertimeResult = remainingResults[attendanceRequests.length + 2]
+      const overtimeResult = remainingResults[attendanceRequests.length]
+      const undertimeResult = remainingResults[attendanceRequests.length + 1]
       const { employees: loadedEmployees, error: employeeError } = employeeResult
       const attendanceError = attendanceResults.find((result) => result.error)?.error
       const error = employeeError ?? attendanceError
-      if (leaveCreditsResult.error) {
-        setLeaveCreditBalances({})
-        setLeaveCreditError(leaveCreditsResult.error.message)
-      } else {
-        setLeaveCreditBalances(Object.fromEntries(
-          (leaveCreditsResult.data ?? []).map((record) => [
-            record.employee_code,
-            Math.max(0, Number(record.balance ?? 0) - Number(record.pending_credits ?? 0))
-          ])
-        ))
-      }
-      setIsLoadingLeaveCredits(false)
 
       if (error) {
         setSaveError(error.message)
@@ -368,9 +338,6 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
     )
   }
 
-  const hasLeaveCreditForDay = (employeeId) =>
-    (leaveCreditBalances[employeeId] ?? 0) >= 1
-
   const getLateDeduction = (employee) => {
     if (!Number.isFinite(employee.dailyRate) || !Number.isInteger(employee.lateMinutes) || employee.lateMinutes < 1) return null
     return (employee.dailyRate / 8 / 60) * employee.lateMinutes
@@ -511,12 +478,6 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
       </div>
       {!sessionToken && <p className="payroll-contribution-message error" role="alert">Your login session is missing. Sign out and sign in again after applying the Supabase SQL.</p>}
       {isLoading && <p className="payroll-contribution-message" role="status">Loading employees and attendance…</p>}
-      {leaveCreditError && (
-        <p className="payroll-contribution-message error" role="alert">
-          Could not verify leave credits: {leaveCreditError} Leave with Pay is unavailable until credits can be checked.
-        </p>
-      )}
-
       <div className="attendance-monitoring-tabs">
         <button
           type="button"
@@ -652,25 +613,11 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
                         isAttendancePeriodLocked
                         || isLoadingPeriodControl
                         || Boolean(periodControlError)
-                        || filedLeaveStatuses.has(employee.status)
                       }
                     >
-                      {attendanceOptions.map((option) => {
-                        const leavePayUnavailable = option === 'Leave with Pay'
-                          && (isLoadingLeaveCredits || leaveCreditError || !hasLeaveCreditForDay(employee.id))
-                        return (
-                          <option
-                            key={option}
-                            value={option}
-                            disabled={leavePayUnavailable}
-                            title={leavePayUnavailable
-                              ? 'At least 1.00 available earned leave credit is required.'
-                              : undefined}
-                          >
-                            {option}
-                          </option>
-                        )
-                      })}
+                      {attendanceOptions.map((option) => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
                     </select>
                     {employee.status === 'Present (Late)' && (
                       <>

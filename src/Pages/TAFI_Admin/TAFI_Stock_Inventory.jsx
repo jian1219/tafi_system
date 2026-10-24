@@ -517,7 +517,6 @@ export default function TafiStockInventory({ sessionToken }) {
 								<table className="accountant-inventory-table">
 									<thead>
 										<tr>
-											<th scope="col">Branch</th>
 											<th scope="col">Stock no.</th>
 											<th scope="col">Item description</th>
 											<th scope="col">Unit</th>
@@ -527,7 +526,6 @@ export default function TafiStockInventory({ sessionToken }) {
 									<tbody>
 										{filteredBranchStockItems.map((item) => (
 											<tr key={item.branch_inventory_id}>
-												<td>{item.branch_name}</td>
 												<td>{item.stock_no}</td>
 												<td>{item.item_description}</td>
 												<td>{item.unit_of_measure}</td>

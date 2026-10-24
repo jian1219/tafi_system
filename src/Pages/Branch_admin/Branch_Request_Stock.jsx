@@ -58,6 +58,7 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 	const [requests, setRequests] = useState([])
 	const [receiptHistory, setReceiptHistory] = useState([])
 	const [requestLines, setRequestLines] = useState(() => [createRequestLine()])
+	const [isReviewingRequest, setIsReviewingRequest] = useState(false)
 	const [categoryFilter, setCategoryFilter] = useState('')
 	const [itemSearch, setItemSearch] = useState('')
 	const [activeTab, setActiveTab] = useState('request')
@@ -188,6 +189,11 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 			return
 		}
 
+		if (!isReviewingRequest) {
+			setIsReviewingRequest(true)
+			return
+		}
+
 		const requestDate = getBranchStockRequestDate()
 		setIsSubmitting(true)
 		const { error } = await createBranchStockRequestBatch(
@@ -205,6 +211,7 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 
 		const submittedItemCount = requestLines.length
 		setRequestLines([createRequestLine()])
+		setIsReviewingRequest(false)
 		const result = await loadRequestData(sessionToken)
 		setIsSubmitting(false)
 		if (result.error) {
@@ -356,7 +363,7 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 				<div className="accountant-inventory-heading">
 					<div>
 						<h2>Request stock for {branchName}</h2>
-						<p>Add one or more TAFI stock items, then submit them together as one request.</p>
+						<p>Add one or more TAFI stock items, review the details, then submit them together as one request.</p>
 					</div>
 				</div>
 
@@ -364,109 +371,174 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 				{notice && <p className="accountant-inventory-notice" role="status">{notice}</p>}
 
 				<form className="accountant-inventory-form branch-stock-request-form" onSubmit={handleSubmit}>
-					<div className="branch-stock-request-filters">
-						<label>
-							<span>Filter by category</span>
-							<select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
-								<option value="">All categories</option>
-								{categories.map((category) => (
-									<option key={category} value={category}>{category}</option>
-								))}
-							</select>
-						</label>
-						<label>
-							<span>Search inventory</span>
-							<input
-								type="search"
-								value={itemSearch}
-								onChange={(event) => setItemSearch(event.target.value)}
-								placeholder="Search stock number or description"
-							/>
-						</label>
-					</div>
-					{requestLines.map((line, index) => {
-						const selectedItem = stockItems.find((item) => item.stock_inventory_id === line.stockInventoryId)
-						return (
-							<fieldset className="branch-stock-request-line" key={line.lineId}>
-								<legend>Request item {index + 1}</legend>
-								<div className="branch-stock-request-fields">
-									<label>
-										<span>Description</span>
-										<select
-											value={line.stockInventoryId}
-											onChange={(event) => setRequestLines((current) => current.map((item) => (
-												item.lineId === line.lineId
-													? { ...item, stockInventoryId: event.target.value }
-													: item
-											)))}
-											required
-										>
-											<option value="">Select an item</option>
-											{availableItemsByLine[index].map((item) => (
-												<option key={item.stock_inventory_id} value={item.stock_inventory_id}>
-													{item.item_description}
-												</option>
-											))}
-										</select>
-									</label>
-									<label>
-										<span>Stock no.</span>
-										<input value={selectedItem?.stock_no ?? ''} readOnly />
-									</label>
-									<label>
-										<span>Unit</span>
-										<input value={selectedItem?.unit_of_measure ?? ''} readOnly />
-									</label>
-									<label>
-										<span>Available stock (TAFI)</span>
-										<input value={selectedItem?.available ?? ''} readOnly />
-									</label>
-									<label>
-										<span>Quantity requested</span>
-										<input
-											type="number"
-											min="0.001"
-											step="0.001"
-											value={line.quantityRequested}
-											onChange={(event) => setRequestLines((current) => current.map((item) => (
-												item.lineId === line.lineId
-													? { ...item, quantityRequested: event.target.value }
-													: item
-											)))}
-											required
-										/>
-									</label>
-								</div>
-								{requestLines.length > 1 && (
-									<button
-										type="button"
-										className="branch-stock-remove-line"
-										onClick={() => setRequestLines((current) => current.filter((item) => item.lineId !== line.lineId))}
-										disabled={isSubmitting}
-									>
-										<Trash2 size={15} aria-hidden="true" />
-										Remove item
-									</button>
-								)}
-							</fieldset>
-						)
-					})}
-					<button
-						type="button"
-						className="branch-stock-add-line"
-						onClick={() => setRequestLines((current) => [...current, createRequestLine()])}
-						disabled={isSubmitting}
-					>
-						<Plus size={16} aria-hidden="true" />
-						Add another item
-					</button>
-					<button
-						type="submit"
-						className="accountant-inventory-submit"
-						disabled={isLoading || isSubmitting || Boolean(errorMessage)}
-					>
-						{isSubmitting ? 'Submitting...' : 'Submit stock request'}
-					</button>
+					{isReviewingRequest ? (
+						<>
+							<h3>Review stock request</h3>
+							<div className="accountant-inventory-table-wrap">
+								<table className="accountant-inventory-table">
+									<thead>
+										<tr>
+											<th scope="col">Stock no.</th>
+											<th scope="col">Description</th>
+											<th scope="col">Unit</th>
+											<th scope="col">Quantity requested</th>
+										</tr>
+									</thead>
+									<tbody>
+										{requestLines.map((line) => {
+											const item = stockItems.find(
+												(stockItem) => stockItem.stock_inventory_id === line.stockInventoryId
+											)
+											return (
+												<tr key={line.lineId}>
+													<td>{item?.stock_no ?? '—'}</td>
+													<td>{item?.item_description ?? '—'}</td>
+													<td>{item?.unit_of_measure ?? '—'}</td>
+													<td>{line.quantityRequested}</td>
+												</tr>
+											)
+										})}
+									</tbody>
+								</table>
+							</div>
+							<button
+								type="button"
+								className="accountant-inventory-add-toggle"
+								onClick={() => {
+									setIsReviewingRequest(false)
+									setErrorMessage('')
+								}}
+								disabled={isSubmitting}
+							>
+								Back to edit
+							</button>
+							<button
+								type="submit"
+								className="accountant-inventory-submit"
+								disabled={isLoading || isSubmitting}
+							>
+								{isSubmitting ? 'Submitting...' : 'Submit stock request'}
+							</button>
+						</>
+					) : (
+						<>
+							<div className="branch-stock-request-filters">
+								<label>
+									<span>Filter by category</span>
+									<select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+										<option value="">All categories</option>
+										{categories.map((category) => (
+											<option key={category} value={category}>{category}</option>
+										))}
+									</select>
+								</label>
+								<label>
+									<span>Search inventory</span>
+									<input
+										type="search"
+										value={itemSearch}
+										onChange={(event) => setItemSearch(event.target.value)}
+										placeholder="Search stock number or description"
+									/>
+								</label>
+							</div>
+							{requestLines.map((line, index) => {
+								const selectedItem = stockItems.find((item) => item.stock_inventory_id === line.stockInventoryId)
+								return (
+									<fieldset className="branch-stock-request-line" key={line.lineId}>
+										<legend>Request item {index + 1}</legend>
+										<div className="branch-stock-request-fields">
+											<label>
+												<span>Description</span>
+												<select
+													value={line.stockInventoryId}
+													onChange={(event) => {
+														setRequestLines((current) => current.map((item) => (
+															item.lineId === line.lineId
+																? { ...item, stockInventoryId: event.target.value }
+																: item
+														)))
+														setErrorMessage('')
+													}}
+													required
+												>
+													<option value="">Select an item</option>
+													{availableItemsByLine[index].map((item) => (
+														<option key={item.stock_inventory_id} value={item.stock_inventory_id}>
+															{item.item_description}
+														</option>
+													))}
+												</select>
+											</label>
+											<label>
+												<span>Stock no.</span>
+												<input value={selectedItem?.stock_no ?? ''} readOnly />
+											</label>
+											<label>
+												<span>Unit</span>
+												<input value={selectedItem?.unit_of_measure ?? ''} readOnly />
+											</label>
+											<label>
+												<span>Available stock (TAFI)</span>
+												<input value={selectedItem?.available ?? ''} readOnly />
+											</label>
+											<label>
+												<span>Quantity requested</span>
+												<input
+													type="number"
+													min="0.001"
+													step="0.001"
+													value={line.quantityRequested}
+													onChange={(event) => {
+														setRequestLines((current) => current.map((item) => (
+															item.lineId === line.lineId
+																? { ...item, quantityRequested: event.target.value }
+																: item
+														)))
+														setErrorMessage('')
+													}}
+													required
+												/>
+											</label>
+										</div>
+										{requestLines.length > 1 && (
+											<button
+												type="button"
+												className="branch-stock-remove-line"
+												onClick={() => {
+													setRequestLines((current) => current.filter((item) => item.lineId !== line.lineId))
+													setErrorMessage('')
+												}}
+												disabled={isSubmitting}
+											>
+												<Trash2 size={15} aria-hidden="true" />
+												Remove item
+											</button>
+										)}
+									</fieldset>
+								)
+							})}
+							<button
+								type="button"
+								className="branch-stock-add-line"
+								onClick={() => {
+									setRequestLines((current) => [...current, createRequestLine()])
+									setErrorMessage('')
+								}}
+								disabled={isSubmitting}
+							>
+								<Plus size={16} aria-hidden="true" />
+								Add another item
+							</button>
+							<button
+								type="submit"
+								className="accountant-inventory-submit"
+								disabled={isLoading || isSubmitting || Boolean(errorMessage)}
+							>
+								Continue
+							</button>
+						</>
+					)}
 				</form>
 			</div>
 
@@ -507,51 +579,53 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 					<p className="accountant-inventory-empty" role="status">Loading stock requests...</p>
 				) : filteredRequestGroups.length ? (
 					<div className="accountant-inventory-table-wrap">
-						<table className="accountant-inventory-table">
-							<thead>
-								<tr>
-									<th scope="col">Order no.</th>
-									<th scope="col">Stock no.</th>
-									<th scope="col">Description</th>
-									<th scope="col">Unit</th>
-									<th scope="col">Quantity requested</th>
-									<th scope="col">Quantity delivered</th>
-									<th scope="col">Status</th>
-									<th scope="col">Requested on</th>
-								</tr>
-							</thead>
-							{requestDateGroups.map(({ dateKey, createdAt, orderGroups }) => (
-								<tbody className="branch-stock-request-date-group" key={dateKey}>
-									<tr className="branch-stock-request-date-heading">
-										<th scope="rowgroup" colSpan="8">
+						{requestDateGroups.map(({ dateKey, createdAt, orderGroups }) => {
+							const statuses = new Set(orderGroups.flatMap(({ items }) => (
+								items.map((request) => request.status)
+							)))
+							const [groupStatus] = statuses
+							const status = statuses.size === 1
+								? `${groupStatus.charAt(0).toUpperCase()}${groupStatus.slice(1)}`
+								: 'Mixed'
+							return (
+								<section className="branch-stock-request-date-group" key={dateKey}>
+									<div className="branch-stock-request-date-heading">
+										<strong>
 											{requestDateLabelFormatter.format(new Date(createdAt))}
-										</th>
-									</tr>
-									{orderGroups.map(({ groupId, items }) => (
-										<Fragment key={groupId}>
-											<tr className="branch-stock-request-group-heading">
-												<th scope="row" colSpan="8">
-													Order {formatOrderNumber(groupId)}
-													<span>{new Date(items[0].created_at).toLocaleString()}</span>
-												</th>
+										</strong>
+										<span className="branch-stock-request-date-status">{status}</span>
+									</div>
+									<table className="accountant-inventory-table">
+										<thead>
+											<tr>
+												<th scope="col">Stock no.</th>
+												<th scope="col">Description</th>
+												<th scope="col">Unit</th>
+												<th scope="col">Quantity requested</th>
+												<th scope="col">Quantity delivered</th>
+												<th scope="col">Requested on</th>
 											</tr>
-											{items.map((request) => (
-												<tr key={request.request_id}>
-													<td>{formatOrderNumber(request.request_group_id)}</td>
-													<td>{request.stock_no}</td>
-													<td>{request.item_description}</td>
-													<td>{request.unit_of_measure}</td>
-													<td>{request.quantity_requested}</td>
-													<td>{request.quantity_delivered ?? '—'}</td>
-													<td>{request.status}</td>
-													<td>{new Date(request.created_at).toLocaleString()}</td>
-												</tr>
+										</thead>
+										<tbody>
+											{orderGroups.map(({ groupId, items }) => (
+												<Fragment key={groupId}>
+													{items.map((request) => (
+														<tr key={request.request_id}>
+															<td>{request.stock_no}</td>
+															<td>{request.item_description}</td>
+															<td>{request.unit_of_measure}</td>
+															<td>{request.quantity_requested}</td>
+															<td>{request.quantity_delivered ?? '—'}</td>
+															<td>{new Date(request.created_at).toLocaleString()}</td>
+														</tr>
+													))}
+												</Fragment>
 											))}
-										</Fragment>
-									))}
-								</tbody>
-							))}
-						</table>
+										</tbody>
+									</table>
+								</section>
+							)
+						})}
 					</div>
 				) : requests.length ? (
 					<p className="accountant-inventory-empty">

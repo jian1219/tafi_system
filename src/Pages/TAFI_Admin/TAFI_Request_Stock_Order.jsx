@@ -1,8 +1,7 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
-import { deliverTafiAdminStockRequest, listTafiAdminStockRequests } from '../../lib/supabase'
+import { deliverTafiAdminStockRequests, listTafiAdminStockRequests } from '../../lib/supabase'
 
-const formatOrderNumber = (groupId) => groupId?.slice(0, 8).toUpperCase() ?? '—'
 const requestDateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
 	timeZone: 'Asia/Manila',
 	year: 'numeric',
@@ -25,10 +24,9 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 	const [searchTerm, setSearchTerm] = useState('')
 	const [branchFilter, setBranchFilter] = useState('')
 	const [selectedMonth, setSelectedMonth] = useState('')
-	const [deliveryQuantities, setDeliveryQuantities] = useState({})
 	const [activeTab, setActiveTab] = useState('requests')
 	const [isLoading, setIsLoading] = useState(true)
-	const [deliveringRequestId, setDeliveringRequestId] = useState('')
+	const [deliveringBatchKey, setDeliveringBatchKey] = useState('')
 	const [errorMessage, setErrorMessage] = useState('')
 	const [notice, setNotice] = useState('')
 
@@ -96,59 +94,74 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 			groups.get(groupId).push(request)
 		})
 		return [...groups.entries()].map(([groupId, items]) => ({ groupId, items }))
-	}, [filteredRequests])
-	const requestDateGroups = useMemo(() => {
+		}, [filteredRequests])
+
+		const pendingRequests = requests.filter((request) => request.status === 'pending')
+	const pendingDeliveryBatches = useMemo(() => {
 		const groups = new Map()
-		filteredRequestGroups.forEach((group) => {
-			const createdAt = group.items[0].created_at
-			const dateKey = getRequestDateKey(createdAt)
-			if (!groups.has(dateKey)) {
-				groups.set(dateKey, { dateKey, createdAt, orderGroups: [] })
+		requests.filter((request) => request.status === 'pending').forEach((request) => {
+			const dateKey = getRequestDateKey(request.created_at)
+			const branchKey = request.branch_id ?? request.branch_name
+			const batchKey = JSON.stringify([dateKey, branchKey])
+			if (!groups.has(batchKey)) {
+				groups.set(batchKey, {
+					key: batchKey,
+					dateKey,
+					branchName: request.branch_name,
+					createdAt: request.created_at,
+					items: []
+				})
 			}
-			groups.get(dateKey).orderGroups.push(group)
+			groups.get(batchKey).items.push(request)
 		})
-		return [...groups.values()].sort(
-			(first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
+		return [...groups.values()].sort((first, second) =>
+			second.dateKey.localeCompare(first.dateKey)
+			|| first.branchName.localeCompare(second.branchName)
 		)
-	}, [filteredRequestGroups])
+	}, [requests])
+	const pendingDeliveryDates = useMemo(() => {
+		const groups = new Map()
+		pendingDeliveryBatches.forEach((batch) => {
+			if (!groups.has(batch.dateKey)) {
+				groups.set(batch.dateKey, {
+					dateKey: batch.dateKey,
+					createdAt: batch.createdAt,
+					batches: []
+				})
+			}
+			groups.get(batch.dateKey).batches.push(batch)
+		})
+		return [...groups.values()]
+	}, [pendingDeliveryBatches])
 
-	const pendingRequests = requests.filter((request) => request.status === 'pending')
-
-	const handleDeliver = async (event, request) => {
-		event.preventDefault()
-		setDeliveringRequestId(request.request_id)
+	const handleDeliver = async (batch) => {
+		setDeliveringBatchKey(batch.key)
 		setErrorMessage('')
 		setNotice('')
 
-		const quantityDelivered = Number(deliveryQuantities[request.request_id]
-			?? Math.min(Number(request.quantity_requested), Number(request.current_available)))
-		const { error } = await deliverTafiAdminStockRequest(sessionToken, request.request_id, quantityDelivered)
+		const requestIds = batch.items.map((request) => request.request_id)
+		const { error } = await deliverTafiAdminStockRequests(sessionToken, requestIds)
 		if (error) {
-			setDeliveringRequestId('')
+			setDeliveringBatchKey('')
 			setErrorMessage(error.message)
 			return
 		}
 
-		setRequests((current) => current.map((item) => item.request_id === request.request_id
+		const deliveredRequestIds = new Set(requestIds)
+		setRequests((current) => current.map((item) => deliveredRequestIds.has(item.request_id)
 			? {
 				...item,
 				status: 'delivered',
-				quantity_delivered: quantityDelivered,
-				current_available: Number(item.current_available) - quantityDelivered
+				quantity_delivered: item.quantity_requested
 			}
 			: item))
-		setDeliveryQuantities((current) => {
-			const next = { ...current }
-			delete next[request.request_id]
-			return next
-		})
 		const refreshError = await loadRequests()
-		setDeliveringRequestId('')
+		setDeliveringBatchKey('')
 		if (refreshError) {
-			setNotice('Order marked delivered, but the request list could not be refreshed.')
+			setNotice('Requests marked delivered, but the request list could not be refreshed.')
 			return
 		}
-		setNotice('Order marked delivered. TAFI stock was reduced by the shipped quantity.')
+		setNotice('All requests for this branch and date were marked delivered. TAFI stock was reduced by the requested quantities.')
 	}
 
 	return (
@@ -239,8 +252,6 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 						<table className="accountant-inventory-table">
 							<thead>
 								<tr>
-									<th scope="col">Order no.</th>
-									<th scope="col">Branch</th>
 									<th scope="col">Stock no.</th>
 									<th scope="col">Description</th>
 									<th scope="col">Unit</th>
@@ -248,44 +259,21 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 									<th scope="col">Quantity delivered</th>
 									<th scope="col">Quantity received</th>
 									<th scope="col">Status</th>
-									<th scope="col">Received on</th>
-									<th scope="col">Requested on</th>
 								</tr>
 							</thead>
-							{requestDateGroups.map(({ dateKey, createdAt, orderGroups }) => (
-								<tbody className="tafi-stock-request-date-group" key={dateKey}>
-									<tr className="tafi-stock-request-date-heading">
-										<th scope="rowgroup" colSpan="11">
-											{requestDateLabelFormatter.format(new Date(createdAt))}
-										</th>
+							<tbody>
+								{filteredRequests.map((request) => (
+									<tr key={request.request_id}>
+										<td>{request.stock_no}</td>
+										<td>{request.item_description}</td>
+										<td>{request.unit_of_measure}</td>
+										<td>{request.quantity_requested}</td>
+										<td>{request.quantity_delivered ?? '—'}</td>
+										<td>{request.quantity_received ?? '—'}</td>
+										<td>{request.status}</td>
 									</tr>
-									{orderGroups.map(({ groupId, items }) => (
-										<Fragment key={groupId}>
-											<tr className="tafi-stock-request-group-heading">
-												<th scope="row" colSpan="11">
-													Order {formatOrderNumber(groupId)} — {items[0].branch_name}
-													<span>{new Date(items[0].created_at).toLocaleString()}</span>
-												</th>
-											</tr>
-											{items.map((request) => (
-												<tr key={request.request_id}>
-													<td>{formatOrderNumber(request.request_group_id)}</td>
-													<td>{request.branch_name}</td>
-													<td>{request.stock_no}</td>
-													<td>{request.item_description}</td>
-													<td>{request.unit_of_measure}</td>
-													<td>{request.quantity_requested}</td>
-													<td>{request.quantity_delivered ?? '—'}</td>
-													<td>{request.quantity_received ?? '—'}</td>
-													<td>{request.status}</td>
-													<td>{request.received_at ? new Date(request.received_at).toLocaleString() : '—'}</td>
-													<td>{new Date(request.created_at).toLocaleString()}</td>
-												</tr>
-											))}
-										</Fragment>
-									))}
-								</tbody>
-							))}
+								))}
+							</tbody>
 						</table>
 					</div>
 				) : errorMessage ? null : (
@@ -305,7 +293,7 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 				<div className="accountant-inventory-list-heading">
 					<div>
 						<h2>Orders ready for delivery</h2>
-						<p>Enter the quantity shipped. TAFI stock is reduced when delivery is confirmed.</p>
+						<p>Requests are grouped by branch and date, with one delivery action for each group.</p>
 					</div>
 					<button
 						type="button"
@@ -321,76 +309,86 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 				{notice && <p className="accountant-inventory-notice" role="status">{notice}</p>}
 				{isLoading ? (
 					<p className="accountant-inventory-empty" role="status">Loading delivery orders...</p>
-				) : pendingRequests.length ? (
-					<div className="accountant-inventory-table-wrap">
-						<table className="accountant-inventory-table">
-							<thead>
-								<tr>
-									<th scope="col">Order no.</th>
-									<th scope="col">Branch</th>
-									<th scope="col">Stock no.</th>
-									<th scope="col">Description</th>
-									<th scope="col">Unit</th>
-									<th scope="col">Requested</th>
-									<th scope="col">TAFI available</th>
-									<th scope="col">Quantity shipped</th>
-									<th scope="col">Action</th>
-								</tr>
-							</thead>
-							<tbody>
-								{pendingRequests.map((request) => {
-									const defaultQuantity = Math.min(
-										Number(request.quantity_requested),
-										Number(request.current_available)
+				) : pendingDeliveryDates.length ? (
+					<div className="tafi-stock-delivery-orders">
+						{pendingDeliveryDates.map((dateGroup) => (
+							<section className="tafi-stock-delivery-date-group" key={dateGroup.dateKey}>
+								<h3 className="tafi-stock-delivery-date-heading">
+									Request date: {requestDateLabelFormatter.format(
+										new Date(dateGroup.createdAt)
+									)}
+								</h3>
+								{dateGroup.batches.map((batch) => {
+									const requiredByStockItem = new Map()
+									batch.items.forEach((request) => {
+										const stockItem = requiredByStockItem.get(request.stock_inventory_id) ?? {
+											required: 0,
+											available: Number(request.current_available)
+										}
+										stockItem.required += Number(request.quantity_requested)
+										stockItem.available = Math.min(
+											stockItem.available,
+											Number(request.current_available)
+										)
+										requiredByStockItem.set(request.stock_inventory_id, stockItem)
+									})
+									const hasEnoughStock = [...requiredByStockItem.values()].every(
+										({ required, available }) => available >= required
 									)
-									const quantity = deliveryQuantities[request.request_id] ?? String(defaultQuantity)
-									const quantityValue = Number(quantity)
 									return (
-										<tr key={request.request_id}>
-											<td>{formatOrderNumber(request.request_group_id)}</td>
-											<td>{request.branch_name}</td>
-											<td>{request.stock_no}</td>
-											<td>{request.item_description}</td>
-											<td>{request.unit_of_measure}</td>
-											<td>{request.quantity_requested}</td>
-											<td>{request.current_available}</td>
-											<td>
-												<input
-													type="number"
-													min="0.001"
-													max={defaultQuantity}
-													step="0.001"
-													aria-label={`Quantity shipped for ${request.branch_name}, ${request.stock_no}`}
-													value={quantity}
-													onChange={(event) => setDeliveryQuantities((current) => ({
-														...current,
-														[request.request_id]: event.target.value
-													}))}
-													disabled={Boolean(deliveringRequestId)}
-												/>
-											</td>
-											<td>
-												<button
-													type="button"
-													className="accountant-inventory-submit"
-													disabled={
-														Boolean(deliveringRequestId)
-														|| defaultQuantity <= 0
-														|| !quantity
-														|| !Number.isFinite(quantityValue)
-														|| quantityValue <= 0
-														|| quantityValue > defaultQuantity
-													}
-													onClick={(event) => handleDeliver(event, request)}
-												>
-													{deliveringRequestId === request.request_id ? 'Saving...' : 'Mark delivered'}
-												</button>
-											</td>
-										</tr>
+										<section
+											className="accountant-inventory-panel tafi-stock-delivery-branch"
+											key={batch.key}
+										>
+											<div className="accountant-inventory-list-heading">
+												<div>
+													<h3>Branch: {batch.branchName}</h3>
+												</div>
+											</div>
+											<div className="accountant-inventory-table-wrap">
+												<table className="accountant-inventory-table">
+													<thead>
+														<tr>
+															<th scope="col">Stock no.</th>
+															<th scope="col">Description</th>
+															<th scope="col">Unit</th>
+															<th scope="col">Requested</th>
+															<th scope="col">TAFI available</th>
+														</tr>
+													</thead>
+													<tbody>
+														{batch.items.map((request) => (
+															<tr key={request.request_id}>
+																<td>{request.stock_no}</td>
+																<td>{request.item_description}</td>
+																<td>{request.unit_of_measure}</td>
+																<td>{request.quantity_requested}</td>
+																<td>{request.current_available}</td>
+															</tr>
+														))}
+													</tbody>
+												</table>
+											</div>
+											{!hasEnoughStock && (
+												<p className="accountant-inventory-error" role="status">
+													Not enough TAFI stock to fulfill every request for this branch and date.
+												</p>
+											)}
+											<button
+												type="button"
+												className="accountant-inventory-submit"
+												disabled={Boolean(deliveringBatchKey) || !hasEnoughStock}
+												onClick={() => handleDeliver(batch)}
+											>
+												{deliveringBatchKey === batch.key
+													? 'Marking delivered...'
+													: 'Mark delivered'}
+											</button>
+										</section>
 									)
 								})}
-							</tbody>
-						</table>
+							</section>
+						))}
 					</div>
 				) : (
 					<p className="accountant-inventory-empty">No pending orders are waiting for delivery.</p>

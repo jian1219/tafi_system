@@ -27,6 +27,10 @@ updated script to migrate Branch Inventory to a single Available quantity,
 preserve existing available balances, create the daily log table, and update
 its session-checked RPCs. Re-run `supabase/stock_request_delivery_receipt.sql`
 afterward so received stock adds to Available.
+Then run `supabase/branch_stock_request_batches.sql` and
+`supabase/tafi_admin_deliver_stock_requests_by_branch_date.sql` so TAFI Admins
+can mark all pending requests for one branch and Manila request date delivered
+in a single transaction.
 TAFI Admins can use the Branch Usage Log in the TAFI Dashboard to select a
 branch and review its daily usage history or monthly usage totals.
 Accountants can use the Branch Usage Log in the Accountant Dashboard to review
@@ -50,15 +54,16 @@ appear with rose and orange colors in attendance records.
 
 ## Branch Admin filed employee leave
 
-After `supabase/branch_employee_leave_credits.sql` and
-`supabase/branch_employee_contributions.sql` are installed, run
+After `supabase/branch_employee_contributions.sql`,
+`supabase/branch_employee_leave_credits.sql`, and
+`supabase/tafi_admin_management.sql` are installed, run
 `supabase/attendance_sick_emergency_leave.sql` and then
-`supabase/branch_employee_filed_leave_requests.sql`. Branch Admins can file
-leave for active employees with one or more PDF forms. Filing immediately adds
-the selected leave status to Daily Attendance for every date in the request.
-Vacation Leave with Pay is limited to Regular employees with enough available
-credits; other leave types do not use credits. The new leave rows are locked
-from attendance status changes.
+`supabase/branch_employee_filed_leave_requests.sql`. Branch and TAFI Admins can
+file leave for active employees in their branch selection with one or more PDF
+forms. Filing immediately adds the selected leave status to Daily Attendance
+for every date in the request. Vacation Leave with Pay is limited to Regular
+employees with enough available credits; other leave types do not use credits.
+The new leave rows are locked from attendance status changes.
 
 ## Branch Admin employee records
 

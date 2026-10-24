@@ -22,6 +22,23 @@ alter table public.employee_attendance
 
 alter table public.branch_employee_leave_request
   add column if not exists leave_type text not null default 'vl_with_pay';
+alter table public.branch_employee_leave_request
+  add column if not exists requested_by_tafi_admin_id uuid
+    references public.tafi_admin(id) on delete restrict;
+alter table public.branch_employee_leave_request
+  alter column requested_by_branch_admin_id drop not null;
+alter table public.branch_employee_leave_request
+  drop constraint if exists branch_employee_leave_request_requester_check;
+alter table public.branch_employee_leave_request
+  add constraint branch_employee_leave_request_requester_check
+  check (
+    (requested_by_branch_admin_id is not null)
+    <> (requested_by_tafi_admin_id is not null)
+  );
+
+alter table public.employee_attendance
+  add column if not exists submitted_by_tafi_admin_id uuid
+    references public.tafi_admin(id) on delete set null;
 
 alter table public.branch_employee_leave_request
   drop constraint if exists branch_employee_leave_request_credit_days_check;
@@ -51,9 +68,29 @@ create table if not exists public.branch_employee_leave_request_attachment (
   content_type text not null default 'application/pdf'
     check (content_type = 'application/pdf'),
   file_data bytea not null check (octet_length(file_data) between 1 and 20971520),
-  uploaded_by_branch_admin_id uuid not null references public.branch_admin(id) on delete restrict,
+  uploaded_by_branch_admin_id uuid references public.branch_admin(id) on delete restrict,
+  uploaded_by_tafi_admin_id uuid references public.tafi_admin(id) on delete restrict,
+  constraint branch_employee_leave_request_attachment_uploader_check
+    check (
+      (uploaded_by_branch_admin_id is not null)
+      <> (uploaded_by_tafi_admin_id is not null)
+    ),
   created_at timestamptz not null default now()
 );
+
+alter table public.branch_employee_leave_request_attachment
+  add column if not exists uploaded_by_tafi_admin_id uuid
+    references public.tafi_admin(id) on delete restrict;
+alter table public.branch_employee_leave_request_attachment
+  alter column uploaded_by_branch_admin_id drop not null;
+alter table public.branch_employee_leave_request_attachment
+  drop constraint if exists branch_employee_leave_request_attachment_uploader_check;
+alter table public.branch_employee_leave_request_attachment
+  add constraint branch_employee_leave_request_attachment_uploader_check
+  check (
+    (uploaded_by_branch_admin_id is not null)
+    <> (uploaded_by_tafi_admin_id is not null)
+  );
 
 create index if not exists branch_employee_leave_request_attachment_request_idx
   on public.branch_employee_leave_request_attachment(leave_request_id, created_at, id);
@@ -126,8 +163,78 @@ begin
 end;
 $$;
 
-create or replace function public.branch_admin_file_employee_leave_request(
+drop function if exists public.tafi_admin_list_employee_leave_requests(uuid, uuid);
+
+create function public.tafi_admin_list_employee_leave_requests(
   p_session_token uuid,
+  p_branch_id uuid
+)
+returns table (
+  id uuid,
+  employee_code text,
+  employee_name text,
+  employee_position text,
+  start_date date,
+  end_date date,
+  leave_type text,
+  credit_days numeric,
+  reason text,
+  status text,
+  created_at timestamptz,
+  attachments jsonb
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1
+    from public.tafi_admin_session as admin_session
+    where admin_session.session_token = p_session_token
+      and admin_session.expires_at > now()
+  ) then
+    raise exception 'Invalid or expired TAFI Admin session' using errcode = '28000';
+  end if;
+  if p_branch_id is null or not exists (
+    select 1 from public.branch where id = p_branch_id
+  ) then
+    raise exception 'Selected branch was not found';
+  end if;
+
+  return query
+  select leave_request.id,
+    leave_request.employee_code,
+    employee.name,
+    employee.position,
+    leave_request.start_date,
+    leave_request.end_date,
+    leave_request.leave_type,
+    leave_request.credit_days,
+    leave_request.reason,
+    leave_request.status,
+    leave_request.created_at,
+    coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', attachment.id,
+        'file_name', attachment.file_name
+      ) order by attachment.created_at, attachment.id)
+      from public.branch_employee_leave_request_attachment as attachment
+      where attachment.leave_request_id = leave_request.id
+    ), '[]'::jsonb)
+  from public.branch_employee_leave_request as leave_request
+  join public.employee as employee
+    on employee.branch_id = leave_request.branch_id
+    and employee.employee_code = leave_request.employee_code
+  where leave_request.branch_id = p_branch_id
+  order by leave_request.created_at desc, leave_request.id;
+end;
+$$;
+
+create or replace function public.file_employee_leave_request_internal(
+  p_branch_id uuid,
+  p_requested_by_branch_admin_id uuid,
+  p_requested_by_tafi_admin_id uuid,
   p_employee_code text,
   p_start_date date,
   p_end_date date,
@@ -142,7 +249,6 @@ set search_path = ''
 set statement_timeout = '60s'
 as $$
 declare
-  v_admin_id uuid;
   v_branch_id uuid;
   v_employee_id uuid;
   v_employee_classification text;
@@ -163,16 +269,31 @@ declare
   v_day_offset integer;
   v_saved_count bigint;
 begin
-  select branch_admin.id, branch_admin.branch_id
-  into v_admin_id, v_branch_id
-  from public.branch_admin_session as admin_session
-  join public.branch_admin as branch_admin
-    on branch_admin.id = admin_session.branch_admin_id
-  where admin_session.session_token = p_session_token
-    and admin_session.expires_at > now();
-
-  if not found then
-    raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
+  v_branch_id := p_branch_id;
+  if (p_requested_by_branch_admin_id is not null)
+    = (p_requested_by_tafi_admin_id is not null) then
+    raise exception 'Exactly one authorized leave requester is required';
+  end if;
+  if v_branch_id is null
+    or not exists (select 1 from public.branch where id = v_branch_id) then
+    raise exception 'The selected branch was not found';
+  end if;
+  if p_requested_by_branch_admin_id is not null
+    and not exists (
+      select 1
+      from public.branch_admin as branch_admin
+      where branch_admin.id = p_requested_by_branch_admin_id
+        and branch_admin.branch_id = v_branch_id
+    ) then
+    raise exception 'The Branch Admin does not belong to the selected branch';
+  end if;
+  if p_requested_by_tafi_admin_id is not null
+    and not exists (
+      select 1
+      from public.tafi_admin
+      where id = p_requested_by_tafi_admin_id
+    ) then
+    raise exception 'The TAFI Admin was not found';
   end if;
 
   if p_start_date is null or p_end_date is null or p_end_date < p_start_date then
@@ -314,7 +435,8 @@ begin
     credit_days,
     reason,
     status,
-    requested_by_branch_admin_id
+    requested_by_branch_admin_id,
+    requested_by_tafi_admin_id
   )
   values (
     v_branch_id,
@@ -325,7 +447,8 @@ begin
     v_credit_days,
     trim(p_reason),
     'approved',
-    v_admin_id
+    p_requested_by_branch_admin_id,
+    p_requested_by_tafi_admin_id
   )
   returning id into v_request_id;
 
@@ -335,13 +458,15 @@ begin
       leave_request_id,
       file_name,
       file_data,
-      uploaded_by_branch_admin_id
+      uploaded_by_branch_admin_id,
+      uploaded_by_tafi_admin_id
     )
     values (
       v_request_id,
       trim(v_attachment->>'file_name'),
       decode(v_attachment->>'file_base64', 'base64'),
-      v_admin_id
+      p_requested_by_branch_admin_id,
+      p_requested_by_tafi_admin_id
     );
   end loop;
 
@@ -354,6 +479,7 @@ begin
       late_minutes,
       daily_rate_snapshot,
       submitted_by,
+      submitted_by_tafi_admin_id,
       updated_at
     )
     values (
@@ -362,7 +488,8 @@ begin
       p_leave_type,
       0,
       v_daily_rate,
-      v_admin_id,
+      p_requested_by_branch_admin_id,
+      p_requested_by_tafi_admin_id,
       now()
     )
     on conflict (employee_id, attendance_date) do update
@@ -370,6 +497,7 @@ begin
       late_minutes = 0,
       daily_rate_snapshot = excluded.daily_rate_snapshot,
       submitted_by = excluded.submitted_by,
+      submitted_by_tafi_admin_id = excluded.submitted_by_tafi_admin_id,
       updated_at = now()
     where current_attendance.status in ('absent', 'not_marked');
 
@@ -380,6 +508,94 @@ begin
   end loop;
 
   return v_request_id;
+end;
+$$;
+
+create or replace function public.branch_admin_file_employee_leave_request(
+  p_session_token uuid,
+  p_employee_code text,
+  p_start_date date,
+  p_end_date date,
+  p_leave_type text,
+  p_reason text,
+  p_attachments jsonb
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+set statement_timeout = '60s'
+as $$
+declare
+  v_admin_id uuid;
+  v_branch_id uuid;
+begin
+  select branch_admin.id, branch_admin.branch_id
+  into v_admin_id, v_branch_id
+  from public.branch_admin_session as admin_session
+  join public.branch_admin as branch_admin
+    on branch_admin.id = admin_session.branch_admin_id
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now();
+
+  if not found then
+    raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
+  end if;
+
+  return public.file_employee_leave_request_internal(
+    v_branch_id,
+    v_admin_id,
+    null,
+    p_employee_code,
+    p_start_date,
+    p_end_date,
+    p_leave_type,
+    p_reason,
+    p_attachments
+  );
+end;
+$$;
+
+create or replace function public.tafi_admin_file_employee_leave_request(
+  p_session_token uuid,
+  p_branch_id uuid,
+  p_employee_code text,
+  p_start_date date,
+  p_end_date date,
+  p_leave_type text,
+  p_reason text,
+  p_attachments jsonb
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+set statement_timeout = '60s'
+as $$
+declare
+  v_admin_id uuid;
+begin
+  select admin_session.tafi_admin_id
+  into v_admin_id
+  from public.tafi_admin_session as admin_session
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now();
+
+  if not found then
+    raise exception 'Invalid or expired TAFI Admin session' using errcode = '28000';
+  end if;
+
+  return public.file_employee_leave_request_internal(
+    p_branch_id,
+    null,
+    v_admin_id,
+    p_employee_code,
+    p_start_date,
+    p_end_date,
+    p_leave_type,
+    p_reason,
+    p_attachments
+  );
 end;
 $$;
 
@@ -434,6 +650,45 @@ begin
 end;
 $$;
 
+create or replace function public.tafi_admin_get_employee_leave_request_attachment(
+  p_session_token uuid,
+  p_attachment_id uuid
+)
+returns table (
+  file_name text,
+  content_type text,
+  file_base64 text
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1
+    from public.tafi_admin_session as admin_session
+    where admin_session.session_token = p_session_token
+      and admin_session.expires_at > now()
+  ) then
+    raise exception 'Invalid or expired TAFI Admin session' using errcode = '28000';
+  end if;
+  if p_attachment_id is null then
+    raise exception 'The leave attachment was not found';
+  end if;
+
+  return query
+  select attachment.file_name,
+    attachment.content_type,
+    replace(encode(attachment.file_data, 'base64'), E'\n', '')
+  from public.branch_employee_leave_request_attachment as attachment
+  where attachment.id = p_attachment_id;
+
+  if not found then
+    raise exception 'The leave attachment was not found';
+  end if;
+end;
+$$;
+
 do $$
 declare
   v_definition text;
@@ -479,12 +734,50 @@ begin
 end;
 $$;
 
+do $$
+declare
+  v_definition text;
+  v_old_start constant text := 'if v_status <> ''vl_with_pay'' and exists (';
+  v_new_start constant text := 'if exists (';
+  v_old_range constant text :=
+    'and p_attendance_date between leave_request.start_date and leave_request.end_date';
+  v_new_range constant text :=
+    E'and p_attendance_date between leave_request.start_date and leave_request.end_date\n        and leave_request.leave_type <> v_status';
+begin
+  v_definition := pg_get_functiondef(
+    'public.tafi_admin_save_attendance(uuid,uuid,date,jsonb)'::regprocedure
+  );
+  if position(v_old_start in v_definition) > 0
+    and position(v_old_range in v_definition) > 0 then
+    v_definition := replace(v_definition, v_old_start, v_new_start);
+    v_definition := replace(v_definition, v_old_range, v_new_range);
+    v_definition := replace(
+      v_definition,
+      'Attendance date is covered by an approved Leave with Pay request',
+      'Attendance date is covered by a filed leave request'
+    );
+    execute v_definition;
+  elsif position('and leave_request.leave_type <> v_status' in v_definition) = 0 then
+    raise exception 'TAFI Admin attendance save validation is not in the expected format';
+  else
+    execute v_definition;
+  end if;
+end;
+$$;
+
 revoke all on function public.branch_admin_list_employee_leave_requests(uuid) from public;
 revoke all on function public.branch_admin_file_employee_leave_request(uuid, text, date, date, text, text, jsonb) from public;
 revoke all on function public.branch_admin_get_employee_leave_request_attachment(uuid, uuid) from public;
+revoke all on function public.tafi_admin_list_employee_leave_requests(uuid, uuid) from public;
+revoke all on function public.tafi_admin_file_employee_leave_request(uuid, uuid, text, date, date, text, text, jsonb) from public;
+revoke all on function public.tafi_admin_get_employee_leave_request_attachment(uuid, uuid) from public;
+revoke all on function public.file_employee_leave_request_internal(uuid, uuid, uuid, text, date, date, text, text, jsonb) from public, anon, authenticated;
 
 grant execute on function public.branch_admin_list_employee_leave_requests(uuid) to anon, authenticated;
 grant execute on function public.branch_admin_file_employee_leave_request(uuid, text, date, date, text, text, jsonb) to anon, authenticated;
 grant execute on function public.branch_admin_get_employee_leave_request_attachment(uuid, uuid) to anon, authenticated;
+grant execute on function public.tafi_admin_list_employee_leave_requests(uuid, uuid) to anon, authenticated;
+grant execute on function public.tafi_admin_file_employee_leave_request(uuid, uuid, text, date, date, text, text, jsonb) to anon, authenticated;
+grant execute on function public.tafi_admin_get_employee_leave_request_attachment(uuid, uuid) to anon, authenticated;
 
 commit;

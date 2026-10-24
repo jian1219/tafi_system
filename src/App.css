@@ -5437,6 +5437,28 @@ fieldset.employee-emergency-contact-box {
   max-width: 200px;
 }
 
+.tafi-stock-delivery-date-group + .tafi-stock-delivery-date-group {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.tafi-stock-delivery-date-heading {
+  margin: 0 0 8px;
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.tafi-stock-delivery-branch.accountant-inventory-panel {
+  margin-left: 12px;
+  padding: 12px;
+  border-left: 3px solid #cbd5e1;
+}
+
+.tafi-stock-delivery-branch + .tafi-stock-delivery-branch {
+  margin-top: 8px;
+}
+
 .tafi-stock-inventory-filters input,
 .tafi-stock-inventory-filters select {
   width: 100%;
@@ -5682,14 +5704,26 @@ fieldset.employee-emergency-contact-box {
   border-bottom: 0;
 }
 
-.branch-stock-request-date-group + .branch-stock-request-date-group .branch-stock-request-date-heading th {
-  border-top: 10px solid #fff;
+.branch-stock-request-date-group + .branch-stock-request-date-group {
+  margin-top: 14px;
 }
 
-.branch-stock-request-date-heading th {
+.branch-stock-request-date-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 10px 12px;
   color: #0f172a;
   background: #e2e8f0;
   white-space: normal;
+}
+
+.branch-stock-request-date-status {
+  flex-shrink: 0;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .branch-stock-request-group + .branch-stock-request-group .branch-stock-request-group-heading th {

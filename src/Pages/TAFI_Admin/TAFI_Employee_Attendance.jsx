@@ -51,6 +51,16 @@ const shiftOptions = [
 ]
 
 const shiftEligibleStatuses = ['Present', 'Present (Late)', 'Half Day']
+const filedLeaveStatuses = new Set([
+	'Maternity Leave',
+	'Paternity Leave',
+	'Authorized Leave',
+	'Birthday Leave',
+	'Sick Leave',
+	'Emergency Leave',
+	'Leave with Pay',
+	'VL without Pay'
+])
 const attendanceHistoryPageSize = 100
 
 const statusFromDatabase = {
@@ -927,6 +937,7 @@ export default function TafiEmployeeAttendance({ sessionToken, readOnly = false 
 											onChange={(event) => updateStatus(employee.id, event.target.value)}
 											className="status-select"
 											aria-label={`Attendance for ${employee.name}`}
+											disabled={filedLeaveStatuses.has(employee.status)}
 										>
 											{attendanceOptions.map((option) => {
 												const leavePayUnavailable = option === 'Leave with Pay'

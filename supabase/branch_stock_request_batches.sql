@@ -135,6 +135,7 @@ create function public.tafi_admin_list_stock_requests(
 returns table (
   request_id uuid,
   request_group_id uuid,
+  branch_id uuid,
   branch_name text,
   stock_inventory_id uuid,
   stock_no text,
@@ -165,6 +166,7 @@ begin
   return query
   select request.id,
          request.request_group_id,
+         request.branch_id,
          branch.name,
          stock.id,
          stock.stock_no,

@@ -237,6 +237,21 @@ export async function deliverTafiAdminStockRequest(sessionToken, requestId, quan
   }
 }
 
+export async function deliverTafiAdminStockRequests(sessionToken, requestIds) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_deliver_stock_requests', {
+      p_session_token: sessionToken,
+      p_request_ids: requestIds
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to mark the stock requests as delivered.')
+    }
+  }
+}
+
 export async function listTafiAdminEmployeeContributions(sessionToken, branchId) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -882,6 +897,45 @@ export async function updateTafiAdminEmployeeLeaveRequestStatus(sessionToken, br
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to update the employee leave request.')
+    }
+  }
+}
+
+export async function fileTafiAdminEmployeeLeaveRequest(sessionToken, branchId, request) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_file_employee_leave_request', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_employee_code: request.employeeCode,
+      p_start_date: request.startDate,
+      p_end_date: request.endDate,
+      p_leave_type: request.leaveType,
+      p_reason: request.reason,
+      p_attachments: request.attachments.map((attachment) => ({
+        file_name: attachment.fileName,
+        file_base64: attachment.fileBase64
+      }))
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to file the employee leave request.')
+    }
+  }
+}
+
+export async function getTafiAdminEmployeeLeaveRequestAttachment(sessionToken, attachmentId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_get_employee_leave_request_attachment', {
+      p_session_token: sessionToken,
+      p_attachment_id: attachmentId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the leave attachment.')
     }
   }
 }
