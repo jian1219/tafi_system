@@ -40,6 +40,19 @@ const formatFileSize = (size) => size < 1024 * 1024
 	? `${(size / 1024).toFixed(1)} KB`
 	: `${(size / (1024 * 1024)).toFixed(1)} MB`
 
+const getAttachmentContentType = (file) => {
+	const extension = file.name.split('.').pop()?.toLowerCase()
+	const contentTypeByExtension = {
+		pdf: 'application/pdf',
+		jpg: 'image/jpeg',
+		jpeg: 'image/jpeg',
+		png: 'image/png',
+		webp: 'image/webp'
+	}
+	const contentType = contentTypeByExtension[extension]
+	return contentType && (!file.type || file.type === contentType) ? contentType : ''
+}
+
 const readFileAsBase64 = (file) => new Promise((resolve, reject) => {
 	const reader = new FileReader()
 	reader.onload = () => {
@@ -190,18 +203,16 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 			return
 		}
 		if (selectedFiles.length < 1) {
-			setError('Attach at least one PDF leave form.')
+			setError('Attach at least one PDF or image leave form.')
 			return
 		}
-		if (selectedFiles.some((file) =>
-			file.size <= 0 || !file.name.toLowerCase().endsWith('.pdf')
-		)) {
-			setError('Attach valid PDF leave forms only.')
+		if (selectedFiles.some((file) => file.size <= 0 || !getAttachmentContentType(file))) {
+			setError('Attach valid PDF, JPG, PNG, or WEBP leave forms only.')
 			return
 		}
 		if (selectedFiles.some((file) => file.size > maxAttachmentBytes)
 			|| selectedFiles.reduce((total, file) => total + file.size, 0) > maxAttachmentBytes) {
-			setError('The combined size of attached PDFs must not exceed 20 MB.')
+			setError('The combined size of attached files must not exceed 20 MB.')
 			return
 		}
 
@@ -212,10 +223,11 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 		try {
 			attachments = await Promise.all(selectedFiles.map(async (file) => ({
 				fileName: file.name,
+				contentType: getAttachmentContentType(file),
 				fileBase64: await readFileAsBase64(file)
 			})))
 		} catch (readError) {
-			setError(readError instanceof Error ? readError.message : 'Unable to read the attached PDF.')
+			setError(readError instanceof Error ? readError.message : 'Unable to read an attached file.')
 			setIsSubmitting(false)
 			return
 		}
@@ -455,10 +467,10 @@ export default function BranchEmployeeLeaveCredits({ branchName = 'Bansasi Branc
 								<textarea value={reason} onChange={(event) => setReason(event.target.value)} rows="3" maxLength="500" required />
 							</label>
 							<label className="leave-request-attachments-input">
-								<span>Leave form PDF(s) (one or more files, 20 MB combined maximum)</span>
+								<span>Leave form files (PDF, JPG, PNG, or WEBP; 20 MB combined maximum)</span>
 								<input
 									type="file"
-									accept=".pdf,application/pdf"
+									accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
 									multiple
 									onChange={(event) => {
 										const addedFiles = Array.from(event.currentTarget.files ?? [])

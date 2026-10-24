@@ -66,7 +66,8 @@ create table if not exists public.branch_employee_leave_request_attachment (
   leave_request_id uuid not null references public.branch_employee_leave_request(id) on delete cascade,
   file_name text not null check (length(trim(file_name)) between 1 and 255),
   content_type text not null default 'application/pdf'
-    check (content_type = 'application/pdf'),
+    constraint branch_employee_leave_request_attachment_content_type_check
+      check (content_type in ('application/pdf', 'image/jpeg', 'image/png', 'image/webp')),
   file_data bytea not null check (octet_length(file_data) between 1 and 20971520),
   uploaded_by_branch_admin_id uuid references public.branch_admin(id) on delete restrict,
   uploaded_by_tafi_admin_id uuid references public.tafi_admin(id) on delete restrict,
@@ -83,6 +84,11 @@ alter table public.branch_employee_leave_request_attachment
     references public.tafi_admin(id) on delete restrict;
 alter table public.branch_employee_leave_request_attachment
   alter column uploaded_by_branch_admin_id drop not null;
+alter table public.branch_employee_leave_request_attachment
+  drop constraint if exists branch_employee_leave_request_attachment_content_type_check;
+alter table public.branch_employee_leave_request_attachment
+  add constraint branch_employee_leave_request_attachment_content_type_check
+  check (content_type in ('application/pdf', 'image/jpeg', 'image/png', 'image/webp'));
 alter table public.branch_employee_leave_request_attachment
   drop constraint if exists branch_employee_leave_request_attachment_uploader_check;
 alter table public.branch_employee_leave_request_attachment
@@ -197,7 +203,9 @@ begin
     raise exception 'Invalid or expired TAFI Admin session' using errcode = '28000';
   end if;
   if p_branch_id is null or not exists (
-    select 1 from public.branch where id = p_branch_id
+    select 1
+    from public.branch as branch
+    where branch.id = p_branch_id
   ) then
     raise exception 'Selected branch was not found';
   end if;
@@ -262,6 +270,7 @@ declare
   v_balance numeric := 0;
   v_attachment jsonb;
   v_file_name text;
+  v_file_content_type text;
   v_file_base64 text;
   v_file_data bytea;
   v_total_file_size integer := 0;
@@ -275,7 +284,11 @@ begin
     raise exception 'Exactly one authorized leave requester is required';
   end if;
   if v_branch_id is null
-    or not exists (select 1 from public.branch where id = v_branch_id) then
+    or not exists (
+      select 1
+      from public.branch as branch
+      where branch.id = v_branch_id
+    ) then
     raise exception 'The selected branch was not found';
   end if;
   if p_requested_by_branch_admin_id is not null
@@ -290,8 +303,8 @@ begin
   if p_requested_by_tafi_admin_id is not null
     and not exists (
       select 1
-      from public.tafi_admin
-      where id = p_requested_by_tafi_admin_id
+      from public.tafi_admin as tafi_admin
+      where tafi_admin.id = p_requested_by_tafi_admin_id
     ) then
     raise exception 'The TAFI Admin was not found';
   end if;
@@ -315,36 +328,59 @@ begin
     raise exception 'A reason of 1 to 500 characters is required';
   end if;
   if jsonb_typeof(p_attachments) is distinct from 'array' then
-    raise exception 'Attach at least one PDF leave form';
+    raise exception 'Attach at least one PDF or image leave form';
   end if;
   if jsonb_array_length(p_attachments) < 1 then
-    raise exception 'Attach at least one PDF leave form';
+    raise exception 'Attach at least one PDF or image leave form';
   end if;
 
   for v_attachment in select value from jsonb_array_elements(p_attachments)
   loop
     v_file_name := nullif(trim(v_attachment->>'file_name'), '');
+    v_file_content_type := nullif(trim(v_attachment->>'content_type'), '');
     v_file_base64 := v_attachment->>'file_base64';
 
-    if v_file_name is null or length(v_file_name) > 255
-      or lower(v_file_name) not like '%.pdf' then
-      raise exception 'Every leave attachment must be a PDF with a valid file name';
+    if v_file_name is null or length(v_file_name) > 255 then
+      raise exception 'Every leave attachment must have a valid file name';
+    end if;
+    if v_file_content_type is null
+      or v_file_content_type not in ('application/pdf', 'image/jpeg', 'image/png', 'image/webp') then
+      raise exception 'Leave attachments must be PDF, JPG, PNG, or WEBP files';
+    end if;
+    if not (
+      (v_file_content_type = 'application/pdf' and lower(v_file_name) like '%.pdf')
+      or (v_file_content_type = 'image/jpeg' and lower(v_file_name) similar to '%.(jpg|jpeg)')
+      or (v_file_content_type = 'image/png' and lower(v_file_name) like '%.png')
+      or (v_file_content_type = 'image/webp' and lower(v_file_name) like '%.webp')
+    ) then
+      raise exception 'The leave attachment file name does not match its file type';
     end if;
     if v_file_base64 is null or length(v_file_base64) = 0
       or length(v_file_base64) > 27962028 then
-      raise exception 'Each attached PDF must be no larger than 20 MB';
+      raise exception 'Each attached file must be no larger than 20 MB';
     end if;
 
     v_file_data := decode(v_file_base64, 'base64');
-    if octet_length(v_file_data) = 0
-      or octet_length(v_file_data) > 20971520
-      or substring(v_file_data from 1 for 5) <> decode('255044462D', 'hex') then
-      raise exception 'Each attachment must be a valid PDF no larger than 20 MB';
+    if octet_length(v_file_data) = 0 or octet_length(v_file_data) > 20971520 then
+      raise exception 'Each attachment must be no larger than 20 MB';
+    end if;
+    if not (
+      (v_file_content_type = 'application/pdf'
+        and substring(v_file_data from 1 for 5) = decode('255044462D', 'hex'))
+      or (v_file_content_type = 'image/jpeg'
+        and substring(v_file_data from 1 for 3) = decode('FFD8FF', 'hex'))
+      or (v_file_content_type = 'image/png'
+        and substring(v_file_data from 1 for 8) = decode('89504E470D0A1A0A', 'hex'))
+      or (v_file_content_type = 'image/webp'
+        and substring(v_file_data from 1 for 4) = convert_to('RIFF', 'UTF8')
+        and substring(v_file_data from 9 for 4) = convert_to('WEBP', 'UTF8'))
+    ) then
+      raise exception 'Each attachment must contain valid data matching its PDF or image file type';
     end if;
 
     v_total_file_size := v_total_file_size + octet_length(v_file_data);
     if v_total_file_size > 20971520 then
-      raise exception 'The combined size of attached PDFs must not exceed 20 MB';
+      raise exception 'The combined size of attached files must not exceed 20 MB';
     end if;
   end loop;
 
@@ -457,6 +493,7 @@ begin
     insert into public.branch_employee_leave_request_attachment (
       leave_request_id,
       file_name,
+      content_type,
       file_data,
       uploaded_by_branch_admin_id,
       uploaded_by_tafi_admin_id
@@ -464,6 +501,7 @@ begin
     values (
       v_request_id,
       trim(v_attachment->>'file_name'),
+      trim(v_attachment->>'content_type'),
       decode(v_attachment->>'file_base64', 'base64'),
       p_requested_by_branch_admin_id,
       p_requested_by_tafi_admin_id

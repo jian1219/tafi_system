@@ -914,6 +914,7 @@ export async function fileTafiAdminEmployeeLeaveRequest(sessionToken, branchId, 
       p_reason: request.reason,
       p_attachments: request.attachments.map((attachment) => ({
         file_name: attachment.fileName,
+        content_type: attachment.contentType,
         file_base64: attachment.fileBase64
       }))
     })
@@ -2108,6 +2109,7 @@ export async function fileBranchEmployeeLeaveRequest(sessionToken, request) {
       p_reason: request.reason,
       p_attachments: request.attachments.map((attachment) => ({
         file_name: attachment.fileName,
+        content_type: attachment.contentType,
         file_base64: attachment.fileBase64
       }))
     })

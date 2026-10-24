@@ -59,11 +59,14 @@ After `supabase/branch_employee_contributions.sql`,
 `supabase/tafi_admin_management.sql` are installed, run
 `supabase/attendance_sick_emergency_leave.sql` and then
 `supabase/branch_employee_filed_leave_requests.sql`. Branch and TAFI Admins can
-file leave for active employees in their branch selection with one or more PDF
-forms. Filing immediately adds the selected leave status to Daily Attendance
-for every date in the request. Vacation Leave with Pay is limited to Regular
-employees with enough available credits; other leave types do not use credits.
-The new leave rows are locked from attendance status changes.
+file leave for active employees in their branch selection with one or more PDF,
+JPG, PNG, or WEBP forms (20 MB combined maximum). Filing immediately adds the
+selected leave status to Daily Attendance for every date in the request.
+Vacation Leave with Pay is limited to Regular employees with enough available
+credits; other leave types do not use credits. The new leave rows are locked
+from attendance status changes. For an existing installation, rerun the updated
+`supabase/branch_employee_filed_leave_requests.sql` script to enable the image
+attachment types in the database.
 
 ## Branch Admin employee records
 
