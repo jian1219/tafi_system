@@ -27,6 +27,7 @@ import BranchInventory from './Branch_Inventory'
 import BranchInventoryLog from './Branch_Inventory_log'
 import BranchRequestStock from './Branch_Request_Stock'
 import { revokeBranchAdminSession } from '../../lib/supabase'
+import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
 
 const navigationGroups = [
@@ -63,8 +64,17 @@ const tabs = navigationGroups.flatMap((group) => group.items)
 
 export default function BranchAdminDashboard() {
   const location = useLocation()
-  const [activeTab, setActiveTab] = useState('Employee Info')
-  const [expandedGroups, setExpandedGroups] = useState({ 'employee-management': true })
+  const [activeTab, setActiveTab] = useSessionStorageState(
+    'tafi-branch-admin-dashboard-page',
+    'Employee Info',
+    tabs.map((tab) => tab.name)
+  )
+  const [expandedGroups, setExpandedGroups] = useState(() => {
+    const activeGroup = navigationGroups.find((group) =>
+      group.items.some((item) => item.name === activeTab)
+    )
+    return { [activeGroup?.id ?? 'employee-management']: true }
+  })
   const [currentDateTime, setCurrentDateTime] = useState(() => new Date())
   const [branchAdmin] = useState(() => {
     if (location.state?.branchAdmin) return location.state.branchAdmin

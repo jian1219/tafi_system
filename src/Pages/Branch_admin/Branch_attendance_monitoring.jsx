@@ -616,7 +616,13 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
                       }
                     >
                       {attendanceOptions.map((option) => (
-                        <option key={option} value={option}>{option}</option>
+                        <option
+                          key={option}
+                          value={option}
+                          disabled={option === 'Leave with Pay'}
+                        >
+                          {option}
+                        </option>
                       ))}
                     </select>
                     {employee.status === 'Present (Late)' && (

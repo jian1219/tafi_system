@@ -21,7 +21,6 @@ const getRequestDateKey = (createdAt) => {
 
 export default function TafiRequestStockOrder({ sessionToken }) {
 	const [requests, setRequests] = useState([])
-	const [searchTerm, setSearchTerm] = useState('')
 	const [branchFilter, setBranchFilter] = useState('')
 	const [selectedMonth, setSelectedMonth] = useState('')
 	const [activeTab, setActiveTab] = useState('requests')
@@ -71,20 +70,24 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 	)
 
 	const filteredRequests = useMemo(() => {
-		const query = searchTerm.trim().toLocaleLowerCase()
 		return requests.filter((request) => {
-			if (branchFilter && request.branch_name !== branchFilter) return false
+			if (!branchFilter || request.branch_name !== branchFilter) return false
 			if (selectedMonth && !getRequestDateKey(request.created_at).startsWith(selectedMonth)) return false
-			if (!query) return true
-			return [
-				request.request_group_id,
-				request.branch_name,
-				request.stock_no,
-				request.item_description,
-				request.unit_of_measure
-			].some((value) => value?.toLocaleLowerCase().includes(query))
+			return true
 		})
-	}, [branchFilter, requests, searchTerm, selectedMonth])
+	}, [branchFilter, requests, selectedMonth])
+
+	const filteredRequestsByDate = useMemo(() => {
+		const groups = new Map()
+		filteredRequests.forEach((request) => {
+			const dateKey = getRequestDateKey(request.created_at)
+			if (!groups.has(dateKey)) groups.set(dateKey, [])
+			groups.get(dateKey).push(request)
+		})
+		return [...groups.entries()]
+			.sort(([firstDate], [secondDate]) => secondDate.localeCompare(firstDate))
+			.map(([dateKey, items]) => ({ dateKey, items }))
+	}, [filteredRequests])
 
 	const filteredRequestGroups = useMemo(() => {
 		const groups = new Map()
@@ -216,20 +219,11 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 				{errorMessage && <p className="accountant-inventory-error" role="alert">{errorMessage}</p>}
 				{notice && <p className="accountant-inventory-notice" role="status">{notice}</p>}
 				{!isLoading && requests.length > 0 && (
-					<div className="tafi-stock-inventory-filters" role="search" aria-label="Filter stock requests">
-						<label>
-							<span>Search requests</span>
-							<input
-								type="search"
-								value={searchTerm}
-								onChange={(event) => setSearchTerm(event.target.value)}
-								placeholder="Search branch or item"
-							/>
-						</label>
+					<div className="tafi-stock-inventory-filters">
 						<label>
 							<span>Branch</span>
 							<select value={branchFilter} onChange={(event) => setBranchFilter(event.target.value)}>
-								<option value="">All branches</option>
+								<option value="" disabled>Select a branch</option>
 								{branches.map((branch) => (
 									<option key={branch} value={branch}>{branch}</option>
 								))}
@@ -248,37 +242,52 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 				{isLoading ? (
 					<p className="accountant-inventory-empty" role="status">Loading stock requests...</p>
 				) : filteredRequests.length ? (
-					<div className="accountant-inventory-table-wrap">
-						<table className="accountant-inventory-table">
-							<thead>
-								<tr>
-									<th scope="col">Stock no.</th>
-									<th scope="col">Description</th>
-									<th scope="col">Unit</th>
-									<th scope="col">Quantity requested</th>
-									<th scope="col">Quantity delivered</th>
-									<th scope="col">Quantity received</th>
-									<th scope="col">Status</th>
-								</tr>
-							</thead>
-							<tbody>
-								{filteredRequests.map((request) => (
-									<tr key={request.request_id}>
-										<td>{request.stock_no}</td>
-										<td>{request.item_description}</td>
-										<td>{request.unit_of_measure}</td>
-										<td>{request.quantity_requested}</td>
-										<td>{request.quantity_delivered ?? '—'}</td>
-										<td>{request.quantity_received ?? '—'}</td>
-										<td>{request.status}</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
+					<div className="tafi-stock-delivery-orders">
+						{filteredRequestsByDate.map((dateGroup) => (
+							<section className="tafi-stock-delivery-date-group" key={dateGroup.dateKey}>
+								<h3 className="tafi-stock-delivery-date-heading">
+									Request date: {requestDateLabelFormatter.format(
+										new Date(`${dateGroup.dateKey}T12:00:00+08:00`)
+									)}
+								</h3>
+								<div className="accountant-inventory-table-wrap">
+									<table className="accountant-inventory-table">
+										<thead>
+											<tr>
+												<th scope="col">Stock no.</th>
+												<th scope="col">Description</th>
+												<th scope="col">Unit</th>
+												<th scope="col">Quantity requested</th>
+												<th scope="col">Quantity delivered</th>
+												<th scope="col">Quantity received</th>
+												<th scope="col">Status</th>
+											</tr>
+										</thead>
+										<tbody>
+											{dateGroup.items.map((request) => (
+												<tr key={request.request_id}>
+													<td>{request.stock_no}</td>
+													<td>{request.item_description}</td>
+													<td>{request.unit_of_measure}</td>
+													<td>{request.quantity_requested}</td>
+													<td>{request.quantity_delivered ?? '—'}</td>
+													<td>{request.quantity_received ?? '—'}</td>
+													<td>{request.status}</td>
+												</tr>
+											))}
+										</tbody>
+									</table>
+								</div>
+							</section>
+						))}
 					</div>
 				) : errorMessage ? null : (
 					<p className="accountant-inventory-empty">
-						{requests.length ? 'No stock requests match those filters.' : 'No branch stock requests have been submitted yet.'}
+						{requests.length
+							? branchFilter
+								? 'No stock requests match those filters.'
+								: 'Select a branch to view stock requests.'
+							: 'No branch stock requests have been submitted yet.'}
 					</p>
 				)}
 			</div>

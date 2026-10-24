@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { CalendarDays, ChevronDown, CircleDollarSign, ClipboardList, LogOut, MinusCircle, Package, PlusCircle, ShieldCheck, Trophy, Users, Wallet } from 'lucide-react'
 import { revokeTafiAdminSession } from '../../lib/supabase'
+import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
 import TafiEmployee from './TAFI_Employee'
 import TafiEmployeeContributions from './TAFI_Employee_Contributions'
@@ -58,8 +59,17 @@ export default function TafiDashboard() {
 	const navigate = useNavigate()
 	const tafiAdmin = location.state?.tafiAdmin
 	const isSessionActive = useRoleSessionExpiry(tafiAdmin, '/tafi-admin-login')
-	const [activePage, setActivePage] = useState('employees')
-	const [expandedGroups, setExpandedGroups] = useState({ 'employee-management': true })
+	const [activePage, setActivePage] = useSessionStorageState(
+		'tafi-admin-dashboard-page',
+		'employees',
+		navigationItems.map((item) => item.id)
+	)
+	const [expandedGroups, setExpandedGroups] = useState(() => {
+		const activeGroup = navigationGroups.find((group) =>
+			group.items.some((item) => item.id === activePage)
+		)
+		return { [activeGroup?.id ?? 'employee-management']: true }
+	})
 	const [signOutError, setSignOutError] = useState('')
 
 	if (!isSessionActive) return <Navigate to="/tafi-admin-login" replace />

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Building2, Calculator, Crown, LogOut, Plus, ShieldCheck, UserRound } from 'lucide-react'
 import { createAccountant, createBranchWithAdmin, createGuestAccount, createTafiAdmin, listAccountants, listGuestAccounts, listSuperAdminBranches, listTafiAdmins } from '../../lib/supabase'
+import useSessionStorageState from '../../lib/useSessionStorageState'
 import logoImage from '../../images/Tafi logo transparent.png'
 
 const managementSections = [
@@ -39,7 +40,11 @@ export default function SuperAdminDashboard() {
 	const location = useLocation()
 	const [superAdminEmail, setSuperAdminEmail] = useState(location.state?.email ?? '')
 	const [superAdminPassword, setSuperAdminPassword] = useState('')
-	const [activeSection, setActiveSection] = useState('branch-admins')
+	const [activeSection, setActiveSection] = useSessionStorageState(
+		'tafi-super-admin-dashboard-section',
+		'branch-admins',
+		managementSections.map((section) => section.id)
+	)
 	const [branches, setBranches] = useState([])
 	const [isAuthorized, setIsAuthorized] = useState(false)
 	const [isLoading, setIsLoading] = useState(false)

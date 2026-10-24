@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Calculator, ClipboardList, LayoutDashboard, LogOut, Package } from 'lucide-react'
 import { revokeAccountantSession } from '../../lib/supabase'
+import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
 import logoImage from '../../images/Tafi logo transparent.png'
 import AccountantInventoryInformation from './Accountant_Inventory_Information'
@@ -13,7 +14,11 @@ export default function AccountantDashboard() {
 	const accountant = location.state?.accountant
 	const isSessionActive = useRoleSessionExpiry(accountant, '/accountant-login')
 	const [signOutError, setSignOutError] = useState('')
-	const [activePage, setActivePage] = useState('overview')
+	const [activePage, setActivePage] = useSessionStorageState(
+		'tafi-accountant-dashboard-page',
+		'overview',
+		['overview', 'inventory', 'inventory-log']
+	)
 
 	if (!isSessionActive) return <Navigate to="/accountant-login" replace />
 

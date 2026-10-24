@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { CalendarDays, LayoutDashboard, LogOut, ShieldCheck, Trophy, Users } from 'lucide-react'
 import { revokeGuestSession } from '../../lib/supabase'
+import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
 import GuestOverview from './Guest_Overview'
 import GuestEmployee from './Guest_Employee'
@@ -21,7 +22,11 @@ export default function GuestDashboard() {
 	const navigate = useNavigate()
 	const guest = location.state?.guest
 	const isSessionActive = useRoleSessionExpiry(guest, '/guest-login')
-	const [activePage, setActivePage] = useState('overview')
+	const [activePage, setActivePage] = useSessionStorageState(
+		'tafi-guest-dashboard-page',
+		'overview',
+		navigationItems.map((item) => item.id)
+	)
 	const [signOutError, setSignOutError] = useState('')
 	const [isSigningOut, setIsSigningOut] = useState(false)
 
