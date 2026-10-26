@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { CalendarDays, LayoutDashboard, LogOut, ShieldCheck, Trophy, Users } from 'lucide-react'
+import { CalendarDays, CircleDollarSign, LayoutDashboard, LogOut, ShieldCheck, Trophy, Users } from 'lucide-react'
 import { revokeGuestSession } from '../../lib/supabase'
 import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
@@ -8,12 +8,14 @@ import GuestOverview from './Guest_Overview'
 import GuestEmployee from './Guest_Employee'
 import GuestAttendance from './Guest_Attendance'
 const GuestRankings = lazy(() => import('./Guest_Rankings'))
+const GuestCashAdvance = lazy(() => import('./Guest_Cash_Advance'))
 import logoImage from '../../images/Tafi logo transparent.png'
 
 const navigationItems = [
 	{ id: 'overview', label: 'Overview', icon: LayoutDashboard },
 	{ id: 'employee', label: 'Employee', icon: Users },
 	{ id: 'attendance', label: 'Attendance', icon: CalendarDays },
+	{ id: 'cash-advance', label: 'Cash Advance', icon: CircleDollarSign },
 	{ id: 'rankings', label: 'Employee Rankings', icon: Trophy }
 ]
 
@@ -107,6 +109,12 @@ export default function GuestDashboard() {
 							? <GuestEmployee sessionToken={guest.session_token} />
 							: activePage === 'attendance'
 								? <GuestAttendance sessionToken={guest.session_token} />
+								: activePage === 'cash-advance'
+									? (
+										<Suspense fallback={<p className="cash-advance-message" role="status">Loading cash advance…</p>}>
+											<GuestCashAdvance sessionToken={guest.session_token} />
+										</Suspense>
+									)
 								: (
 									<Suspense fallback={<p className="ranking-loading" role="status">Loading employee rankings…</p>}>
 										<GuestRankings sessionToken={guest.session_token} />

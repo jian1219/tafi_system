@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
 	createTafiAdminCashAdvanceLoan,
+	listGuestCashAdvanceLoans,
+	listGuestCashAdvancePayments,
+	listGuestEmployeeBranches,
 	listTafiAdminBranches,
 	listTafiAdminCashAdvanceLoans,
 	listTafiAdminCashAdvancePayments,
@@ -26,7 +29,7 @@ const formatDate = (dateKey) => new Date(`${dateKey}T12:00:00`).toLocaleDateStri
 
 const getPaymentKey = (loanId, periodStart) => `${loanId}:${periodStart}`
 
-export default function TafiCashAdvance({ sessionToken }) {
+export default function TafiCashAdvance({ sessionToken, readOnly = false }) {
 	const [branches, setBranches] = useState([])
 	const [directoryEmployees, setDirectoryEmployees] = useState([])
 	const [selectedBranchId, setSelectedBranchId] = useState('')
@@ -62,8 +65,12 @@ export default function TafiCashAdvance({ sessionToken }) {
 		const periodStart = getLocalDateKey(new Date(year, month - 1, 1))
 		const periodEnd = getLocalDateKey(new Date(year, month, 0))
 		const [advancesResult, paymentsResult] = await Promise.all([
-			listTafiAdminCashAdvanceLoans(sessionToken, branchId),
-			listTafiAdminCashAdvancePayments(sessionToken, branchId, periodStart, periodEnd)
+			readOnly
+				? listGuestCashAdvanceLoans(sessionToken, branchId)
+				: listTafiAdminCashAdvanceLoans(sessionToken, branchId),
+			readOnly
+				? listGuestCashAdvancePayments(sessionToken, branchId, periodStart, periodEnd)
+				: listTafiAdminCashAdvancePayments(sessionToken, branchId, periodStart, periodEnd)
 		])
 
 		return {
@@ -71,22 +78,26 @@ export default function TafiCashAdvance({ sessionToken }) {
 			payments: paymentsResult.data ?? [],
 			error: advancesResult.error ?? paymentsResult.error
 		}
-	}, [sessionToken])
+	}, [sessionToken, readOnly])
 
 	useEffect(() => {
 		let isCurrent = true
 
 		const loadDirectory = async () => {
 			if (!sessionToken) {
-				setError('Your TAFI Admin login session is missing. Sign out and sign in again.')
+				setError(`Your ${readOnly ? 'Guest' : 'TAFI Admin'} login session is missing. Sign out and sign in again.`)
 				setIsLoadingDirectory(false)
 				setStatus('error')
 				return
 			}
 
 			const [branchesResult, employeesResult] = await Promise.all([
-				listTafiAdminBranches(sessionToken),
-				listTafiAdminEmployees(sessionToken)
+				readOnly
+					? listGuestEmployeeBranches(sessionToken)
+					: listTafiAdminBranches(sessionToken),
+				readOnly
+					? Promise.resolve({ data: [], error: null })
+					: listTafiAdminEmployees(sessionToken)
 			])
 			if (!isCurrent) return
 
@@ -118,7 +129,7 @@ export default function TafiCashAdvance({ sessionToken }) {
 		return () => {
 			isCurrent = false
 		}
-	}, [sessionToken])
+	}, [sessionToken, readOnly])
 
 	useEffect(() => {
 		if (!sessionToken || !selectedBranchId) return undefined
@@ -247,9 +258,11 @@ export default function TafiCashAdvance({ sessionToken }) {
 			<header className="branch-cash-advance-header">
 				<div>
 					<p className="employee-info-eyebrow">{selectedBranch?.branch_name ?? 'TAFI Admin'}</p>
-					<h3>TAFI Cash Advance</h3>
+					<h3>{readOnly ? 'Cash Advance' : 'TAFI Cash Advance'}</h3>
 					<p className="employee-info-description">
-						Track each employee’s cash advance and enter a partial deduction for each payroll week until the balance is paid.
+						{readOnly
+							? 'Review employee cash advances, weekly repayments, and remaining balances.'
+							: 'Track each employee’s cash advance and enter a partial deduction for each payroll week until the balance is paid.'}
 					</p>
 				</div>
 				<label className="tafi-attendance-branch-select tafi-cash-advance-branch-select">
@@ -275,7 +288,7 @@ export default function TafiCashAdvance({ sessionToken }) {
 				</label>
 			</header>
 
-			<form className="cash-advance-form" onSubmit={handleCreateAdvance}>
+			{!readOnly && <form className="cash-advance-form" onSubmit={handleCreateAdvance}>
 				<label>
 					<span>Employee</span>
 					<select
@@ -313,10 +326,10 @@ export default function TafiCashAdvance({ sessionToken }) {
 				<button type="submit" disabled={isSaving || status !== 'ready' || !selectedBranchId || employees.length === 0}>
 					{isSaving ? 'Saving…' : 'Save cash advance'}
 				</button>
-			</form>
+			</form>}
 
 			{(isLoadingDirectory || status === 'loading') && (
-				<p className="cash-advance-message" role="status">Loading employees and cash advance monitoring…</p>
+				<p className="cash-advance-message" role="status">Loading {readOnly ? 'cash advance records' : 'employees and cash advance monitoring'}…</p>
 			)}
 			{error && <p className="cash-advance-message error" role="alert">{error}</p>}
 			{message && <p className="cash-advance-message" role="status">{message}</p>}
@@ -324,7 +337,9 @@ export default function TafiCashAdvance({ sessionToken }) {
 			<div className="cash-advance-history-heading cash-advance-monitor-heading">
 				<div>
 					<h4>Cash advance repayment monitoring</h4>
-					<p>Enter each week’s amount, then save that employee’s weekly deduction schedule.</p>
+					<p>{readOnly
+						? 'Review each employee’s repayment schedule for the selected month.'
+						: 'Enter each week’s amount, then save that employee’s weekly deduction schedule.'}</p>
 				</div>
 				<label className="cash-advance-month-control">
 					<span>Monitoring month</span>
@@ -359,7 +374,7 @@ export default function TafiCashAdvance({ sessionToken }) {
 							<th>Total deducted</th>
 							<th>Remaining balance</th>
 							<th>Status</th>
-							<th>Action</th>
+							{!readOnly && <th>Action</th>}
 						</tr>
 					</thead>
 					<tbody>
@@ -381,6 +396,7 @@ export default function TafiCashAdvance({ sessionToken }) {
 												min="0"
 												step="0.01"
 												value={weeklyDeductions[key] ?? ''}
+												readOnly={readOnly}
 												onChange={(event) => setWeeklyDeductions((current) => ({
 													...current,
 													[key]: event.target.value
@@ -398,7 +414,7 @@ export default function TafiCashAdvance({ sessionToken }) {
 										{Number(advance.balance) <= 0 ? 'Paid' : 'Unpaid'}
 									</span>
 								</td>
-								<td>
+								{!readOnly && <td>
 									<button
 										type="button"
 										className="cash-advance-save-button"
@@ -407,12 +423,12 @@ export default function TafiCashAdvance({ sessionToken }) {
 									>
 										{savingAdvanceId === advance.id ? 'Saving…' : 'Save weeks'}
 									</button>
-								</td>
+								</td>}
 							</tr>
 						))}
 						{status === 'ready' && advances.length === 0 && (
 							<tr>
-								<td className="employee-empty-state" colSpan={7 + payrollWeeks.length}>
+								<td className="employee-empty-state" colSpan={6 + payrollWeeks.length + (readOnly ? 0 : 1)}>
 									No cash advances have been recorded.
 								</td>
 							</tr>
@@ -421,7 +437,9 @@ export default function TafiCashAdvance({ sessionToken }) {
 				</table>
 			</div>
 			<p className="cash-advance-month-note">
-				Showing weekly deductions for {monthLabel}. Choose a different month to review or update another month’s repayments.
+				Showing weekly deductions for {monthLabel}. {readOnly
+					? 'Choose a different month to review another month’s repayments.'
+					: 'Choose a different month to review or update another month’s repayments.'}
 			</p>
 		</section>
 	)

@@ -35,7 +35,7 @@ export default function GuestLogin() {
 					<p className="eyebrow">TRITON ACCE FOOD INC. · GUEST ACCESS</p>
 					<h1>A simple, secure way to access your Guest workspace.</h1>
 					<p className="brand-copy">
-						Sign in with the Guest account credentials provided to you.
+						Sign in with the Owner account credentials provided to you.
 					</p>
 				</div>
 				<p className="brand-reserve">Welcome to the company workspace.</p>
@@ -45,10 +45,10 @@ export default function GuestLogin() {
 				<section className="login-panel role-login-panel">
 					<p className="role-tag admin-role-tag">
 						<UserRound size={16} aria-hidden="true" />
-						Guest
+						Owner
 					</p>
 					<h2>Welcome</h2>
-					<p className="login-description">Enter your Guest account credentials to continue.</p>
+					<p className="login-description">Enter your Owner account credentials to continue.</p>
 
 					<form className="login-form" onSubmit={handleSubmit}>
 						<div className="input-group">

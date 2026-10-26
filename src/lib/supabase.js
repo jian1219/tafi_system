@@ -1268,6 +1268,75 @@ export async function listGuestEmployeeContributions(sessionToken, branchId) {
   }
 }
 
+export async function listGuestCashAdvanceLoans(sessionToken, branchId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const advances = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('guest_list_cash_advance_loans', {
+        p_session_token: sessionToken,
+        p_branch_id: branchId,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      advances.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: advances, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load cash advance records.')
+    }
+  }
+}
+
+export async function listGuestCashAdvancePayments(
+  sessionToken,
+  branchId,
+  periodStart = null,
+  periodEnd = null
+) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const payments = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('guest_list_cash_advance_payments', {
+        p_session_token: sessionToken,
+        p_branch_id: branchId,
+        p_period_start: periodStart,
+        p_period_end: periodEnd,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      payments.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: payments, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load cash advance repayments.')
+    }
+  }
+}
+
 export async function updateTafiAdminEmployeeIdentity(sessionToken, employeeId, identity) {
   try {
     const supabaseClient = await getSupabaseClient()

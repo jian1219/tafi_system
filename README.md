@@ -44,6 +44,15 @@ Run `supabase/attendance_period_access_mode.sql` after
 or daily attendance access for each branch in the Period Access section. Daily
 periods open for the current day and lock automatically after the day ends.
 
+## Guest cash advance monitoring
+
+Run `supabase/guest_cash_advance.sql` after
+`supabase/super_admin_guest_accounts.sql`,
+`supabase/branch_employee_contributions.sql`, and
+`supabase/tafi_admin_management.sql`. Guest users can review cash advance
+balances and weekly repayments by branch and month from the Guest Dashboard.
+This view is read-only.
+
 ## Sick leave and emergency leave attendance
 
 Run `supabase/attendance_sick_emergency_leave.sql` after

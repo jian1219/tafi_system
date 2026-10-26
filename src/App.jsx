@@ -36,10 +36,10 @@ const roles = [
     description: 'Coordinate branch operations and team performance.'
   },
   {
-    name: 'Guest',
+    name: 'Owner',
     path: '/guest-login',
     icon: UserRound,
-    description: 'Sign in to your Guest workspace.'
+    description: 'Sign in to your Owner workspace.'
   }
 ]
 
