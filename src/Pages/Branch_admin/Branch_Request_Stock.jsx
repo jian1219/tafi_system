@@ -154,6 +154,17 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 		(total, group) => total + group.items.length,
 		0
 	)
+	const receiptDateGroups = useMemo(() => {
+		const groups = new Map()
+		receiptHistory.forEach((receipt) => {
+			const dateKey = getRequestDateKey(receipt.received_at)
+			if (!groups.has(dateKey)) {
+				groups.set(dateKey, { dateKey, receivedAt: receipt.received_at, receipts: [] })
+			}
+			groups.get(dateKey).receipts.push(receipt)
+		})
+		return [...groups.values()].sort((first, second) => second.dateKey.localeCompare(first.dateKey))
+	}, [receiptHistory])
 
 	const handleSubmit = async (event) => {
 		event.preventDefault()
@@ -723,34 +734,42 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 				</div>
 				{receiptHistory.length ? (
 					<div className="accountant-inventory-table-wrap">
-						<table className="accountant-inventory-table">
-							<thead>
-								<tr>
-									<th scope="col">Received on</th>
-									<th scope="col">Order no.</th>
-									<th scope="col">Stock no.</th>
-									<th scope="col">Description</th>
-									<th scope="col">Unit</th>
-									<th scope="col">Requested</th>
-									<th scope="col">Shipped</th>
-									<th scope="col">Counted received</th>
-								</tr>
-							</thead>
-							<tbody>
-								{receiptHistory.map((receipt) => (
-									<tr key={receipt.receipt_id}>
-										<td>{new Date(receipt.received_at).toLocaleString()}</td>
-										<td>{formatOrderNumber(receipt.request_group_id)}</td>
-										<td>{receipt.stock_no}</td>
-										<td>{receipt.item_description}</td>
-										<td>{receipt.unit_of_measure}</td>
-										<td>{receipt.quantity_requested}</td>
-										<td>{receipt.quantity_delivered}</td>
-										<td>{receipt.quantity_received}</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
+						{receiptDateGroups.map(({ dateKey, receivedAt, receipts }) => (
+							<section className="branch-stock-receipt-date-group" key={dateKey}>
+								<div className="branch-stock-receipt-date-heading">
+									<strong>{requestDateLabelFormatter.format(new Date(receivedAt))}</strong>
+									<span>{receipts.length} receipt{receipts.length === 1 ? '' : 's'}</span>
+								</div>
+								<table className="accountant-inventory-table">
+									<thead>
+										<tr>
+											<th scope="col">Received on</th>
+											<th scope="col">Order no.</th>
+											<th scope="col">Stock no.</th>
+											<th scope="col">Description</th>
+											<th scope="col">Unit</th>
+											<th scope="col">Requested</th>
+											<th scope="col">Shipped</th>
+											<th scope="col">Counted received</th>
+										</tr>
+									</thead>
+									<tbody>
+										{receipts.map((receipt) => (
+											<tr key={receipt.receipt_id}>
+												<td>{new Date(receipt.received_at).toLocaleString()}</td>
+												<td>{formatOrderNumber(receipt.request_group_id)}</td>
+												<td>{receipt.stock_no}</td>
+												<td>{receipt.item_description}</td>
+												<td>{receipt.unit_of_measure}</td>
+												<td>{receipt.quantity_requested}</td>
+												<td>{receipt.quantity_delivered}</td>
+												<td>{receipt.quantity_received}</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</section>
+						))}
 					</div>
 				) : (
 					<p className="accountant-inventory-empty">No receipt history yet.</p>

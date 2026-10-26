@@ -5719,6 +5719,28 @@ fieldset.employee-emergency-contact-box {
   white-space: normal;
 }
 
+.branch-stock-receipt-date-group + .branch-stock-receipt-date-group {
+  margin-top: 14px;
+}
+
+.branch-stock-receipt-date-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 10px 12px;
+  color: #0f172a;
+  background: #e2e8f0;
+  white-space: normal;
+}
+
+.branch-stock-receipt-date-heading span {
+  flex-shrink: 0;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
 .branch-stock-request-date-status {
   flex-shrink: 0;
   color: #475569;

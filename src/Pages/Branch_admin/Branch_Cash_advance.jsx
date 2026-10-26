@@ -33,6 +33,7 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
   const [advanceDate, setAdvanceDate] = useState(() => getLocalDateKey(today))
   const [advanceAmount, setAdvanceAmount] = useState('')
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
+  const [todayDateKey, setTodayDateKey] = useState(() => getLocalDateKey(today))
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
@@ -40,6 +41,14 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
   const [savingAdvanceId, setSavingAdvanceId] = useState('')
   const sessionToken = branchAdmin?.session_token
   const payrollWeeks = useMemo(() => getPayrollPeriods(selectedMonth), [selectedMonth])
+  const openPayrollWeeks = payrollWeeks.filter((week) => week.endDate >= todayDateKey)
+
+  useEffect(() => {
+    const now = new Date()
+    const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+    const timeout = window.setTimeout(() => setTodayDateKey(getLocalDateKey(new Date())), nextMidnight.getTime() - now.getTime())
+    return () => window.clearTimeout(timeout)
+  }, [todayDateKey])
 
   const fetchData = useCallback(async (monthKey) => {
     if (!sessionToken) return { employees: [], advances: [], payments: [], error: null }
@@ -156,7 +165,7 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
   const saveWeeklyDeductions = async (advance) => {
     setError('')
     setMessage('')
-    const deductions = payrollWeeks.map((week) => {
+    const deductions = openPayrollWeeks.map((week) => {
       const rawAmount = weeklyDeductions[getPaymentKey(advance.id, week.startDate)] ?? ''
       return {
         periodStart: week.startDate,
@@ -164,6 +173,7 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
         amount: rawAmount.trim() === '' ? 0 : Number(rawAmount)
       }
     })
+    if (deductions.length === 0) return
     if (deductions.some(({ amount }) => !Number.isFinite(amount) || amount < 0)) {
       setError(`Enter valid non-negative weekly amounts for ${advance.employee_name}.`)
       return
@@ -309,7 +319,7 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
                           [key]: event.target.value
                         }))}
                         aria-label={`${week.label} cash advance deduction for ${advance.employee_name}`}
-                        disabled={Number(advance.balance) <= 0 || Boolean(savingAdvanceId)}
+                        disabled={week.endDate < todayDateKey || Number(advance.balance) <= 0 || Boolean(savingAdvanceId)}
                       />
                     </td>
                   )
@@ -326,7 +336,7 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
                     type="button"
                     className="cash-advance-save-button"
                     onClick={() => saveWeeklyDeductions(advance)}
-                    disabled={status !== 'ready' || isSaving || Boolean(savingAdvanceId)}
+                    disabled={status !== 'ready' || isSaving || Boolean(savingAdvanceId) || openPayrollWeeks.length === 0}
                   >
                     {savingAdvanceId === advance.id ? 'Saving…' : 'Save weeks'}
                   </button>
