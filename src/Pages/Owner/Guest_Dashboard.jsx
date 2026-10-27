@@ -10,6 +10,7 @@ import GuestAttendance from './Guest_Attendance'
 const GuestRankings = lazy(() => import('./Guest_Rankings'))
 const GuestCashAdvance = lazy(() => import('./Guest_Cash_Advance'))
 const GuestBranchPayroll = lazy(() => import('./Guest_Branch_Payroll'))
+const GuestMandatoryContributions = lazy(() => import('./Guest_Mandatory_Contributions'))
 import logoImage from '../../images/Tafi logo transparent.png'
 
 const navigationItems = [
@@ -17,6 +18,7 @@ const navigationItems = [
 	{ id: 'employee', label: 'Employee', icon: Users },
 	{ id: 'attendance', label: 'Attendance', icon: CalendarDays },
 	{ id: 'cash-advance', label: 'Cash Advance', icon: CircleDollarSign },
+	{ id: 'contributions', label: 'Mandatory Contributions', icon: CircleDollarSign },
 	{ id: 'payroll', label: 'Branch Payroll', icon: Wallet },
 	{ id: 'rankings', label: 'Employee Rankings', icon: Trophy }
 ]
@@ -123,11 +125,17 @@ export default function GuestDashboard() {
 												<GuestBranchPayroll sessionToken={guest.session_token} />
 											</Suspense>
 										)
-								: (
-									<Suspense fallback={<p className="ranking-loading" role="status">Loading employee rankings…</p>}>
-										<GuestRankings sessionToken={guest.session_token} />
-									</Suspense>
-								)}
+											: activePage === 'contributions'
+												? (
+													<Suspense fallback={<p className="contribution-message" role="status">Loading mandatory contributions…</p>}>
+														<GuestMandatoryContributions sessionToken={guest.session_token} />
+													</Suspense>
+												)
+												: (
+											<Suspense fallback={<p className="ranking-loading" role="status">Loading employee rankings…</p>}>
+												<GuestRankings sessionToken={guest.session_token} />
+											</Suspense>
+										)}
 				</section>
 			</main>
 		</div>
