@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getTafiAdminWeeklyPayrollData, listTafiAdminBranches } from '../../lib/supabase'
+import {
+  getGuestWeeklyPayrollData,
+  getTafiAdminWeeklyPayrollData,
+  listGuestEmployeeBranches,
+  listTafiAdminBranches
+} from '../../lib/supabase'
 import { getAttendanceDayValue, getLocalDateKey } from '../Branch_admin/branchAttendanceRecords'
 import { downloadPayrollWorkbook } from './payrollXlsxExport'
 import { getPayrollPeriods } from '../../lib/payrollPeriods'
@@ -26,7 +31,7 @@ const getEmploymentStatusLabel = (classification) => (
     : 'Unspecified'
 )
 
-export default function TafiBranchPayroll({ sessionToken }) {
+export default function TafiBranchPayroll({ sessionToken, readOnly = false }) {
   const [branches, setBranches] = useState([])
   const [selectedBranchId, setSelectedBranchId] = useState('')
   const [branchStatus, setBranchStatus] = useState('loading')
@@ -70,14 +75,16 @@ export default function TafiBranchPayroll({ sessionToken }) {
 
     const loadBranches = async () => {
       if (!sessionToken) {
-        setPayrollError('Sign in again to load payroll data.')
+        setPayrollError(`Your ${readOnly ? 'Guest' : 'TAFI Admin'} session is missing. Sign in again to load payroll data.`)
         setBranchStatus('error')
         setPayrollStatus('error')
         return
       }
 
       setBranchStatus('loading')
-      const { data, error } = await listTafiAdminBranches(sessionToken)
+      const { data, error } = readOnly
+        ? await listGuestEmployeeBranches(sessionToken)
+        : await listTafiAdminBranches(sessionToken)
       if (!isCurrent) return
 
       if (error) {
@@ -102,7 +109,7 @@ export default function TafiBranchPayroll({ sessionToken }) {
     return () => {
       isCurrent = false
     }
-  }, [sessionToken])
+  }, [sessionToken, readOnly])
 
   useEffect(() => {
     let isCurrent = true
@@ -121,11 +128,9 @@ export default function TafiBranchPayroll({ sessionToken }) {
       setOtherDeductions({})
       setPayrollAdditions({})
 
-      const { data, error } = await getTafiAdminWeeklyPayrollData(
-        sessionToken,
-        selectedBranchId,
-        selectedStartDate,
-        selectedEndDate
+      const getPayrollData = readOnly ? getGuestWeeklyPayrollData : getTafiAdminWeeklyPayrollData
+      const { data, error } = await getPayrollData(
+        sessionToken, selectedBranchId, selectedStartDate, selectedEndDate
       )
       if (!isCurrent) return
 
@@ -182,7 +187,7 @@ export default function TafiBranchPayroll({ sessionToken }) {
     return () => {
       isCurrent = false
     }
-  }, [sessionToken, selectedBranchId, branchStatus, selectedStartDate, selectedEndDate])
+  }, [sessionToken, readOnly, selectedBranchId, branchStatus, selectedStartDate, selectedEndDate])
 
   const payrollRows = useMemo(() => employees.map((employee) => {
     const employeeRecords = attendanceRecords.filter((record) =>
@@ -320,7 +325,7 @@ export default function TafiBranchPayroll({ sessionToken }) {
     <section className="branch-payroll-shell">
       <header className="branch-payroll-header">
         <div>
-          <p className="employee-info-eyebrow">{selectedBranch?.branch_name ?? 'TAFI Admin'}</p>
+          <p className="employee-info-eyebrow">{selectedBranch?.branch_name ?? (readOnly ? 'Guest' : 'TAFI Admin')}</p>
           <h3>Weekly Payroll</h3>
           <p className="employee-info-description">Payroll shows monthly rate, attendance-based basic salary, additional earnings, deductions, and estimated final net pay for the selected branch and week.</p>
         </div>
@@ -363,18 +368,18 @@ export default function TafiBranchPayroll({ sessionToken }) {
               ))}
             </select>
           </label>
-          <button
+          {!readOnly && <button
             type="button"
             className="report-download-button"
             onClick={openPayrollXlsxOptions}
             disabled={payrollStatus !== 'ready' || !selectedBranchId || isDownloadingXlsx}
           >
             {isDownloadingXlsx ? 'Preparing XLSX…' : 'Download payroll XLSX'}
-          </button>
+          </button>}
         </div>
       </header>
 
-      {xlsxMessage && (
+      {!readOnly && xlsxMessage && (
         <p
           className={`payroll-contribution-message${xlsxMessage.startsWith('Could not') ? ' error' : ''}`}
           role={xlsxMessage.startsWith('Could not') ? 'alert' : 'status'}
@@ -383,7 +388,7 @@ export default function TafiBranchPayroll({ sessionToken }) {
         </p>
       )}
 
-      {isXlsxOptionsOpen && (
+      {!readOnly && isXlsxOptionsOpen && (
         <div
           className="payroll-xlsx-dialog-backdrop"
           role="presentation"

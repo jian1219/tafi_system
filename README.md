@@ -53,6 +53,16 @@ Run `supabase/guest_cash_advance.sql` after
 balances and weekly repayments by branch and month from the Guest Dashboard.
 This view is read-only.
 
+## Guest branch payroll
+
+Run `supabase/guest_payroll.sql` after
+`supabase/super_admin_guest_accounts.sql`,
+`supabase/branch_employee_contributions.sql`,
+`supabase/branch_employee_other_deductions.sql`, and
+`supabase/tafi_admin_management.sql`. Guest users can review weekly payroll
+totals and employee details by branch, month, and payroll period in the Guest
+Dashboard. The guest view does not include payroll XLSX downloads.
+
 ## Sick leave and emergency leave attendance
 
 Run `supabase/attendance_sick_emergency_leave.sql` after

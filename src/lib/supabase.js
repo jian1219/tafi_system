@@ -338,6 +338,23 @@ export async function getTafiAdminWeeklyPayrollData(sessionToken, branchId, peri
   }
 }
 
+export async function getGuestWeeklyPayrollData(sessionToken, branchId, periodStart, periodEnd) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('guest_get_weekly_payroll_data', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_period_start: periodStart,
+      p_period_end: periodEnd
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load weekly payroll data.')
+    }
+  }
+}
+
 export async function listTafiAdminEmployees(sessionToken) {
   try {
     const supabaseClient = await getSupabaseClient()

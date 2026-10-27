@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { CalendarDays, CircleDollarSign, LayoutDashboard, LogOut, ShieldCheck, Trophy, Users } from 'lucide-react'
+import { CalendarDays, CircleDollarSign, LayoutDashboard, LogOut, ShieldCheck, Trophy, Users, Wallet } from 'lucide-react'
 import { revokeGuestSession } from '../../lib/supabase'
 import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
@@ -9,6 +9,7 @@ import GuestEmployee from './Guest_Employee'
 import GuestAttendance from './Guest_Attendance'
 const GuestRankings = lazy(() => import('./Guest_Rankings'))
 const GuestCashAdvance = lazy(() => import('./Guest_Cash_Advance'))
+const GuestBranchPayroll = lazy(() => import('./Guest_Branch_Payroll'))
 import logoImage from '../../images/Tafi logo transparent.png'
 
 const navigationItems = [
@@ -16,6 +17,7 @@ const navigationItems = [
 	{ id: 'employee', label: 'Employee', icon: Users },
 	{ id: 'attendance', label: 'Attendance', icon: CalendarDays },
 	{ id: 'cash-advance', label: 'Cash Advance', icon: CircleDollarSign },
+	{ id: 'payroll', label: 'Branch Payroll', icon: Wallet },
 	{ id: 'rankings', label: 'Employee Rankings', icon: Trophy }
 ]
 
@@ -54,7 +56,7 @@ export default function GuestDashboard() {
 				<div className="tafi-admin-sidebar-brand">
 					<img src={logoImage} alt="Triton ACCE Food Inc. logo" />
 					<div>
-						<strong>Guest Workspace</strong>
+						<strong>Owner Workspace</strong>
 						<span>Limited access</span>
 					</div>
 				</div>
@@ -93,7 +95,7 @@ export default function GuestDashboard() {
 			<main className="tafi-admin-main">
 				<header className="tafi-admin-page-header">
 					<div>
-						<p className="eyebrow">Guest workspace</p>
+						<p className="eyebrow">Owner workspace</p>
 						<h1>{navigationItems.find((item) => item.id === activePage)?.label}</h1>
 					</div>
 					<div className="tafi-admin-account">
@@ -115,6 +117,12 @@ export default function GuestDashboard() {
 											<GuestCashAdvance sessionToken={guest.session_token} />
 										</Suspense>
 									)
+									: activePage === 'payroll'
+										? (
+											<Suspense fallback={<p className="payroll-contribution-message" role="status">Loading branch payroll…</p>}>
+												<GuestBranchPayroll sessionToken={guest.session_token} />
+											</Suspense>
+										)
 								: (
 									<Suspense fallback={<p className="ranking-loading" role="status">Loading employee rankings…</p>}>
 										<GuestRankings sessionToken={guest.session_token} />

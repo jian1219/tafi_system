@@ -8,12 +8,12 @@ export default function GuestOverview({ guest }) {
 					<UserRound size={23} aria-hidden="true" />
 				</span>
 				<div>
-					<p className="guest-overview-kicker">GUEST ACCOUNT</p>
+					<p className="guest-overview-kicker">OWNER ACCOUNT</p>
 					<h2 id="guest-overview-title">Welcome, {guest.guest_name}</h2>
 				</div>
 			</div>
 			<p className="guest-overview-intro">
-				You are signed in to the TAFI Guest workspace. Your account details are shown below.
+				You are signed in to the TAFI Owner workspace. Your account details are shown below.
 			</p>
 			<dl className="guest-overview-details">
 				<div>
