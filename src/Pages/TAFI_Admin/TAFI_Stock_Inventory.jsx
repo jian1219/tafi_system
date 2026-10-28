@@ -6,7 +6,8 @@ import {
 	listTafiAdminBranchInventory,
 	listTafiAdminInventoryInformation,
 	listTafiAdminStockInventory,
-	listTafiAdminStockInventoryArrivals
+	listTafiAdminStockInventoryArrivals,
+	listTafiAdminStockInScans
 } from '../../lib/supabase'
 
 const emptyForm = {
@@ -46,6 +47,7 @@ export default function TafiStockInventory({ sessionToken }) {
 	const [stockItems, setStockItems] = useState([])
 	const [branchStockItems, setBranchStockItems] = useState([])
 	const [arrivals, setArrivals] = useState([])
+	const [barcodeScans, setBarcodeScans] = useState([])
 	const [form, setForm] = useState(emptyForm)
 	const [arrivalForm, setArrivalForm] = useState(emptyArrivalForm)
 	const [activeTab, setActiveTab] = useState('stock')
@@ -57,11 +59,13 @@ export default function TafiStockInventory({ sessionToken }) {
 	const [isArrivalFormOpen, setIsArrivalFormOpen] = useState(false)
 	const [isLoading, setIsLoading] = useState(true)
 	const [isBranchStockLoading, setIsBranchStockLoading] = useState(true)
+	const [isBarcodeLoading, setIsBarcodeLoading] = useState(true)
 	const [isSaving, setIsSaving] = useState(false)
 	const [isArrivalsLoading, setIsArrivalsLoading] = useState(true)
 	const [isSavingArrival, setIsSavingArrival] = useState(false)
 	const [loadError, setLoadError] = useState('')
 	const [branchStockLoadError, setBranchStockLoadError] = useState('')
+	const [barcodeLoadError, setBarcodeLoadError] = useState('')
 	const [errorMessage, setErrorMessage] = useState('')
 	const [notice, setNotice] = useState('')
 	const [arrivalLoadError, setArrivalLoadError] = useState('')
@@ -72,14 +76,16 @@ export default function TafiStockInventory({ sessionToken }) {
 		let isCurrent = true
 
 		const load = async () => {
-			const [result, arrivalResult, branchStockResult] = await Promise.all([
+			const [result, arrivalResult, branchStockResult, barcodeResult] = await Promise.all([
 				loadStockInventoryData(sessionToken),
 				listTafiAdminStockInventoryArrivals(sessionToken),
-				listTafiAdminBranchInventory(sessionToken)
+				listTafiAdminBranchInventory(sessionToken),
+				listTafiAdminStockInScans(sessionToken)
 			])
 			if (!isCurrent) return
 			setIsLoading(false)
 			setIsBranchStockLoading(false)
+			setIsBarcodeLoading(false)
 			setIsArrivalsLoading(false)
 			if (result.error) {
 				setLoadError(result.error.message)
@@ -99,6 +105,12 @@ export default function TafiStockInventory({ sessionToken }) {
 			} else {
 				setBranchStockLoadError('')
 				setBranchStockItems(branchStockResult.data ?? [])
+			}
+			if (barcodeResult.error) {
+				setBarcodeLoadError(barcodeResult.error.message)
+			} else {
+				setBarcodeLoadError('')
+				setBarcodeScans(barcodeResult.data ?? [])
 			}
 		}
 
@@ -174,6 +186,18 @@ export default function TafiStockInventory({ sessionToken }) {
 			return
 		}
 		setBranchStockItems(data ?? [])
+	}
+
+	const refreshBarcodeScans = async () => {
+		setIsBarcodeLoading(true)
+		setBarcodeLoadError('')
+		const { data, error } = await listTafiAdminStockInScans(sessionToken)
+		setIsBarcodeLoading(false)
+		if (error) {
+			setBarcodeLoadError(error.message)
+			return
+		}
+		setBarcodeScans(data ?? [])
 	}
 
 	const handleSubmit = async (event) => {
@@ -278,6 +302,17 @@ export default function TafiStockInventory({ sessionToken }) {
 					onClick={() => setActiveTab('stock')}
 				>
 					TAFI Stock Inventory
+				</button>
+				<button
+					type="button"
+					id="tafi-barcode-inventory-tab"
+					className={`accountant-inventory-tab${activeTab === 'barcodes' ? ' active' : ''}`}
+					role="tab"
+					aria-selected={activeTab === 'barcodes'}
+					aria-controls="tafi-barcode-inventory-panel"
+					onClick={() => setActiveTab('barcodes')}
+				>
+					Barcode Inventory
 				</button>
 				<button
 					type="button"
@@ -450,6 +485,64 @@ export default function TafiStockInventory({ sessionToken }) {
 					</>
 				) : loadError ? null : (
 					<p className="accountant-inventory-empty">No stock items have been added yet.</p>
+				)}
+			</div>
+			<div
+				id="tafi-barcode-inventory-panel"
+				className="accountant-inventory-panel"
+				role="tabpanel"
+				aria-labelledby="tafi-barcode-inventory-tab"
+				hidden={activeTab !== 'barcodes'}
+			>
+				<div className="accountant-inventory-list-heading">
+					<div>
+						<h2>Barcode inventory</h2>
+						<p>{barcodeScans.length} barcode item{barcodeScans.length === 1 ? '' : 's'}</p>
+						<p>Date shows when the barcode was most recently scanned.</p>
+					</div>
+					<button
+						type="button"
+						className="accountant-inventory-add-toggle"
+						onClick={refreshBarcodeScans}
+						disabled={isBarcodeLoading}
+					>
+						{isBarcodeLoading ? 'Refreshing...' : 'Refresh'}
+					</button>
+				</div>
+				{barcodeLoadError && (
+					<p className="accountant-inventory-error" role="alert">{barcodeLoadError}</p>
+				)}
+				{isBarcodeLoading ? (
+					<p className="accountant-inventory-empty" role="status">Loading barcode inventory...</p>
+				) : barcodeLoadError ? null : barcodeScans.length ? (
+					<div className="accountant-inventory-table-wrap">
+						<table className="accountant-inventory-table">
+							<thead>
+								<tr>
+									<th scope="col">Barcode</th>
+									<th scope="col">Stock no.</th>
+									<th scope="col">Item description</th>
+									<th scope="col">Unit of measure</th>
+									<th scope="col">Item count</th>
+									<th scope="col">Date</th>
+								</tr>
+							</thead>
+							<tbody>
+								{barcodeScans.map((item) => (
+									<tr key={item.barcode}>
+										<td>{item.barcode}</td>
+										<td>{item.stock_no}</td>
+										<td>{item.item_description}</td>
+										<td>{item.unit_of_measure}</td>
+										<td>{item.scan_count}</td>
+										<td>{new Date(item.updated_at).toLocaleString()}</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				) : (
+					<p className="accountant-inventory-empty">No barcode scans have been recorded yet.</p>
 				)}
 			</div>
 			<div

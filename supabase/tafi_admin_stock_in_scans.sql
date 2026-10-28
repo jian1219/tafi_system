@@ -133,7 +133,9 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.tafi_admin_list_stock_in_scans(
+DROP FUNCTION IF EXISTS public.tafi_admin_list_stock_in_scans(uuid);
+
+CREATE FUNCTION public.tafi_admin_list_stock_in_scans(
     p_session_token uuid
 )
 RETURNS TABLE (
@@ -142,7 +144,8 @@ RETURNS TABLE (
     item_description text,
     unit_of_measure text,
     scan_count bigint,
-    needs_stock_selection boolean
+    needs_stock_selection boolean,
+    updated_at timestamptz
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -159,7 +162,7 @@ BEGIN
 
     RETURN QUERY
     SELECT saved.barcode, saved.stock_no, saved.item_description,
-           saved.unit_of_measure, saved.scan_count, false
+           saved.unit_of_measure, saved.scan_count, false, saved.updated_at
     FROM public.tafi_admin_stock_in_scans AS saved
     ORDER BY saved.stock_no, saved.barcode;
 END;
@@ -174,3 +177,5 @@ GRANT EXECUTE ON FUNCTION public.tafi_admin_record_stock_in_scan(uuid, text, tex
     TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.tafi_admin_list_stock_in_scans(uuid)
     TO anon, authenticated;
+
+NOTIFY pgrst, 'reload schema';

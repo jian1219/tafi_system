@@ -191,6 +191,20 @@ export async function listTafiAdminStockInventoryArrivals(sessionToken) {
   }
 }
 
+export async function listTafiAdminStockInScans(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_stock_in_scans', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load barcode inventory.')
+    }
+  }
+}
+
 export async function createTafiAdminStockInventoryArrival(sessionToken, stockInventoryId, qty) {
   try {
   	const supabaseClient = await getSupabaseClient()
