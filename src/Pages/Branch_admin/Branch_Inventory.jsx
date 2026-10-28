@@ -33,6 +33,8 @@ export default function BranchInventory({ branchName = 'Branch', branchAdmin }) 
 	const [categoryFilter, setCategoryFilter] = useState('')
 	const [isFormOpen, setIsFormOpen] = useState(false)
 	const [isLoading, setIsLoading] = useState(Boolean(sessionToken))
+	const [loadError, setLoadError] = useState('')
+	const [retryCount, setRetryCount] = useState(0)
 	const [isSaving, setIsSaving] = useState(false)
 	const [errorMessage, setErrorMessage] = useState('')
 	const [notice, setNotice] = useState('')
@@ -41,23 +43,31 @@ export default function BranchInventory({ branchName = 'Branch', branchAdmin }) 
 		let isCurrent = true
 
 		const load = async () => {
+			setIsLoading(true)
+			setLoadError('')
+			if (!sessionToken) {
+				setIsLoading(false)
+				setLoadError('Branch Admin session is unavailable. Please sign in again.')
+				return
+			}
+
 			const result = await loadInventoryData(sessionToken)
 			if (!isCurrent) return
 			setIsLoading(false)
 			if (result.error) {
-				setErrorMessage(result.error.message)
+				setLoadError(result.error.message)
 				return
 			}
 			setCatalogItems(result.catalog)
 			setInventoryItems(result.inventory)
-			setErrorMessage('')
+			setLoadError('')
 		}
 
-		if (sessionToken) load()
+		load()
 		return () => {
 			isCurrent = false
 		}
-	}, [sessionToken])
+	}, [retryCount, sessionToken])
 
 	const categories = useMemo(
 		() => [...new Set(catalogItems.map((item) => item.category).filter(Boolean))]
@@ -107,13 +117,14 @@ export default function BranchInventory({ branchName = 'Branch', branchAdmin }) 
 		const result = await loadInventoryData(sessionToken)
 		setIsSaving(false)
 		if (result.error) {
-			setErrorMessage(result.error.message)
+			setLoadError(result.error.message)
 			setNotice('Inventory item added, but the list could not be refreshed.')
 			return
 		}
 
 		setCatalogItems(result.catalog)
 		setInventoryItems(result.inventory)
+		setLoadError('')
 		setNotice('Item added to branch inventory.')
 	}
 
@@ -135,7 +146,7 @@ export default function BranchInventory({ branchName = 'Branch', branchAdmin }) 
 					type="button"
 					className={`accountant-inventory-add-toggle${isFormOpen ? ' open' : ''}`}
 					aria-expanded={isFormOpen}
-					disabled={isSaving || Boolean(errorMessage)}
+					disabled={isSaving || Boolean(loadError)}
 					onClick={toggleForm}
 				>
 					{isFormOpen ? <X size={17} aria-hidden="true" /> : <Plus size={17} aria-hidden="true" />}
@@ -143,6 +154,19 @@ export default function BranchInventory({ branchName = 'Branch', branchAdmin }) 
 				</button>
 			</div>
 
+			{loadError && (
+				<p className="accountant-inventory-error" role="alert">
+					{loadError}{' '}
+					<button
+						type="button"
+						className="accountant-inventory-add-toggle"
+						onClick={() => setRetryCount((count) => count + 1)}
+						disabled={isLoading}
+					>
+						{isLoading ? 'Retrying...' : 'Retry connection'}
+					</button>
+				</p>
+			)}
 			{isFormOpen && (
 				<>
 					<div className="accountant-inventory-heading">

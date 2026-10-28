@@ -1021,4 +1021,6 @@ grant execute on function public.accountant_list_branch_inventory_monthly_usage(
 grant execute on function public.tafi_admin_list_branch_inventory_usage_history(uuid, uuid, date) to anon, authenticated;
 grant execute on function public.tafi_admin_list_branch_inventory_monthly_usage(uuid, uuid, date) to anon, authenticated;
 
+notify pgrst, 'reload schema';
+
 commit;
