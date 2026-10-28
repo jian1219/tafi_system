@@ -10,20 +10,19 @@ create table if not exists public.tafi_stock_inventory (
   stock_no text not null,
   item_description text not null,
   unit_of_measure text not null,
-  onhand numeric(14, 3) not null check (onhand >= 0),
-  allocated numeric(14, 3) not null default 0 check (allocated >= 0),
-  available numeric(14, 3) generated always as (onhand - allocated) stored,
+  available numeric(14, 3) not null default 0
+    check (available >= 0 and available = trunc(available)),
   created_at timestamptz not null default now(),
   foreign key (inventory_id, stock_no, item_description, unit_of_measure)
     references public.inventory_information(id, stock_no, item_description, unit_of_measure)
-    on delete restrict,
-  check (allocated <= onhand)
+    on delete restrict
 );
 
 alter table public.tafi_stock_inventory enable row level security;
 revoke all on table public.tafi_stock_inventory from public, anon, authenticated;
 
-create or replace function public.tafi_admin_list_stock_inventory(
+drop function if exists public.tafi_admin_list_stock_inventory(uuid);
+create function public.tafi_admin_list_stock_inventory(
   p_session_token uuid
 )
 returns table (
@@ -33,8 +32,6 @@ returns table (
   item_description text,
   unit_of_measure text,
   category text,
-  onhand numeric,
-  allocated numeric,
   available numeric,
   created_at timestamptz
 )
@@ -59,8 +56,6 @@ begin
          stock.item_description,
          stock.unit_of_measure,
          inventory.category,
-         stock.onhand,
-         stock.allocated,
          stock.available,
          stock.created_at
   from public.tafi_stock_inventory as stock
@@ -70,7 +65,8 @@ begin
 end;
 $$;
 
-create or replace function public.accountant_list_tafi_stock_inventory(
+drop function if exists public.accountant_list_tafi_stock_inventory(uuid);
+create function public.accountant_list_tafi_stock_inventory(
   p_session_token uuid
 )
 returns table (
@@ -79,8 +75,6 @@ returns table (
   item_description text,
   unit_of_measure text,
   category text,
-  onhand numeric,
-  allocated numeric,
   available numeric,
   created_at timestamptz
 )
@@ -104,8 +98,6 @@ begin
          stock.item_description,
          stock.unit_of_measure,
          inventory.category,
-         stock.onhand,
-         stock.allocated,
          stock.available,
          stock.created_at
   from public.tafi_stock_inventory as stock
@@ -115,10 +107,11 @@ begin
 end;
 $$;
 
-create or replace function public.tafi_admin_create_stock_inventory(
+drop function if exists public.tafi_admin_create_stock_inventory(uuid, uuid, numeric);
+drop function if exists public.tafi_admin_create_stock_inventory(uuid, uuid);
+create function public.tafi_admin_create_stock_inventory(
   p_session_token uuid,
-  p_inventory_id uuid,
-  p_onhand numeric
+  p_inventory_id uuid
 )
 returns uuid
 language plpgsql
@@ -141,22 +134,16 @@ begin
     raise exception 'An inventory item is required';
   end if;
 
-  if p_onhand is null or p_onhand < 0 then
-    raise exception 'On-hand quantity must be zero or greater';
-  end if;
-
   insert into public.tafi_stock_inventory (
     inventory_id,
     stock_no,
     item_description,
-    unit_of_measure,
-    onhand
+    unit_of_measure
   )
   select inventory.id,
          inventory.stock_no,
          inventory.item_description,
-         inventory.unit_of_measure,
-         p_onhand
+         inventory.unit_of_measure
   from public.inventory_information as inventory
   where inventory.id = p_inventory_id
   returning id into stock_inventory_id;
@@ -171,10 +158,10 @@ $$;
 
 revoke all on function public.tafi_admin_list_stock_inventory(uuid) from public;
 revoke all on function public.accountant_list_tafi_stock_inventory(uuid) from public;
-revoke all on function public.tafi_admin_create_stock_inventory(uuid, uuid, numeric) from public;
+revoke all on function public.tafi_admin_create_stock_inventory(uuid, uuid) from public;
 
 grant execute on function public.tafi_admin_list_stock_inventory(uuid) to anon, authenticated;
 grant execute on function public.accountant_list_tafi_stock_inventory(uuid) to anon, authenticated;
-grant execute on function public.tafi_admin_create_stock_inventory(uuid, uuid, numeric) to anon, authenticated;
+grant execute on function public.tafi_admin_create_stock_inventory(uuid, uuid) to anon, authenticated;
 
 commit;

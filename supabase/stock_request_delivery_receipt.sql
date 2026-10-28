@@ -221,8 +221,10 @@ begin
     raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
   end if;
 
-  if p_quantity_received is null or p_quantity_received < 0 then
-    raise exception 'Counted quantity must be zero or greater';
+  if p_quantity_received is null
+    or p_quantity_received < 0
+    or p_quantity_received <> trunc(p_quantity_received) then
+    raise exception 'Counted quantity must be a whole number zero or greater';
   end if;
 
   select request.stock_inventory_id,
@@ -368,8 +370,10 @@ begin
     raise exception 'TAFI Admin session is invalid or expired' using errcode = '28000';
   end if;
 
-  if p_quantity_delivered is null or p_quantity_delivered <= 0 then
-    raise exception 'Delivered quantity must be greater than zero';
+  if p_quantity_delivered is null
+    or p_quantity_delivered <= 0
+    or p_quantity_delivered <> trunc(p_quantity_delivered) then
+    raise exception 'Delivered quantity must be a whole number greater than zero';
   end if;
 
   select request.stock_inventory_id, request.quantity_requested, request.status
@@ -386,18 +390,20 @@ begin
     raise exception 'Only pending stock requests can be marked delivered';
   end if;
 
+  if v_quantity_requested is null
+    or v_quantity_requested <= 0
+    or v_quantity_requested <> trunc(v_quantity_requested) then
+    raise exception 'Requested quantity must be a whole number greater than zero';
+  end if;
+
   if p_quantity_delivered > v_quantity_requested then
     raise exception 'Delivered quantity cannot exceed the requested quantity';
   end if;
 
-  update public.tafi_stock_inventory
-  set onhand = onhand - p_quantity_delivered
-  where id = v_stock_inventory_id
-    and available >= p_quantity_delivered;
-
-  if not found then
-    raise exception 'Delivered quantity exceeds current available TAFI stock';
-  end if;
+  perform public.tafi_admin_deduct_stock_inventory(
+    v_stock_inventory_id,
+    p_quantity_delivered
+  );
 
   update public.branch_stock_requests
   set status = 'delivered',

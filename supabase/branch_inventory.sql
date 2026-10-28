@@ -78,7 +78,8 @@ revoke all on table public.branch_inventory from public, anon, authenticated;
 alter table public.branch_inventory_daily_log enable row level security;
 revoke all on table public.branch_inventory_daily_log from public, anon, authenticated;
 
-create or replace function public.branch_admin_list_tafi_stock_items(
+drop function if exists public.branch_admin_list_tafi_stock_items(uuid);
+create function public.branch_admin_list_tafi_stock_items(
   p_session_token uuid
 )
 returns table (
@@ -87,7 +88,6 @@ returns table (
   item_description text,
   unit_of_measure text,
   category text,
-  onhand numeric,
   available numeric
 )
 language plpgsql
@@ -110,11 +110,16 @@ begin
          stock.item_description,
          stock.unit_of_measure,
          inventory.category,
-         stock.onhand,
-         stock.available
+         coalesce(barcode_totals.item_count, 0::numeric)
   from public.tafi_stock_inventory as stock
   join public.inventory_information as inventory
     on inventory.id = stock.inventory_id
+  left join (
+    select saved.stock_no, sum(saved.scan_count)::numeric as item_count
+    from public.tafi_admin_stock_in_scans as saved
+    group by saved.stock_no
+  ) as barcode_totals
+    on barcode_totals.stock_no = stock.stock_no
   order by inventory.category, stock.stock_no;
 end;
 $$;

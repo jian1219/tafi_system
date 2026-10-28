@@ -161,33 +161,18 @@ export async function listTafiAdminBranchInventory(sessionToken) {
   }
 }
 
-export async function createTafiAdminStockInventory(sessionToken, inventoryId, onhand) {
+export async function createTafiAdminStockInventory(sessionToken, inventoryId) {
   try {
     const supabaseClient = await getSupabaseClient()
     return await supabaseClient.rpc('tafi_admin_create_stock_inventory', {
-    	p_session_token: sessionToken,
-    	p_inventory_id: inventoryId,
-    	p_onhand: onhand
+      p_session_token: sessionToken,
+      p_inventory_id: inventoryId
     })
   } catch (error) {
     return {
     	data: null,
     	error: error instanceof Error ? error : new Error('Unable to add the stock item.')
     }
-  }
-}
-
-export async function listTafiAdminStockInventoryArrivals(sessionToken) {
-  try {
-  	const supabaseClient = await getSupabaseClient()
-  	return await supabaseClient.rpc('tafi_admin_list_stock_inventory_arrivals', {
-  		p_session_token: sessionToken
-  	})
-  } catch (error) {
-  	return {
-  		data: null,
-  		error: error instanceof Error ? error : new Error('Unable to load stock arrivals.')
-  	}
   }
 }
 
@@ -205,19 +190,49 @@ export async function listTafiAdminStockInScans(sessionToken) {
   }
 }
 
-export async function createTafiAdminStockInventoryArrival(sessionToken, stockInventoryId, qty) {
+function getLocalDateString() {
+  const date = new Date()
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+export async function recordTafiAdminStockOutScan(
+  sessionToken,
+  barcode,
+  quantity = 1,
+  stockOutDate = getLocalDateString()
+) {
   try {
-  	const supabaseClient = await getSupabaseClient()
-  	return await supabaseClient.rpc('tafi_admin_create_stock_inventory_arrival', {
-  		p_session_token: sessionToken,
-  		p_stock_inventory_id: stockInventoryId,
-  		p_qty: qty
-  	})
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_record_stock_out_scan', {
+      p_session_token: sessionToken,
+      p_barcode: barcode,
+      p_quantity: quantity,
+      p_date: stockOutDate
+    })
   } catch (error) {
-  	return {
-  		data: null,
-  		error: error instanceof Error ? error : new Error('Unable to record the stock arrival.')
-  	}
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to deduct the barcode item.')
+    }
+  }
+}
+
+export async function listTafiAdminStockOutRecords(sessionToken, month = null, day = null) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_stock_out_records', {
+      p_session_token: sessionToken,
+      p_month: month ? `${month}-01` : null,
+      p_date: day || null
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load stock-out records.')
+    }
   }
 }
 

@@ -1,4 +1,5 @@
--- Run after tafi_stock_inventory.sql.
+-- Retired setup migration. Do not rerun after applying
+-- remove_tafi_stock_inventory_arrivals.sql.
 begin;
 
 create table if not exists public.tafi_stock_inventory_arrivals (

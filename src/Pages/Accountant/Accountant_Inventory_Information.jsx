@@ -278,8 +278,6 @@ export default function AccountantInventoryInformation({ sessionToken }) {
 										<th scope="col">Category</th>
 										<th scope="col">Item Description</th>
 										<th scope="col">Unit of measure</th>
-										<th scope="col">On hand</th>
-										<th scope="col">Allocated</th>
 										<th scope="col">Available</th>
 									</tr>
 								</thead>
@@ -290,8 +288,6 @@ export default function AccountantInventoryInformation({ sessionToken }) {
 											<td>{item.category}</td>
 											<td>{item.item_description}</td>
 											<td>{item.unit_of_measure}</td>
-											<td>{item.onhand}</td>
-											<td>{item.allocated}</td>
 											<td>{item.available}</td>
 										</tr>
 									))}

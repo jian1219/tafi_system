@@ -121,18 +121,16 @@ begin
     if v_request.status <> 'pending' then
       raise exception 'Only pending stock requests can be marked delivered';
     end if;
-    if v_request.quantity_requested is null or v_request.quantity_requested <= 0 then
-      raise exception 'Requested quantity must be greater than zero';
+    if v_request.quantity_requested is null
+      or v_request.quantity_requested <= 0
+      or v_request.quantity_requested <> trunc(v_request.quantity_requested) then
+      raise exception 'Requested quantity must be a whole number greater than zero';
     end if;
 
-    update public.tafi_stock_inventory
-    set onhand = onhand - v_request.quantity_requested
-    where id = v_request.stock_inventory_id
-      and available >= v_request.quantity_requested;
-
-    if not found then
-      raise exception 'Not enough TAFI stock to fulfill every request for this branch and date';
-    end if;
+    perform public.tafi_admin_deduct_stock_inventory(
+      v_request.stock_inventory_id,
+      v_request.quantity_requested
+    );
 
     update public.branch_stock_requests
     set status = 'delivered',

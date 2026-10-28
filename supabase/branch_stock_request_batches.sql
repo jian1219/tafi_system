@@ -227,8 +227,9 @@ begin
     where item.stock_inventory_id is null
       or item.quantity_requested is null
       or item.quantity_requested <= 0
+      or item.quantity_requested <> trunc(item.quantity_requested)
   ) then
-    raise exception 'Each request item needs a stock item and a quantity greater than zero';
+    raise exception 'Each request item needs a stock item and a whole-number quantity greater than zero';
   end if;
 
   if exists (

@@ -93,8 +93,10 @@ begin
     raise exception 'A TAFI stock item is required';
   end if;
 
-  if p_quantity_requested is null or p_quantity_requested <= 0 then
-    raise exception 'Requested quantity must be greater than zero';
+  if p_quantity_requested is null
+    or p_quantity_requested <= 0
+    or p_quantity_requested <> trunc(p_quantity_requested) then
+    raise exception 'Requested quantity must be a whole number greater than zero';
   end if;
 
   insert into public.branch_stock_requests (

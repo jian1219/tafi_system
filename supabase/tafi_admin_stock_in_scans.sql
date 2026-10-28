@@ -145,7 +145,8 @@ RETURNS TABLE (
     unit_of_measure text,
     scan_count bigint,
     needs_stock_selection boolean,
-    updated_at timestamptz
+    updated_at timestamptz,
+    created_at timestamptz
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -162,9 +163,61 @@ BEGIN
 
     RETURN QUERY
     SELECT saved.barcode, saved.stock_no, saved.item_description,
-           saved.unit_of_measure, saved.scan_count, false, saved.updated_at
+           saved.unit_of_measure, saved.scan_count, false,
+           saved.updated_at, saved.created_at
     FROM public.tafi_admin_stock_in_scans AS saved
     ORDER BY saved.stock_no, saved.barcode;
+END;
+$$;
+
+DROP FUNCTION IF EXISTS public.tafi_admin_list_stock_inventory(uuid);
+
+CREATE FUNCTION public.tafi_admin_list_stock_inventory(
+    p_session_token uuid
+)
+RETURNS TABLE (
+    stock_inventory_id uuid,
+    inventory_id uuid,
+    stock_no text,
+    item_description text,
+    unit_of_measure text,
+    category text,
+    available numeric,
+    created_at timestamptz
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM public.tafi_admin_session AS admin_session
+        WHERE admin_session.session_token = p_session_token
+          AND admin_session.expires_at > now()
+    ) THEN
+        RAISE EXCEPTION 'TAFI Admin session is invalid or expired' USING ERRCODE = '28000';
+    END IF;
+
+    RETURN QUERY
+    SELECT stock.id,
+           stock.inventory_id,
+           stock.stock_no,
+           stock.item_description,
+           stock.unit_of_measure,
+           inventory.category,
+           COALESCE(barcode_totals.item_count, 0::numeric),
+           stock.created_at
+    FROM public.tafi_stock_inventory AS stock
+    JOIN public.inventory_information AS inventory
+      ON inventory.id = stock.inventory_id
+    LEFT JOIN (
+        SELECT saved.stock_no, SUM(saved.scan_count)::numeric AS item_count
+        FROM public.tafi_admin_stock_in_scans AS saved
+        GROUP BY saved.stock_no
+    ) AS barcode_totals
+      ON barcode_totals.stock_no = stock.stock_no
+    ORDER BY inventory.stock_no, stock.created_at DESC;
 END;
 $$;
 
@@ -172,10 +225,14 @@ REVOKE ALL ON FUNCTION public.tafi_admin_record_stock_in_scan(uuid, text, text)
     FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.tafi_admin_list_stock_in_scans(uuid)
     FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.tafi_admin_list_stock_inventory(uuid)
+    FROM PUBLIC, anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION public.tafi_admin_record_stock_in_scan(uuid, text, text)
     TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.tafi_admin_list_stock_in_scans(uuid)
+    TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.tafi_admin_list_stock_inventory(uuid)
     TO anon, authenticated;
 
 NOTIFY pgrst, 'reload schema';

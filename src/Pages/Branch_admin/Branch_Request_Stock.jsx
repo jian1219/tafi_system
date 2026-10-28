@@ -177,11 +177,12 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 			!line.stockInventoryId
 			|| !Number.isFinite(Number(line.quantityRequested))
 			|| Number(line.quantityRequested) <= 0
+			|| !Number.isInteger(Number(line.quantityRequested))
 		))
 		if (hasDuplicateItems || hasInvalidLine) {
 			setErrorMessage(hasDuplicateItems
 				? 'Choose a different stock item for each request line.'
-				: 'Select an item and enter a requested quantity greater than zero for every line.')
+				: 'Select an item and enter a whole-number quantity greater than zero for every line.')
 			return
 		}
 
@@ -192,7 +193,7 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 				description: stockItem.item_description,
 				unit: stockItem.unit_of_measure,
 				quantityRequested: Number(line.quantityRequested),
-				currentStock: stockItem.onhand
+				currentStock: stockItem.available
 			} : null
 		})
 		if (requestedItems.some((item) => !item)) {
@@ -282,9 +283,10 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 			|| quantityInput === ''
 			|| !Number.isFinite(quantityReceived)
 			|| quantityReceived < 0
+			|| !Number.isInteger(quantityReceived)
 			|| quantityReceived > Number(request.quantity_delivered)
 		) {
-			setReceiptError(`Enter the counted quantity received (0 to ${request.quantity_delivered}) before confirming.`)
+			setReceiptError(`Enter a whole-number counted quantity received (0 to ${request.quantity_delivered}) before confirming.`)
 			setReceiptNotice('')
 			return
 		}
@@ -497,8 +499,8 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 												<span>Quantity requested</span>
 												<input
 													type="number"
-													min="0.001"
-													step="0.001"
+													min="1"
+													step="1"
 													value={line.quantityRequested}
 													onChange={(event) => {
 														setRequestLines((current) => current.map((item) => (
@@ -695,7 +697,7 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 													type="number"
 													min="0"
 													max={request.quantity_delivered}
-													step="0.001"
+													step="1"
 													placeholder="Enter quantity"
 													aria-label={`Counted quantity received for ${request.stock_no}`}
 													value={receivedQuantities[request.request_id] ?? ''}
