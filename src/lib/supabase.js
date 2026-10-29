@@ -190,6 +190,22 @@ export async function listTafiAdminStockInScans(sessionToken) {
   }
 }
 
+export async function listTafiAdminStockInRecords(sessionToken, month = null, day = null) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_stock_in_records', {
+      p_session_token: sessionToken,
+      p_month: month ? `${month}-01` : null,
+      p_date: day || null
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load stock-in records.')
+    }
+  }
+}
+
 function getLocalDateString() {
   const date = new Date()
   const year = date.getFullYear()

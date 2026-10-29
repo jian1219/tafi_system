@@ -34,13 +34,13 @@ declare
   v_function regprocedure;
 begin
   for v_function in
-    select proc.oid::regprocedure
-    from pg_catalog.pg_proc as proc
-    join pg_catalog.pg_namespace as namespace
-      on namespace.oid = proc.pronamespace
-    where namespace.nspname = 'public'
-      and proc.proname = 'tafi_admin_record_stock_out_scan'
-      and proc.prokind = 'f'
+    select p.oid::regprocedure
+    from pg_catalog.pg_proc as p
+    join pg_catalog.pg_namespace as ns
+      on ns.oid = p.pronamespace
+    where ns.nspname = 'public'
+      and p.proname = 'tafi_admin_record_stock_out_scan'
+      and p.prokind = 'f'
   loop
     execute format('drop function %s', v_function);
   end loop;

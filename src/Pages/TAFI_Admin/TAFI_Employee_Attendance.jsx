@@ -44,8 +44,9 @@ const attendanceOptions = [
 	'Day Off'
 ]
 
+const headOfficeShift = '9am-2pm | 6pm-9pm'
 const shiftOptions = [
-	'9am-2pm | 6pm-9pm',
+	headOfficeShift,
 	'11am-4pm | 6pm-9pm',
 	'1pm-9pm'
 ]
@@ -184,6 +185,7 @@ export default function TafiEmployeeAttendance({ sessionToken, readOnly = false 
 		[controlPeriods]
 	)
 	const selectedBranch = branches.find((branch) => branch.branch_id === selectedBranchId)
+	const isHeadOfficeBranch = selectedBranch?.branch_name === 'TAFI - HO'
 	const branchEmployees = useMemo(() => directoryEmployees
 		.filter((employee) =>
 			employee.branch_id === selectedBranchId
@@ -427,7 +429,9 @@ export default function TafiEmployeeAttendance({ sessionToken, readOnly = false 
 				const status = statusFromDatabase[record?.status] ?? 'Not marked'
 				return {
 					...employee,
-					shift: shiftEligibleStatuses.includes(status) ? record?.shift ?? '' : '',
+					shift: shiftEligibleStatuses.includes(status)
+						? isHeadOfficeBranch ? headOfficeShift : record?.shift ?? ''
+						: '',
 					status,
 					lateMinutes: record?.late_minutes ?? 0
 				}
@@ -450,6 +454,7 @@ export default function TafiEmployeeAttendance({ sessionToken, readOnly = false 
 		dailyDateMonthStart,
 		dailyDateMonthEnd,
 		branchEmployees,
+		isHeadOfficeBranch,
 		readOnly
 	])
 
@@ -590,7 +595,9 @@ export default function TafiEmployeeAttendance({ sessionToken, readOnly = false 
 			? {
 				...employee,
 				status,
-				shift: shiftEligibleStatuses.includes(status) ? employee.shift : '',
+				shift: shiftEligibleStatuses.includes(status)
+					? isHeadOfficeBranch ? headOfficeShift : employee.shift
+					: '',
 				lateMinutes: status === 'Present (Late)' ? employee.lateMinutes : 0
 			}
 			: employee))
@@ -599,6 +606,7 @@ export default function TafiEmployeeAttendance({ sessionToken, readOnly = false 
 	}
 
 	const updateShift = (employeeId, shift) => {
+		if (isHeadOfficeBranch) return
 		setDailyEmployees((current) => current.map((employee) => employee.id === employeeId
 			? { ...employee, shift }
 			: employee))
@@ -914,7 +922,7 @@ export default function TafiEmployeeAttendance({ sessionToken, readOnly = false 
 										</div>
 									</div>
 									<div className="attendance-row-controls">
-										{shiftEligibleStatuses.includes(employee.status) && (
+										{!isHeadOfficeBranch && shiftEligibleStatuses.includes(employee.status) && (
 											<label className="attendance-select-field">
 												<span>Shift</span>
 												<select

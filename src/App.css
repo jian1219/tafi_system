@@ -5433,7 +5433,7 @@ fieldset.employee-emergency-contact-box {
   font-weight: 650;
 }
 
-.tafi-stock-out-record-filters {
+.tafi-stock-record-filters {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
@@ -5441,7 +5441,7 @@ fieldset.employee-emergency-contact-box {
   margin-bottom: 16px;
 }
 
-.tafi-stock-out-record-filters label {
+.tafi-stock-record-filters label {
   display: grid;
   width: min(100%, 260px);
   gap: 6px;
@@ -5450,7 +5450,7 @@ fieldset.employee-emergency-contact-box {
   font-weight: 650;
 }
 
-.tafi-stock-out-record-filters input {
+.tafi-stock-record-filters input {
   min-height: 42px;
   padding: 9px 11px;
   border: 1px solid #cbd5e1;
@@ -5461,7 +5461,7 @@ fieldset.employee-emergency-contact-box {
   font-size: 0.88rem;
 }
 
-.tafi-stock-out-record-filters input:focus-visible {
+.tafi-stock-record-filters input:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 1px;
 }

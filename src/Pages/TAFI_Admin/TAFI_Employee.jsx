@@ -1460,21 +1460,23 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 								</p>
 							) : (
 								<>
-									<div className="employee-shift-month-record">
-										<div className="employee-shift-month-heading">
-											<h5>Shift month record</h5>
-											<span>{formatMonth(attendanceMonth)}</span>
+									{selectedEmployee.branch_name !== 'TAFI - HO' && (
+										<div className="employee-shift-month-record">
+											<div className="employee-shift-month-heading">
+												<h5>Shift month record</h5>
+												<span>{formatMonth(attendanceMonth)}</span>
+											</div>
+											<div className="employee-shift-month-grid">
+												{monthlyShiftCounts.map((shift) => (
+													<div className="employee-shift-month-card" key={shift.value}>
+														<span>{shift.label}</span>
+														<strong>{shift.total}</strong>
+														<small>{shift.total === 1 ? 'shift' : 'shifts'}</small>
+													</div>
+												))}
+											</div>
 										</div>
-										<div className="employee-shift-month-grid">
-											{monthlyShiftCounts.map((shift) => (
-												<div className="employee-shift-month-card" key={shift.value}>
-													<span>{shift.label}</span>
-													<strong>{shift.total}</strong>
-													<small>{shift.total === 1 ? 'shift' : 'shifts'}</small>
-												</div>
-											))}
-										</div>
-									</div>
+									)}
 									<div className="employee-attendance-summary">
 										<span>Total present <strong>{monthlyAttendance.present}</strong></span>
 										<span>Late <strong>{monthlyAttendance.late}</strong></span>

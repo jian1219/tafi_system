@@ -6,6 +6,7 @@ import {
 	listTafiAdminInventoryInformation,
 	listTafiAdminStockInventory,
 	listTafiAdminStockInScans,
+	listTafiAdminStockInRecords,
 	listTafiAdminStockOutRecords
 } from '../../lib/supabase'
 
@@ -28,14 +29,14 @@ function getLocalMonthInputValue() {
 	return `${year}-${month}`
 }
 
-function formatStockOutDate(value) {
+function formatRecordDate(value) {
 	const [year, month, day] = String(value ?? '').split('-').map(Number)
 	if (!year || !month || !day) return 'Date unavailable'
 
 	return new Date(year, month - 1, day).toLocaleDateString()
 }
 
-function formatStockOutMonth(value) {
+function formatRecordMonth(value) {
 	const [year, month] = String(value ?? '').split('-').map(Number)
 	if (!year || !month) return 'all months'
 
@@ -71,9 +72,12 @@ export default function TafiStockInventory({ sessionToken }) {
 	const [stockItems, setStockItems] = useState([])
 	const [branchStockItems, setBranchStockItems] = useState([])
 	const [barcodeScans, setBarcodeScans] = useState([])
+	const [stockInRecords, setStockInRecords] = useState([])
 	const [stockOutRecords, setStockOutRecords] = useState([])
 	const [form, setForm] = useState(emptyForm)
 	const [activeTab, setActiveTab] = useState('stock')
+	const [stockInMonth, setStockInMonth] = useState(getLocalMonthInputValue)
+	const [stockInDay, setStockInDay] = useState('')
 	const [stockOutMonth, setStockOutMonth] = useState(getLocalMonthInputValue)
 	const [stockOutDay, setStockOutDay] = useState('')
 	const [stockSearch, setStockSearch] = useState('')
@@ -84,11 +88,13 @@ export default function TafiStockInventory({ sessionToken }) {
 	const [isLoading, setIsLoading] = useState(true)
 	const [isBranchStockLoading, setIsBranchStockLoading] = useState(true)
 	const [isBarcodeLoading, setIsBarcodeLoading] = useState(true)
+	const [isStockInLoading, setIsStockInLoading] = useState(true)
 	const [isStockOutLoading, setIsStockOutLoading] = useState(true)
 	const [isSaving, setIsSaving] = useState(false)
 	const [loadError, setLoadError] = useState('')
 	const [branchStockLoadError, setBranchStockLoadError] = useState('')
 	const [barcodeLoadError, setBarcodeLoadError] = useState('')
+	const [stockInLoadError, setStockInLoadError] = useState('')
 	const [stockOutLoadError, setStockOutLoadError] = useState('')
 	const [errorMessage, setErrorMessage] = useState('')
 	const [notice, setNotice] = useState('')
@@ -132,6 +138,32 @@ export default function TafiStockInventory({ sessionToken }) {
 			isCurrent = false
 		}
 	}, [sessionToken])
+
+	useEffect(() => {
+		let isCurrent = true
+
+		const loadStockInRecords = async () => {
+			setIsStockInLoading(true)
+			setStockInLoadError('')
+			const { data, error } = await listTafiAdminStockInRecords(
+				sessionToken,
+				stockInMonth || null,
+				stockInDay || null
+			)
+			if (!isCurrent) return
+			setIsStockInLoading(false)
+			if (error) {
+				setStockInLoadError(error.message)
+				return
+			}
+			setStockInRecords(data ?? [])
+		}
+
+		loadStockInRecords()
+		return () => {
+			isCurrent = false
+		}
+	}, [sessionToken, stockInMonth, stockInDay])
 
 	useEffect(() => {
 		let isCurrent = true
@@ -239,6 +271,22 @@ export default function TafiStockInventory({ sessionToken }) {
 		setBarcodeScans(data ?? [])
 	}
 
+	const refreshStockInRecords = async () => {
+		setIsStockInLoading(true)
+		setStockInLoadError('')
+		const { data, error } = await listTafiAdminStockInRecords(
+			sessionToken,
+			stockInMonth || null,
+			stockInDay || null
+		)
+		setIsStockInLoading(false)
+		if (error) {
+			setStockInLoadError(error.message)
+			return
+		}
+		setStockInRecords(data ?? [])
+	}
+
 	const refreshStockOutRecords = async () => {
 		setIsStockOutLoading(true)
 		setStockOutLoadError('')
@@ -315,6 +363,17 @@ export default function TafiStockInventory({ sessionToken }) {
 					onClick={() => setActiveTab('barcodes')}
 				>
 					Barcode Inventory
+				</button>
+				<button
+					type="button"
+					id="tafi-stock-in-records-tab"
+					className={`accountant-inventory-tab${activeTab === 'stockIn' ? ' active' : ''}`}
+					role="tab"
+					aria-selected={activeTab === 'stockIn'}
+					aria-controls="tafi-stock-in-records-panel"
+					onClick={() => setActiveTab('stockIn')}
+				>
+					Stock In Records
 				</button>
 				<button
 					type="button"
@@ -537,6 +596,98 @@ export default function TafiStockInventory({ sessionToken }) {
 				)}
 			</div>
 			<div
+				id="tafi-stock-in-records-panel"
+				className="accountant-inventory-panel"
+				role="tabpanel"
+				aria-labelledby="tafi-stock-in-records-tab"
+				hidden={activeTab !== 'stockIn'}
+			>
+				<div className="accountant-inventory-list-heading">
+					<div>
+						<h2>Stock in records</h2>
+						<p>
+							{stockInRecords.length} record{stockInRecords.length === 1 ? '' : 's'}
+							{stockInDay
+								? ` for ${formatRecordDate(stockInDay)}`
+								: ` for ${formatRecordMonth(stockInMonth)}`}
+						</p>
+					</div>
+					<button
+						type="button"
+						className="accountant-inventory-add-toggle"
+						onClick={refreshStockInRecords}
+						disabled={isStockInLoading}
+					>
+						{isStockInLoading ? 'Refreshing...' : 'Refresh'}
+					</button>
+				</div>
+				<div className="tafi-stock-record-filters">
+					<label htmlFor="tafi-stock-in-record-month">
+						<span>Filter by month</span>
+						<input
+							id="tafi-stock-in-record-month"
+							type="month"
+							value={stockInMonth}
+							required
+							onChange={(event) => {
+								if (event.target.value) setStockInMonth(event.target.value)
+								setStockInDay('')
+							}}
+						/>
+					</label>
+					<label htmlFor="tafi-stock-in-record-day">
+						<span>Filter by day (optional)</span>
+						<input
+							id="tafi-stock-in-record-day"
+							type="date"
+							value={stockInDay}
+							onChange={(event) => {
+								const selectedDay = event.target.value
+								setStockInDay(selectedDay)
+								if (selectedDay) setStockInMonth(selectedDay.slice(0, 7))
+							}}
+						/>
+					</label>
+				</div>
+				{stockInLoadError && (
+					<p className="accountant-inventory-error" role="alert">{stockInLoadError}</p>
+				)}
+				{isStockInLoading ? (
+					<p className="accountant-inventory-empty" role="status">Loading stock-in records...</p>
+				) : stockInLoadError ? null : stockInRecords.length ? (
+					<div className="accountant-inventory-table-wrap">
+						<table className="accountant-inventory-table">
+							<thead>
+								<tr>
+									<th scope="col">Barcode</th>
+									<th scope="col">Stock no.</th>
+									<th scope="col">Item description</th>
+									<th scope="col">Unit of measure</th>
+									<th scope="col">Stock in count</th>
+									<th scope="col">Date</th>
+								</tr>
+							</thead>
+							<tbody>
+								{stockInRecords.map((record) => (
+									<tr key={`${record.barcode}-${record.date}`}>
+										<td>{record.barcode}</td>
+										<td>{record.stock_no}</td>
+										<td>{record.item_description}</td>
+										<td>{record.unit_of_measure}</td>
+										<td>{record.stock_in_count}</td>
+										<td>{formatRecordDate(record.date)}</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				) : (
+					<p className="accountant-inventory-empty">
+						No stock-in records found{stockInDay ? ' for this day.' : ' for this month.'}
+					</p>
+				)}
+			</div>
+			<div
 				id="tafi-stock-out-records-panel"
 				className="accountant-inventory-panel"
 				role="tabpanel"
@@ -549,8 +700,8 @@ export default function TafiStockInventory({ sessionToken }) {
 						<p>
 							{stockOutRecords.length} record{stockOutRecords.length === 1 ? '' : 's'}
 							{stockOutDay
-								? ` for ${formatStockOutDate(stockOutDay)}`
-								: ` for ${formatStockOutMonth(stockOutMonth)}`}
+								? ` for ${formatRecordDate(stockOutDay)}`
+								: ` for ${formatRecordMonth(stockOutMonth)}`}
 						</p>
 					</div>
 					<button
@@ -562,7 +713,7 @@ export default function TafiStockInventory({ sessionToken }) {
 						{isStockOutLoading ? 'Refreshing...' : 'Refresh'}
 					</button>
 				</div>
-				<div className="tafi-stock-out-record-filters">
+				<div className="tafi-stock-record-filters">
 					<label htmlFor="tafi-stock-out-record-month">
 						<span>Filter by month</span>
 						<input
@@ -616,7 +767,7 @@ export default function TafiStockInventory({ sessionToken }) {
 										<td>{record.item_description}</td>
 										<td>{record.unit_of_measure}</td>
 										<td>{record.stock_out_count}</td>
-										<td>{formatStockOutDate(record.date)}</td>
+										<td>{formatRecordDate(record.date)}</td>
 									</tr>
 								))}
 							</tbody>
