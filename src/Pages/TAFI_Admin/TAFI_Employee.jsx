@@ -1510,7 +1510,8 @@ export default function TafiEmployee({ sessionToken, readOnly = false }) {
 												const shiftLabel = attendanceShiftDetails.find(
 													(shift) => shift.value === record?.shift
 												)?.label
-												const displayedShiftLabel = ['present', 'present_late', 'half_day'].includes(status)
+												const displayedShiftLabel = selectedEmployee.branch_name !== 'TAFI - HO'
+													&& ['present', 'present_late', 'half_day'].includes(status)
 													? shiftLabel
 													: ''
 
