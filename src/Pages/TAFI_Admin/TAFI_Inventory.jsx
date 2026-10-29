@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Pencil, Plus, Trash2, X } from 'lucide-react'
 import {
 	createTafiAdminInventoryInformation,
-	listTafiAdminInventoryInformation
+	deleteTafiAdminInventoryInformation,
+	listTafiAdminInventoryInformation,
+	updateTafiAdminInventoryInformation
 } from '../../lib/supabase'
 
 const emptyForm = {
@@ -17,6 +19,7 @@ export default function TafiInventory({ sessionToken }) {
 	const [form, setForm] = useState(emptyForm)
 	const [inventoryItems, setInventoryItems] = useState([])
 	const [isFormOpen, setIsFormOpen] = useState(false)
+	const [editingItemId, setEditingItemId] = useState(null)
 	const [isLoading, setIsLoading] = useState(true)
 	const [loadError, setLoadError] = useState(false)
 	const [isSaving, setIsSaving] = useState(false)
@@ -55,7 +58,9 @@ export default function TafiInventory({ sessionToken }) {
 		setErrorMessage('')
 		setNotice('')
 
-		const { error } = await createTafiAdminInventoryInformation(sessionToken, form)
+		const { error } = editingItemId
+			? await updateTafiAdminInventoryInformation(sessionToken, editingItemId, form)
+			: await createTafiAdminInventoryInformation(sessionToken, form)
 		if (error) {
 			setIsSaving(false)
 			setErrorMessage(error.message)
@@ -63,6 +68,7 @@ export default function TafiInventory({ sessionToken }) {
 		}
 
 		setForm(emptyForm)
+		setEditingItemId(null)
 		const { data, error: refreshError } = await listTafiAdminInventoryInformation(sessionToken)
 		setIsSaving(false)
 		if (refreshError) {
@@ -75,14 +81,72 @@ export default function TafiInventory({ sessionToken }) {
 		setLoadError(false)
 		setInventoryItems(data ?? [])
 		setIsFormOpen(false)
-		setNotice('Inventory item added successfully.')
+		setNotice(`Inventory item ${editingItemId ? 'updated' : 'added'} successfully.`)
 	}
 
 	const toggleForm = () => {
 		setIsFormOpen((current) => !current)
 		setForm(emptyForm)
+		setEditingItemId(null)
 		setErrorMessage('')
 		setNotice('')
+	}
+
+	const editItem = (item) => {
+		setForm({
+			stockNo: item.stock_no,
+			category: item.category,
+			itemDescription: item.item_description,
+			unitOfMeasure: item.unit_of_measure,
+			supplier: item.supplier
+		})
+		setEditingItemId(item.inventory_id)
+		setIsFormOpen(true)
+		setErrorMessage('')
+		setNotice('')
+	}
+
+	const deleteItem = async (item) => {
+		if (!window.confirm(
+			`Delete inventory item "${item.item_description}"? Items already linked to TAFI Stock Inventory cannot be deleted.`
+		)) return
+
+		setIsSaving(true)
+		setErrorMessage('')
+		setNotice('')
+
+		const { data: deleted, error } = await deleteTafiAdminInventoryInformation(
+			sessionToken,
+			item.inventory_id
+		)
+		if (error) {
+			setIsSaving(false)
+			setErrorMessage(error.message)
+			return
+		}
+		if (deleted !== true) {
+			setIsSaving(false)
+			setErrorMessage('The inventory item was not deleted.')
+			return
+		}
+
+		const { data, error: refreshError } = await listTafiAdminInventoryInformation(sessionToken)
+		setIsSaving(false)
+		if (refreshError) {
+			setLoadError(true)
+			setNotice('Inventory item deleted, but the list could not be refreshed.')
+			setErrorMessage(refreshError.message)
+			return
+		}
+
+		setLoadError(false)
+		setInventoryItems(data ?? [])
+		if (editingItemId === item.inventory_id) {
+			setForm(emptyForm)
+			setEditingItemId(null)
+			setIsFormOpen(false)
+		}
+		setNotice('Inventory item deleted successfully.')
 	}
 
 	return (
@@ -125,8 +189,12 @@ export default function TafiInventory({ sessionToken }) {
 					<>
 						<div className="accountant-inventory-heading">
 							<div>
-								<h2>Add inventory information</h2>
-								<p>Enter the stock details to add an item to the shared inventory list.</p>
+								<h2>{editingItemId ? 'Edit inventory information' : 'Add inventory information'}</h2>
+								<p>
+									{editingItemId
+										? 'Update the stock details in the shared inventory list.'
+										: 'Enter the stock details to add an item to the shared inventory list.'}
+								</p>
 							</div>
 						</div>
 						<form className="accountant-inventory-form" onSubmit={handleSubmit}>
@@ -151,7 +219,7 @@ export default function TafiInventory({ sessionToken }) {
 								<input name="supplier" value={form.supplier} onChange={handleChange} required />
 							</label>
 							<button type="submit" className="accountant-inventory-submit" disabled={isSaving}>
-								{isSaving ? 'Saving...' : 'Add inventory item'}
+								{isSaving ? 'Saving...' : editingItemId ? 'Update inventory item' : 'Add inventory item'}
 							</button>
 						</form>
 					</>
@@ -172,6 +240,7 @@ export default function TafiInventory({ sessionToken }) {
 									<th scope="col">Item Description</th>
 									<th scope="col">Unit of measure</th>
 									<th scope="col">Supplier</th>
+									<th scope="col">Actions</th>
 								</tr>
 							</thead>
 							<tbody>
@@ -182,6 +251,30 @@ export default function TafiInventory({ sessionToken }) {
 										<td>{item.item_description}</td>
 										<td>{item.unit_of_measure}</td>
 										<td>{item.supplier}</td>
+										<td>
+											<div className="accountant-inventory-actions">
+												<button
+													type="button"
+													className="accountant-inventory-action"
+													aria-label={`Edit ${item.item_description}`}
+													disabled={isSaving}
+													onClick={() => editItem(item)}
+												>
+													<Pencil size={15} aria-hidden="true" />
+													Edit
+												</button>
+												<button
+													type="button"
+													className="accountant-inventory-action delete"
+													aria-label={`Delete ${item.item_description}`}
+													disabled={isSaving}
+													onClick={() => deleteItem(item)}
+												>
+													<Trash2 size={15} aria-hidden="true" />
+													Delete
+												</button>
+											</div>
+										</td>
 									</tr>
 								))}
 							</tbody>

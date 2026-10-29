@@ -133,6 +133,41 @@ export async function createTafiAdminInventoryInformation(sessionToken, item) {
   }
 }
 
+export async function updateTafiAdminInventoryInformation(sessionToken, inventoryId, item) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_update_inventory_information', {
+      p_session_token: sessionToken,
+      p_inventory_id: inventoryId,
+      p_stock_no: item.stockNo,
+      p_category: item.category,
+      p_item_description: item.itemDescription,
+      p_unit_of_measure: item.unitOfMeasure,
+      p_supplier: item.supplier
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the inventory item.')
+    }
+  }
+}
+
+export async function deleteTafiAdminInventoryInformation(sessionToken, inventoryId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_delete_inventory_information', {
+      p_session_token: sessionToken,
+      p_inventory_id: inventoryId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to delete the inventory item.')
+    }
+  }
+}
+
 export async function listTafiAdminStockInventory(sessionToken) {
   try {
     const supabaseClient = await getSupabaseClient()
