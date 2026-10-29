@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Pencil, Plus, Trash2, X } from 'lucide-react'
 import {
 	createTafiAdminInventoryInformation,
@@ -18,6 +18,8 @@ const emptyForm = {
 export default function TafiInventory({ sessionToken }) {
 	const [form, setForm] = useState(emptyForm)
 	const [inventoryItems, setInventoryItems] = useState([])
+	const [inventorySearch, setInventorySearch] = useState('')
+	const [inventoryCategory, setInventoryCategory] = useState('')
 	const [isFormOpen, setIsFormOpen] = useState(false)
 	const [editingItemId, setEditingItemId] = useState(null)
 	const [isLoading, setIsLoading] = useState(true)
@@ -25,6 +27,26 @@ export default function TafiInventory({ sessionToken }) {
 	const [isSaving, setIsSaving] = useState(false)
 	const [errorMessage, setErrorMessage] = useState('')
 	const [notice, setNotice] = useState('')
+
+	const inventoryCategories = useMemo(
+		() => [...new Set(inventoryItems.map((item) => item.category).filter(Boolean))]
+			.sort((a, b) => a.localeCompare(b)),
+		[inventoryItems]
+	)
+	const filteredInventoryItems = useMemo(() => {
+		const query = inventorySearch.trim().toLocaleLowerCase()
+		return inventoryItems.filter((item) => {
+			if (inventoryCategory && item.category !== inventoryCategory) return false
+			if (!query) return true
+			return [
+				item.stock_no,
+				item.category,
+				item.item_description,
+				item.unit_of_measure,
+				item.supplier
+			].some((value) => value?.toLocaleLowerCase().includes(query))
+		})
+	}, [inventoryCategory, inventoryItems, inventorySearch])
 
 	useEffect(() => {
 		let isCurrent = true
@@ -172,7 +194,11 @@ export default function TafiInventory({ sessionToken }) {
 				<div className="accountant-inventory-list-heading">
 					<div>
 						<h2>Inventory items</h2>
-						<p>{inventoryItems.length} item{inventoryItems.length === 1 ? '' : 's'}</p>
+						<p>
+							{filteredInventoryItems.length === inventoryItems.length
+								? `${inventoryItems.length} item${inventoryItems.length === 1 ? '' : 's'}`
+								: `${filteredInventoryItems.length} of ${inventoryItems.length} items`}
+						</p>
 					</div>
 					<button
 						type="button"
@@ -231,55 +257,84 @@ export default function TafiInventory({ sessionToken }) {
 				{isLoading ? (
 					<p className="accountant-inventory-empty" role="status">Loading inventory items...</p>
 				) : inventoryItems.length ? (
-					<div className="accountant-inventory-table-wrap">
-						<table className="accountant-inventory-table">
-							<thead>
-								<tr>
-									<th scope="col">Stock no.</th>
-									<th scope="col">Category</th>
-									<th scope="col">Item Description</th>
-									<th scope="col">Unit of measure</th>
-									<th scope="col">Supplier</th>
-									<th scope="col">Actions</th>
-								</tr>
-							</thead>
-							<tbody>
-								{inventoryItems.map((item) => (
-									<tr key={item.inventory_id}>
-										<td>{item.stock_no}</td>
-										<td>{item.category}</td>
-										<td>{item.item_description}</td>
-										<td>{item.unit_of_measure}</td>
-										<td>{item.supplier}</td>
-										<td>
-											<div className="accountant-inventory-actions">
-												<button
-													type="button"
-													className="accountant-inventory-action"
-													aria-label={`Edit ${item.item_description}`}
-													disabled={isSaving}
-													onClick={() => editItem(item)}
-												>
-													<Pencil size={15} aria-hidden="true" />
-													Edit
-												</button>
-												<button
-													type="button"
-													className="accountant-inventory-action delete"
-													aria-label={`Delete ${item.item_description}`}
-													disabled={isSaving}
-													onClick={() => deleteItem(item)}
-												>
-													<Trash2 size={15} aria-hidden="true" />
-													Delete
-												</button>
-											</div>
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
+					<>
+						<div className="tafi-stock-inventory-filters" role="search" aria-label="Filter inventory information">
+							<label>
+								<span>Search inventory</span>
+								<input
+									type="search"
+									value={inventorySearch}
+									onChange={(event) => setInventorySearch(event.target.value)}
+									placeholder="Search stock no., description, unit, or supplier"
+								/>
+							</label>
+							<label>
+								<span>Category</span>
+								<select
+									value={inventoryCategory}
+									onChange={(event) => setInventoryCategory(event.target.value)}
+								>
+									<option value="">All categories</option>
+									{inventoryCategories.map((category) => (
+										<option key={category} value={category}>{category}</option>
+									))}
+								</select>
+							</label>
+						</div>
+						{filteredInventoryItems.length ? (
+							<div className="accountant-inventory-table-wrap">
+								<table className="accountant-inventory-table">
+									<thead>
+										<tr>
+											<th scope="col">Stock no.</th>
+											<th scope="col">Category</th>
+											<th scope="col">Item Description</th>
+											<th scope="col">Unit of measure</th>
+											<th scope="col">Supplier</th>
+											<th scope="col">Actions</th>
+										</tr>
+									</thead>
+									<tbody>
+										{filteredInventoryItems.map((item) => (
+											<tr key={item.inventory_id}>
+												<td>{item.stock_no}</td>
+												<td>{item.category}</td>
+												<td>{item.item_description}</td>
+												<td>{item.unit_of_measure}</td>
+												<td>{item.supplier}</td>
+												<td>
+													<div className="accountant-inventory-actions">
+														<button
+															type="button"
+															className="accountant-inventory-action"
+															aria-label={`Edit ${item.item_description}`}
+															disabled={isSaving}
+															onClick={() => editItem(item)}
+														>
+															<Pencil size={15} aria-hidden="true" />
+															Edit
+														</button>
+														<button
+															type="button"
+															className="accountant-inventory-action delete"
+															aria-label={`Delete ${item.item_description}`}
+															disabled={isSaving}
+															onClick={() => deleteItem(item)}
+														>
+															<Trash2 size={15} aria-hidden="true" />
+															Delete
+														</button>
+													</div>
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						) : (
+							<p className="accountant-inventory-empty">No inventory items match those filters.</p>
+						)}
+					</>
 				) : loadError ? null : (
 					<p className="accountant-inventory-empty">No inventory items have been added yet.</p>
 				)}
