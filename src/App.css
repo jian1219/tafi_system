@@ -5586,6 +5586,12 @@ fieldset.employee-emergency-contact-box {
   color: #1e293b;
 }
 
+.accountant-inventory-table tbody tr.accountant-inventory-row-zero-stock td {
+  color: #991b1b;
+  background: #fef2f2;
+  border-bottom-color: #fecaca;
+}
+
 .accountant-inventory-actions {
   display: flex;
   flex-wrap: wrap;

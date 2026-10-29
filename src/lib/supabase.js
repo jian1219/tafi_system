@@ -182,6 +182,22 @@ export async function listTafiAdminStockInventory(sessionToken) {
   }
 }
 
+export async function addTafiAdminManualStockInventory(sessionToken, stockInventoryId, quantity) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_add_manual_stock_inventory', {
+      p_session_token: sessionToken,
+      p_stock_inventory_id: stockInventoryId,
+      p_quantity: quantity
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to add manual stock.')
+    }
+  }
+}
+
 export async function listTafiAdminBranchInventory(sessionToken) {
   try {
     const supabaseClient = await getSupabaseClient()

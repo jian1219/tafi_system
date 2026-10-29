@@ -1,4 +1,7 @@
--- Run after tafi_admin_inventory.sql and tafi_stock_inventory.sql.
+-- Run after accountant_management.sql, tafi_admin_management.sql,
+-- tafi_admin_inventory.sql, tafi_stock_inventory.sql,
+-- branch_management.sql, branch_inventory.sql,
+-- tafi_admin_stock_in_scans.sql, and tafi_admin_stock_out_records.sql.
 begin;
 
 do $$
@@ -8,6 +11,14 @@ begin
   if to_regclass('public.inventory_information') is null
     or to_regclass('public.tafi_stock_inventory') is null then
     raise exception 'Run the inventory information and TAFI stock inventory migrations first.';
+  end if;
+  if to_regclass('public.tafi_admin_stock_in_scans') is null then
+    raise exception 'Run tafi_admin_stock_in_scans.sql before this migration.';
+  end if;
+  if to_regclass('public.branch') is null
+    or to_regclass('public.branch_inventory') is null
+    or to_regclass('public.branch_inventory_daily_log') is null then
+    raise exception 'Run branch_management.sql and branch_inventory.sql before this migration.';
   end if;
 
   for v_constraint_name in
@@ -32,6 +43,112 @@ begin
 end;
 $$;
 
+create or replace function public.tafi_admin_create_stock_inventory_for_catalog_item()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.tafi_stock_inventory (
+    inventory_id,
+    stock_no,
+    item_description,
+    unit_of_measure
+  )
+  values (
+    new.id,
+    new.stock_no,
+    new.item_description,
+    new.unit_of_measure
+  )
+  on conflict (inventory_id) do nothing;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.tafi_admin_create_stock_inventory_for_catalog_item()
+  from public, anon, authenticated;
+
+drop trigger if exists inventory_information_create_tafi_stock
+  on public.inventory_information;
+create trigger inventory_information_create_tafi_stock
+  after insert on public.inventory_information
+  for each row
+  execute function public.tafi_admin_create_stock_inventory_for_catalog_item();
+
+insert into public.tafi_stock_inventory (
+  inventory_id,
+  stock_no,
+  item_description,
+  unit_of_measure
+)
+select inventory.id,
+       inventory.stock_no,
+       inventory.item_description,
+       inventory.unit_of_measure
+from public.inventory_information as inventory
+on conflict (inventory_id) do nothing;
+
+create or replace function public.tafi_admin_create_branch_inventory_for_stock_item()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.branch_inventory (branch_id, stock_inventory_id, available)
+  select branch.id, new.id, 0
+  from public.branch
+  on conflict (branch_id, stock_inventory_id) do nothing;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.tafi_admin_create_branch_inventory_for_stock_item()
+  from public, anon, authenticated;
+
+drop trigger if exists tafi_stock_inventory_create_branch_rows
+  on public.tafi_stock_inventory;
+create trigger tafi_stock_inventory_create_branch_rows
+  after insert on public.tafi_stock_inventory
+  for each row
+  execute function public.tafi_admin_create_branch_inventory_for_stock_item();
+
+create or replace function public.tafi_admin_create_branch_rows_for_new_branch()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.branch_inventory (branch_id, stock_inventory_id, available)
+  select new.id, stock.id, 0
+  from public.tafi_stock_inventory as stock
+  on conflict (branch_id, stock_inventory_id) do nothing;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.tafi_admin_create_branch_rows_for_new_branch()
+  from public, anon, authenticated;
+
+drop trigger if exists branch_create_inventory_rows
+  on public.branch;
+create trigger branch_create_inventory_rows
+  after insert on public.branch
+  for each row
+  execute function public.tafi_admin_create_branch_rows_for_new_branch();
+
+insert into public.branch_inventory (branch_id, stock_inventory_id, available)
+select branch.id, stock.id, 0
+from public.branch as branch
+cross join public.tafi_stock_inventory as stock
+on conflict (branch_id, stock_inventory_id) do nothing;
+
 create or replace function public.tafi_admin_update_inventory_information(
   p_session_token uuid,
   p_inventory_id uuid,
@@ -46,6 +163,8 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  v_inventory public.inventory_information%rowtype;
 begin
   if not exists (
     select 1
@@ -65,13 +184,36 @@ begin
     raise exception 'Inventory ID, stock number, category, item description, unit of measure, and supplier are required';
   end if;
 
-  perform 1
+  select inventory.*
+  into v_inventory
   from public.inventory_information as inventory
   where inventory.id = p_inventory_id
   for update;
 
   if not found then
     raise exception 'The inventory item does not exist.';
+  end if;
+
+  if trim(p_stock_no) is distinct from v_inventory.stock_no
+    and exists (
+      select 1
+      from public.inventory_information as other_inventory
+      where other_inventory.stock_no = trim(p_stock_no)
+        and other_inventory.id <> p_inventory_id
+    ) then
+    raise exception 'The stock number is already assigned to another inventory item.';
+  end if;
+
+  if exists (
+    select 1
+    from public.tafi_admin_stock_in_scans as barcode
+    where barcode.stock_no = v_inventory.stock_no
+  ) and (
+    trim(p_stock_no) is distinct from v_inventory.stock_no
+    or trim(p_item_description) is distinct from v_inventory.item_description
+    or trim(p_unit_of_measure) is distinct from v_inventory.unit_of_measure
+  ) then
+    raise exception 'This item has barcode scan records. Stock number, description, and unit cannot be changed until those barcode records are removed.';
   end if;
 
   update public.inventory_information
@@ -95,6 +237,10 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  v_stock_no text;
+  v_stock_inventory_id uuid;
+  v_stock_available numeric;
 begin
   if not exists (
     select 1
@@ -109,7 +255,8 @@ begin
     raise exception 'An inventory item is required.';
   end if;
 
-  perform 1
+  select inventory.stock_no
+  into v_stock_no
   from public.inventory_information as inventory
   where inventory.id = p_inventory_id
   for update;
@@ -120,10 +267,57 @@ begin
 
   if exists (
     select 1
-    from public.tafi_stock_inventory as stock
-    where stock.inventory_id = p_inventory_id
+    from public.tafi_admin_stock_in_scans as barcode
+    where barcode.stock_no = v_stock_no
   ) then
-    raise exception 'This item is linked to TAFI Stock Inventory. Remove its stock inventory record before deleting it.';
+    raise exception 'This item has barcode scan records. Remove those barcode records before deleting it.';
+  end if;
+
+  select stock.id, stock.available
+  into v_stock_inventory_id, v_stock_available
+  from public.tafi_stock_inventory as stock
+  where stock.inventory_id = p_inventory_id
+  for update;
+
+  if found then
+    if v_stock_available > 0 then
+      raise exception 'This item has stock on hand. Remove or transfer its stock before deleting it.';
+    end if;
+
+    if exists (
+      select 1
+      from public.branch_inventory as branch_stock
+      where branch_stock.stock_inventory_id = v_stock_inventory_id
+        and branch_stock.available > 0
+    ) then
+      raise exception 'This item has available branch stock. Remove or transfer it before deleting it.';
+    end if;
+
+    if exists (
+      select 1
+      from public.branch_inventory_daily_log as usage_log
+      join public.branch_inventory as branch_stock
+        on branch_stock.id = usage_log.branch_inventory_id
+      where branch_stock.stock_inventory_id = v_stock_inventory_id
+    ) then
+      raise exception 'This item has branch usage history and cannot be deleted.';
+    end if;
+
+    begin
+      delete from public.branch_inventory
+      where stock_inventory_id = v_stock_inventory_id;
+    exception
+      when foreign_key_violation then
+        raise exception 'This item is referenced by branch requests or history and cannot be deleted.';
+    end;
+
+    begin
+      delete from public.tafi_stock_inventory
+      where id = v_stock_inventory_id;
+    exception
+      when foreign_key_violation then
+        raise exception 'This item is used by stock requests or stock history and cannot be deleted.';
+    end;
   end if;
 
   delete from public.inventory_information

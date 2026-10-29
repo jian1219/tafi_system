@@ -1,19 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, X } from 'lucide-react'
 import {
-	createTafiAdminStockInventory,
+	addTafiAdminManualStockInventory,
 	listTafiAdminBranchInventory,
-	listTafiAdminInventoryInformation,
 	listTafiAdminStockInventory,
 	listTafiAdminStockInScans,
 	listTafiAdminStockInRecords,
 	listTafiAdminStockOutRecords
 } from '../../lib/supabase'
-
-const emptyForm = {
-	category: '',
-	inventoryId: ''
-}
 
 function formatBarcodeDate(value) {
 	if (!value) return 'Date unavailable'
@@ -46,65 +39,44 @@ function formatRecordMonth(value) {
 	})
 }
 
-async function loadStockInventoryData(sessionToken) {
-	const [inventoryResult, stockResult] = await Promise.all([
-		listTafiAdminInventoryInformation(sessionToken),
-		listTafiAdminStockInventory(sessionToken)
-	])
-
-	if (inventoryResult.error || stockResult.error) {
-		return {
-			error: inventoryResult.error ?? stockResult.error,
-			inventory: null,
-			stock: null
-		}
-	}
-
-	return {
-		error: null,
-		inventory: inventoryResult.data ?? [],
-		stock: stockResult.data ?? []
-	}
-}
-
 export default function TafiStockInventory({ sessionToken }) {
-	const [inventoryItems, setInventoryItems] = useState([])
 	const [stockItems, setStockItems] = useState([])
 	const [branchStockItems, setBranchStockItems] = useState([])
 	const [barcodeScans, setBarcodeScans] = useState([])
 	const [stockInRecords, setStockInRecords] = useState([])
 	const [stockOutRecords, setStockOutRecords] = useState([])
-	const [form, setForm] = useState(emptyForm)
 	const [activeTab, setActiveTab] = useState('stock')
 	const [stockInMonth, setStockInMonth] = useState(getLocalMonthInputValue)
 	const [stockInDay, setStockInDay] = useState('')
 	const [stockOutMonth, setStockOutMonth] = useState(getLocalMonthInputValue)
 	const [stockOutDay, setStockOutDay] = useState('')
+	const [isManualStockFormOpen, setIsManualStockFormOpen] = useState(false)
+	const [manualStockInventoryId, setManualStockInventoryId] = useState('')
+	const [manualStockQuantity, setManualStockQuantity] = useState('')
+	const [isSavingManualStock, setIsSavingManualStock] = useState(false)
+	const [manualStockError, setManualStockError] = useState('')
+	const [manualStockNotice, setManualStockNotice] = useState('')
+	const [barcodeSearch, setBarcodeSearch] = useState('')
 	const [stockSearch, setStockSearch] = useState('')
 	const [stockCategory, setStockCategory] = useState('')
 	const [branchStockSearch, setBranchStockSearch] = useState('')
 	const [branchStockBranch, setBranchStockBranch] = useState('')
-	const [isFormOpen, setIsFormOpen] = useState(false)
 	const [isLoading, setIsLoading] = useState(true)
 	const [isBranchStockLoading, setIsBranchStockLoading] = useState(true)
 	const [isBarcodeLoading, setIsBarcodeLoading] = useState(true)
 	const [isStockInLoading, setIsStockInLoading] = useState(true)
 	const [isStockOutLoading, setIsStockOutLoading] = useState(true)
-	const [isSaving, setIsSaving] = useState(false)
 	const [loadError, setLoadError] = useState('')
 	const [branchStockLoadError, setBranchStockLoadError] = useState('')
 	const [barcodeLoadError, setBarcodeLoadError] = useState('')
 	const [stockInLoadError, setStockInLoadError] = useState('')
 	const [stockOutLoadError, setStockOutLoadError] = useState('')
-	const [errorMessage, setErrorMessage] = useState('')
-	const [notice, setNotice] = useState('')
-
 	useEffect(() => {
 		let isCurrent = true
 
 		const load = async () => {
-			const [result, branchStockResult, barcodeResult] = await Promise.all([
-				loadStockInventoryData(sessionToken),
+			const [stockResult, branchStockResult, barcodeResult] = await Promise.all([
+				listTafiAdminStockInventory(sessionToken),
 				listTafiAdminBranchInventory(sessionToken),
 				listTafiAdminStockInScans(sessionToken)
 			])
@@ -112,12 +84,11 @@ export default function TafiStockInventory({ sessionToken }) {
 			setIsLoading(false)
 			setIsBranchStockLoading(false)
 			setIsBarcodeLoading(false)
-			if (result.error) {
-				setLoadError(result.error.message)
+			if (stockResult.error) {
+				setLoadError(stockResult.error.message)
 			} else {
 				setLoadError('')
-				setInventoryItems(result.inventory)
-				setStockItems(result.stock)
+				setStockItems(stockResult.data ?? [])
 			}
 			if (branchStockResult.error) {
 				setBranchStockLoadError(branchStockResult.error.message)
@@ -191,28 +162,10 @@ export default function TafiStockInventory({ sessionToken }) {
 		}
 	}, [sessionToken, stockOutMonth, stockOutDay])
 
-	const categories = useMemo(
-		() => [...new Set(inventoryItems.map((item) => item.category).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-		[inventoryItems]
-	)
-
 	const stockCategories = useMemo(
 		() => [...new Set(stockItems.map((item) => item.category).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
 		[stockItems]
 	)
-
-	const stockInventoryIds = useMemo(
-		() => new Set(stockItems.map((item) => item.inventory_id)),
-		[stockItems]
-	)
-
-	const availableItems = useMemo(() => {
-		return inventoryItems.filter((item) => {
-			if (stockInventoryIds.has(item.inventory_id)) return false
-			if (form.category && item.category !== form.category) return false
-			return true
-		})
-	}, [form.category, inventoryItems, stockInventoryIds])
 
 	const filteredStockItems = useMemo(() => {
 		const query = stockSearch.trim().toLocaleLowerCase()
@@ -223,6 +176,24 @@ export default function TafiStockInventory({ sessionToken }) {
 				.some((value) => value?.toLocaleLowerCase().includes(query))
 		})
 	}, [stockCategory, stockItems, stockSearch])
+
+	const filteredBarcodeScans = useMemo(() => {
+		const query = barcodeSearch.trim().toLocaleLowerCase()
+		if (!query) return barcodeScans
+
+		return barcodeScans.filter((item) => [
+			item.barcode,
+			item.stock_no,
+			item.item_description,
+			item.unit_of_measure,
+			item.scan_count,
+			formatBarcodeDate(item.updated_at ?? item.created_at)
+		].some((value) => String(value ?? '').toLocaleLowerCase().includes(query)))
+	}, [barcodeScans, barcodeSearch])
+
+	const selectedManualStockItem = stockItems.find(
+		(item) => item.stock_inventory_id === manualStockInventoryId
+	)
 
 	const branchNames = useMemo(
 		() => [...new Set(branchStockItems.map((item) => item.branch_name).filter(Boolean))]
@@ -271,6 +242,56 @@ export default function TafiStockInventory({ sessionToken }) {
 		setBarcodeScans(data ?? [])
 	}
 
+	const toggleManualStockForm = () => {
+		setIsManualStockFormOpen((isOpen) => !isOpen)
+		setManualStockInventoryId('')
+		setManualStockQuantity('')
+		setManualStockError('')
+		setManualStockNotice('')
+	}
+
+	const handleManualStockSubmit = async (event) => {
+		event.preventDefault()
+		setManualStockError('')
+		setManualStockNotice('')
+
+		const quantity = Number(manualStockQuantity)
+		if (!selectedManualStockItem || !Number.isSafeInteger(quantity) || quantity <= 0) {
+			setManualStockError('Choose a stock number and enter a whole quantity greater than zero.')
+			return
+		}
+
+		setIsSavingManualStock(true)
+		const { data, error } = await addTafiAdminManualStockInventory(
+			sessionToken,
+			manualStockInventoryId,
+			quantity
+		)
+		setIsSavingManualStock(false)
+		if (error) {
+			setManualStockError(error.message)
+			return
+		}
+
+		const nextAvailable = Number(data)
+		if (data === null || data === undefined || !Number.isFinite(nextAvailable)) {
+			setManualStockError('Stock was added, but the updated balance was not returned. Refresh the page to reload it.')
+			return
+		}
+
+		setStockItems((items) => items.map((item) => (
+			item.stock_inventory_id === manualStockInventoryId
+				? { ...item, available: nextAvailable }
+				: item
+		)))
+		setManualStockNotice(
+			`Added ${quantity} to ${selectedManualStockItem.stock_no}. Available is now ${nextAvailable}.`
+		)
+		setIsManualStockFormOpen(false)
+		setManualStockInventoryId('')
+		setManualStockQuantity('')
+	}
+
 	const refreshStockInRecords = async () => {
 		setIsStockInLoading(true)
 		setStockInLoadError('')
@@ -301,42 +322,6 @@ export default function TafiStockInventory({ sessionToken }) {
 			return
 		}
 		setStockOutRecords(data ?? [])
-	}
-
-	const handleSubmit = async (event) => {
-		event.preventDefault()
-		setIsSaving(true)
-		setErrorMessage('')
-		setNotice('')
-
-		const { error } = await createTafiAdminStockInventory(sessionToken, form.inventoryId)
-		if (error) {
-			setIsSaving(false)
-			setErrorMessage(error.message)
-			return
-		}
-
-		const result = await loadStockInventoryData(sessionToken)
-		setIsSaving(false)
-		if (result.error) {
-			setLoadError(result.error.message)
-			setNotice('Stock item added, but the list could not be refreshed.')
-			setErrorMessage(result.error.message)
-			return
-		}
-
-		setInventoryItems(result.inventory)
-		setStockItems(result.stock)
-		setForm(emptyForm)
-		setIsFormOpen(false)
-		setNotice('Stock item added successfully.')
-	}
-
-	const toggleForm = () => {
-		setIsFormOpen((current) => !current)
-		setForm(emptyForm)
-		setErrorMessage('')
-		setNotice('')
 	}
 
 	return (
@@ -416,71 +401,81 @@ export default function TafiStockInventory({ sessionToken }) {
 					</div>
 					<button
 						type="button"
-						className={`accountant-inventory-add-toggle${isFormOpen ? ' open' : ''}`}
-						aria-expanded={isFormOpen}
-						disabled={isSaving || Boolean(loadError)}
-						onClick={toggleForm}
+						className={`accountant-inventory-add-toggle${isManualStockFormOpen ? ' open' : ''}`}
+						aria-expanded={isManualStockFormOpen}
+						onClick={toggleManualStockForm}
+						disabled={isSavingManualStock || isLoading || Boolean(loadError) || !stockItems.length}
 					>
-						{isFormOpen ? <X size={17} aria-hidden="true" /> : <Plus size={17} aria-hidden="true" />}
-						{isFormOpen ? 'Cancel' : 'Add item'}
+						{isManualStockFormOpen ? 'Cancel' : 'Add manually'}
 					</button>
 				</div>
 
-				{isFormOpen && (
+				{isManualStockFormOpen && (
 					<>
 						<div className="accountant-inventory-heading">
 							<div>
-								<h2>Add stock item</h2>
-								<p>Select an item from the inventory catalogue. Barcode stock-in scans determine its available count.</p>
+								<h2>Add stock manually</h2>
+								<p>Choose a stock item and enter the quantity to add. Barcode inventory is not required.</p>
 							</div>
 						</div>
-						<form className="accountant-inventory-form" onSubmit={handleSubmit}>
+						<form className="accountant-inventory-form" onSubmit={handleManualStockSubmit}>
 							<label>
-								<span>Category</span>
+								<span>Stock no.</span>
 								<select
-									value={form.category}
-									onChange={(event) => setForm((current) => ({
-										...current,
-										category: event.target.value,
-										inventoryId: ''
-									}))}
+									value={manualStockInventoryId}
+									onChange={(event) => setManualStockInventoryId(event.target.value)}
+									required
 								>
-									<option value="">All categories</option>
-									{categories.map((category) => (
-										<option key={category} value={category}>{category}</option>
+									<option value="">Select a stock number</option>
+									{stockItems.map((item) => (
+										<option key={item.stock_inventory_id} value={item.stock_inventory_id}>
+											{item.stock_no}
+										</option>
 									))}
 								</select>
 							</label>
 							<label className="accountant-inventory-description">
-								<span>Inventory item</span>
-								<select
-									value={form.inventoryId}
-									onChange={(event) => setForm((current) => ({ ...current, inventoryId: event.target.value }))}
-									required
-								>
-									<option value="">Select an inventory item</option>
-									{availableItems.map((item) => (
-										<option key={item.inventory_id} value={item.inventory_id}>
-											{item.stock_no} - {item.item_description} ({item.unit_of_measure})
-										</option>
-									))}
-								</select>
-								{availableItems.length === 0 && (
-									<span className="accountant-inventory-field-note">
-										No unstocked items are available in this category.
-									</span>
-								)}
+								<span>Item description</span>
+								<input
+									value={selectedManualStockItem?.item_description ?? ''}
+									placeholder="Select a stock number first"
+									readOnly
+								/>
 							</label>
-							<button type="submit" className="accountant-inventory-submit" disabled={isSaving || !form.inventoryId}>
-								{isSaving ? 'Saving...' : 'Add stock item'}
+							<label>
+								<span>Unit of measure</span>
+								<input
+									value={selectedManualStockItem?.unit_of_measure ?? ''}
+									placeholder="Select a stock number first"
+									readOnly
+								/>
+							</label>
+							<label>
+								<span>Quantity to add</span>
+								<input
+									type="number"
+									min="1"
+									max="99999999999"
+									step="1"
+									value={manualStockQuantity}
+									onChange={(event) => setManualStockQuantity(event.target.value)}
+									required
+								/>
+							</label>
+							<button
+								type="submit"
+								className="accountant-inventory-submit"
+								disabled={isSavingManualStock || !selectedManualStockItem}
+							>
+								{isSavingManualStock ? 'Saving...' : 'Add stock'}
 							</button>
 						</form>
 					</>
 				)}
+				{manualStockError && <p className="accountant-inventory-error" role="alert">{manualStockError}</p>}
+				{manualStockNotice && <p className="accountant-inventory-notice" role="status">{manualStockNotice}</p>}
 
 				{loadError && <p className="accountant-inventory-error" role="alert">{loadError}</p>}
-				{errorMessage && <p className="accountant-inventory-error" role="alert">{errorMessage}</p>}
-				{notice && <p className="accountant-inventory-notice" role="status">{notice}</p>}
 
 				{isLoading ? (
 					<p className="accountant-inventory-empty" role="status">Loading stock inventory...</p>
@@ -519,7 +514,10 @@ export default function TafiStockInventory({ sessionToken }) {
 									</thead>
 									<tbody>
 										{filteredStockItems.map((item) => (
-											<tr key={item.stock_inventory_id}>
+											<tr
+												key={item.stock_inventory_id}
+												className={Number(item.available) === 0 ? 'accountant-inventory-row-zero-stock' : undefined}
+											>
 												<td>{item.stock_no}</td>
 												<td>{item.item_description}</td>
 												<td>{item.unit_of_measure}</td>
@@ -547,7 +545,11 @@ export default function TafiStockInventory({ sessionToken }) {
 				<div className="accountant-inventory-list-heading">
 					<div>
 						<h2>Barcode inventory</h2>
-						<p>{barcodeScans.length} barcode item{barcodeScans.length === 1 ? '' : 's'}</p>
+						<p>
+							{filteredBarcodeScans.length === barcodeScans.length
+								? `${barcodeScans.length} barcode item${barcodeScans.length === 1 ? '' : 's'}`
+								: `${filteredBarcodeScans.length} of ${barcodeScans.length} barcode items`}
+						</p>
 						<p>Date shows when the barcode was most recently scanned.</p>
 					</div>
 					<button
@@ -565,32 +567,49 @@ export default function TafiStockInventory({ sessionToken }) {
 				{isBarcodeLoading ? (
 					<p className="accountant-inventory-empty" role="status">Loading barcode inventory...</p>
 				) : barcodeLoadError ? null : barcodeScans.length ? (
-					<div className="accountant-inventory-table-wrap">
-						<table className="accountant-inventory-table">
-							<thead>
-								<tr>
-									<th scope="col">Barcode</th>
-									<th scope="col">Stock no.</th>
-									<th scope="col">Item description</th>
-									<th scope="col">Unit of measure</th>
-									<th scope="col">Item count</th>
-									<th scope="col">Date</th>
-								</tr>
-							</thead>
-							<tbody>
-								{barcodeScans.map((item) => (
-									<tr key={item.barcode}>
-										<td>{item.barcode}</td>
-										<td>{item.stock_no}</td>
-										<td>{item.item_description}</td>
-										<td>{item.unit_of_measure}</td>
-										<td>{item.scan_count}</td>
-										<td>{formatBarcodeDate(item.updated_at ?? item.created_at)}</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
+					<>
+						<div className="tafi-stock-inventory-filters" role="search" aria-label="Filter barcode inventory">
+							<label>
+								<span>Search barcode inventory</span>
+								<input
+									type="search"
+									value={barcodeSearch}
+									onChange={(event) => setBarcodeSearch(event.target.value)}
+									placeholder="Search barcode, stock no., description, or unit"
+								/>
+							</label>
+						</div>
+						{filteredBarcodeScans.length ? (
+							<div className="accountant-inventory-table-wrap">
+								<table className="accountant-inventory-table">
+									<thead>
+										<tr>
+											<th scope="col">Barcode</th>
+											<th scope="col">Stock no.</th>
+											<th scope="col">Item description</th>
+											<th scope="col">Unit of measure</th>
+											<th scope="col">Item count</th>
+											<th scope="col">Date</th>
+										</tr>
+									</thead>
+									<tbody>
+										{filteredBarcodeScans.map((item) => (
+											<tr key={item.barcode}>
+												<td>{item.barcode}</td>
+												<td>{item.stock_no}</td>
+												<td>{item.item_description}</td>
+												<td>{item.unit_of_measure}</td>
+												<td>{item.scan_count}</td>
+												<td>{formatBarcodeDate(item.updated_at ?? item.created_at)}</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						) : (
+							<p className="accountant-inventory-empty">No barcode inventory items match your search.</p>
+						)}
+					</>
 				) : (
 					<p className="accountant-inventory-empty">No barcode scans have been recorded yet.</p>
 				)}
