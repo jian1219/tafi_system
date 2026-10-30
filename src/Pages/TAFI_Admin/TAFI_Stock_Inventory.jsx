@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Download } from 'lucide-react'
 import {
 	addTafiAdminManualStockInventory,
 	listTafiAdminBranchInventory,
@@ -7,13 +8,6 @@ import {
 	listTafiAdminStockInRecords,
 	listTafiAdminStockOutRecords
 } from '../../lib/supabase'
-
-function formatBarcodeDate(value) {
-	if (!value) return 'Date unavailable'
-
-	const date = new Date(value)
-	return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleDateString()
-}
 
 function getLocalMonthInputValue() {
 	const now = new Date()
@@ -51,6 +45,8 @@ export default function TafiStockInventory({ sessionToken }) {
 	const [stockOutMonth, setStockOutMonth] = useState(getLocalMonthInputValue)
 	const [stockOutDay, setStockOutDay] = useState('')
 	const [isManualStockFormOpen, setIsManualStockFormOpen] = useState(false)
+	const [isExportingStock, setIsExportingStock] = useState(false)
+	const [stockExportError, setStockExportError] = useState('')
 	const [manualStockInventoryId, setManualStockInventoryId] = useState('')
 	const [manualStockQuantity, setManualStockQuantity] = useState('')
 	const [isSavingManualStock, setIsSavingManualStock] = useState(false)
@@ -186,8 +182,7 @@ export default function TafiStockInventory({ sessionToken }) {
 			item.stock_no,
 			item.item_description,
 			item.unit_of_measure,
-			item.scan_count,
-			formatBarcodeDate(item.updated_at ?? item.created_at)
+			item.scan_count
 		].some((value) => String(value ?? '').toLocaleLowerCase().includes(query)))
 	}, [barcodeScans, barcodeSearch])
 
@@ -324,6 +319,51 @@ export default function TafiStockInventory({ sessionToken }) {
 		setStockOutRecords(data ?? [])
 	}
 
+	const exportStockOnHand = async () => {
+		setIsExportingStock(true)
+		setStockExportError('')
+		try {
+			const { default: ExcelJS } = await import('exceljs')
+			const workbook = new ExcelJS.Workbook()
+			const worksheet = workbook.addWorksheet('Stock on Hand')
+			worksheet.columns = [
+				{ header: 'Stock no.', key: 'stockNo', width: 18 },
+				{ header: 'Item description', key: 'description', width: 48 },
+				{ header: 'Unit of measure', key: 'unit', width: 22 },
+				{ header: 'Available', key: 'available', width: 16 }
+			]
+			worksheet.addRows(stockItems.map((item) => ({
+				stockNo: item.stock_no ?? '',
+				description: item.item_description ?? '',
+				unit: item.unit_of_measure ?? '',
+				available: item.available ?? null
+			})))
+			worksheet.getRow(1).font = { bold: true }
+			worksheet.autoFilter = 'A1:D1'
+			worksheet.views = [{ state: 'frozen', ySplit: 1 }]
+
+			const workbookBuffer = await workbook.xlsx.writeBuffer()
+			const fileDate = new Date().toISOString().slice(0, 10)
+			const fileName = `tafi-stock-on-hand-${fileDate}.xlsx`
+			const downloadUrl = URL.createObjectURL(new Blob([workbookBuffer], {
+				type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+			}))
+			const link = document.createElement('a')
+			link.href = downloadUrl
+			link.download = fileName
+			document.body.appendChild(link)
+			link.click()
+			link.remove()
+			URL.revokeObjectURL(downloadUrl)
+		} catch (error) {
+			setStockExportError(
+				error instanceof Error ? `Could not export stock on hand: ${error.message}` : 'Could not export stock on hand.'
+			)
+		} finally {
+			setIsExportingStock(false)
+		}
+	}
+
 	return (
 		<div className="tafi-admin-section accountant-inventory-section">
 			<div className="accountant-inventory-tabs" role="tablist" aria-label="Stock inventory">
@@ -399,6 +439,16 @@ export default function TafiStockInventory({ sessionToken }) {
 								: `${filteredStockItems.length} of ${stockItems.length} items`}
 						</p>
 					</div>
+					<div className="tafi-stock-inventory-actions">
+					<button
+						type="button"
+						className="accountant-inventory-add-toggle"
+						onClick={exportStockOnHand}
+						disabled={isExportingStock || isLoading || Boolean(loadError) || !stockItems.length}
+					>
+						<Download size={16} aria-hidden="true" />
+						{isExportingStock ? 'Preparing Excel...' : 'Download Excel (.xlsx)'}
+					</button>
 					<button
 						type="button"
 						className={`accountant-inventory-add-toggle${isManualStockFormOpen ? ' open' : ''}`}
@@ -408,7 +458,9 @@ export default function TafiStockInventory({ sessionToken }) {
 					>
 						{isManualStockFormOpen ? 'Cancel' : 'Add manually'}
 					</button>
+					</div>
 				</div>
+				{stockExportError && <p className="accountant-inventory-error" role="alert">{stockExportError}</p>}
 
 				{isManualStockFormOpen && (
 					<>
@@ -550,7 +602,6 @@ export default function TafiStockInventory({ sessionToken }) {
 								? `${barcodeScans.length} barcode item${barcodeScans.length === 1 ? '' : 's'}`
 								: `${filteredBarcodeScans.length} of ${barcodeScans.length} barcode items`}
 						</p>
-						<p>Date shows when the barcode was most recently scanned.</p>
 					</div>
 					<button
 						type="button"
@@ -589,7 +640,6 @@ export default function TafiStockInventory({ sessionToken }) {
 											<th scope="col">Item description</th>
 											<th scope="col">Unit of measure</th>
 											<th scope="col">Item count</th>
-											<th scope="col">Date</th>
 										</tr>
 									</thead>
 									<tbody>
@@ -600,7 +650,6 @@ export default function TafiStockInventory({ sessionToken }) {
 												<td>{item.item_description}</td>
 												<td>{item.unit_of_measure}</td>
 												<td>{item.scan_count}</td>
-												<td>{formatBarcodeDate(item.updated_at ?? item.created_at)}</td>
 											</tr>
 										))}
 									</tbody>
