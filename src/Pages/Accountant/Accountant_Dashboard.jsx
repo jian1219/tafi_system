@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Barcode, Calculator, ClipboardList, LayoutDashboard, LogOut, Package } from 'lucide-react'
-import { revokeAccountantSession } from '../../lib/supabase'
+import { listAccountantTafiStockInventory, revokeAccountantSession } from '../../lib/supabase'
 import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
 import logoImage from '../../images/Tafi logo transparent.png'
@@ -13,6 +13,7 @@ export default function AccountantDashboard() {
 	const location = useLocation()
 	const navigate = useNavigate()
 	const accountant = location.state?.accountant
+	const sessionToken = accountant?.session_token
 	const isSessionActive = useRoleSessionExpiry(accountant, '/accountant-login')
 	const [signOutError, setSignOutError] = useState('')
 	const [activePage, setActivePage] = useSessionStorageState(
@@ -20,6 +21,37 @@ export default function AccountantDashboard() {
 		'overview',
 		['overview', 'inventory', 'inventory-log', 'barcode']
 	)
+	const [noAvailableStockCount, setNoAvailableStockCount] = useState(null)
+	const [isLoadingNoAvailableStockCount, setIsLoadingNoAvailableStockCount] = useState(false)
+	const [noAvailableStockCountError, setNoAvailableStockCountError] = useState('')
+
+	useEffect(() => {
+		if (activePage !== 'overview' || !sessionToken) return undefined
+
+		let isCurrent = true
+		const loadNoAvailableStockCount = async () => {
+			setIsLoadingNoAvailableStockCount(true)
+			setNoAvailableStockCountError('')
+			const { data, error } = await listAccountantTafiStockInventory(sessionToken)
+			if (!isCurrent) return
+
+			setIsLoadingNoAvailableStockCount(false)
+			if (error) {
+				setNoAvailableStockCount(null)
+				setNoAvailableStockCountError(error.message)
+				return
+			}
+
+			setNoAvailableStockCount(
+				(data ?? []).filter((item) => Number(item.available) === 0).length
+			)
+		}
+
+		loadNoAvailableStockCount()
+		return () => {
+			isCurrent = false
+		}
+	}, [sessionToken, activePage])
 
 	if (!isSessionActive) return <Navigate to="/accountant-login" replace />
 
@@ -115,6 +147,28 @@ export default function AccountantDashboard() {
 				</header>
 
 				<section className="tafi-admin-content" aria-live="polite">
+					{activePage === 'overview' && (
+						<div className="accountant-overview">
+							<article className="accountant-overview-card" aria-labelledby="accountant-no-stock-title">
+								<div>
+									<p>TAFI Stock</p>
+									<h2 id="accountant-no-stock-title">No available stock</h2>
+									<span>Items with Available quantity of 0</span>
+								</div>
+								{isLoadingNoAvailableStockCount ? (
+									<strong className="accountant-overview-count" role="status">…</strong>
+								) : noAvailableStockCountError ? (
+									<p className="accountant-inventory-error" role="alert">
+										{noAvailableStockCountError}
+									</p>
+								) : (
+									<strong className="accountant-overview-count">
+										{noAvailableStockCount ?? 0}
+									</strong>
+								)}
+							</article>
+						</div>
+					)}
 					{activePage === 'inventory' && (
 						<AccountantInventoryInformation sessionToken={accountant.session_token} />
 					)}

@@ -5170,6 +5170,51 @@ fieldset.employee-emergency-contact-box {
   min-height: 240px;
 }
 
+.accountant-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 360px));
+  gap: 16px;
+}
+
+.accountant-overview-card {
+  display: flex;
+  min-height: 142px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px;
+  border: 1px solid #fecaca;
+  border-radius: 14px;
+  background: #fef2f2;
+}
+
+.accountant-overview-card p {
+  margin: 0 0 5px;
+  color: #991b1b;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.accountant-overview-card h2 {
+  margin: 0 0 7px;
+  color: #7f1d1d;
+  font-size: 1.05rem;
+}
+
+.accountant-overview-card span {
+  color: #7f1d1d;
+  font-size: 0.78rem;
+}
+
+.accountant-overview-count {
+  flex: 0 0 auto;
+  color: #b91c1c;
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
 .tafi-admin-content .payroll-period-controls {
   flex-wrap: wrap;
 }
@@ -5457,15 +5502,22 @@ fieldset.employee-emergency-contact-box {
   min-width: 190px;
 }
 
+.tafi-stock-reorder-level-cell {
+  min-width: 190px;
+}
+
 .tafi-barcode-price-display,
-.tafi-barcode-price-editor {
+.tafi-barcode-price-editor,
+.tafi-stock-reorder-level-display,
+.tafi-stock-reorder-level-editor {
   display: flex;
   align-items: center;
   gap: 6px;
   white-space: nowrap;
 }
 
-.tafi-barcode-price-editor input {
+.tafi-barcode-price-editor input,
+.tafi-stock-reorder-level-editor input {
   width: 126px;
   min-height: 36px;
   padding: 6px 8px;

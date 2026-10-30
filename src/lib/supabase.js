@@ -242,6 +242,22 @@ export async function createTafiAdminStockInventory(sessionToken, inventoryId) {
   }
 }
 
+export async function updateTafiAdminStockReorderLevel(sessionToken, stockInventoryId, reorderLevel) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_update_stock_inventory_re_order_level', {
+      p_session_token: sessionToken,
+      p_stock_inventory_id: stockInventoryId,
+      p_re_order_level: reorderLevel
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the TAFI stock re-order level.')
+    }
+  }
+}
+
 export async function listTafiAdminStockInScans(sessionToken) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -1775,6 +1791,20 @@ export async function listAccountantInventoryInformation(sessionToken) {
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to load inventory information.')
+    }
+  }
+}
+
+export async function listAccountantManualStockInventoryHistory(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_list_manual_stock_inventory_history', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load manual stock addition history.')
     }
   }
 }

@@ -8,7 +8,8 @@ import {
 	listTafiAdminStockInScans,
 	listTafiAdminStockInRecords,
 	listTafiAdminStockOutRecords,
-	updateTafiAdminStockBarcodePrice
+	updateTafiAdminStockBarcodePrice,
+	updateTafiAdminStockReorderLevel
 } from '../../lib/supabase'
 import TafiBarcodeGenerator from './TAFI_Barcode_Generator'
 
@@ -83,6 +84,11 @@ export default function TafiStockInventory({ sessionToken }) {
 	const [barcodePriceNotice, setBarcodePriceNotice] = useState('')
 	const [stockSearch, setStockSearch] = useState('')
 	const [stockCategory, setStockCategory] = useState('')
+	const [editingReorderLevel, setEditingReorderLevel] = useState('')
+	const [reorderLevelDraft, setReorderLevelDraft] = useState('')
+	const [isSavingReorderLevel, setIsSavingReorderLevel] = useState(false)
+	const [reorderLevelError, setReorderLevelError] = useState('')
+	const [reorderLevelNotice, setReorderLevelNotice] = useState('')
 	const [branchStockSearch, setBranchStockSearch] = useState('')
 	const [branchStockBranch, setBranchStockBranch] = useState('')
 	const [isLoading, setIsLoading] = useState(true)
@@ -283,6 +289,54 @@ export default function TafiStockInventory({ sessionToken }) {
 		setBarcodePriceNotice('')
 	}
 
+	const editReorderLevel = (item) => {
+		setEditingReorderLevel(item.stock_inventory_id)
+		setReorderLevelDraft(String(item.re_order_level ?? 0))
+		setReorderLevelError('')
+		setReorderLevelNotice('')
+	}
+
+	const saveReorderLevel = async (event, item) => {
+		event.preventDefault()
+		setReorderLevelError('')
+		setReorderLevelNotice('')
+
+		const valueText = reorderLevelDraft.trim()
+		const value = Number(valueText)
+		const decimalPart = valueText.split('.')[1]
+		if (!valueText || !Number.isFinite(value) || value < 0 || value > 99999999999.999
+			|| (decimalPart && decimalPart.length > 3)) {
+			setReorderLevelError('Enter a re-order level from 0 to 99,999,999,999.999 with no more than three decimal places.')
+			return
+		}
+
+		setIsSavingReorderLevel(true)
+		const { data, error } = await updateTafiAdminStockReorderLevel(
+			sessionToken,
+			item.stock_inventory_id,
+			value
+		)
+		setIsSavingReorderLevel(false)
+		if (error) {
+			setReorderLevelError(error.message)
+			return
+		}
+
+		const updatedReorderLevel = Number(data)
+		if (data === null || data === undefined || !Number.isFinite(updatedReorderLevel)) {
+			setReorderLevelError('The re-order level was not returned after saving. Refresh the page to verify it.')
+			return
+		}
+
+		setStockItems((items) => items.map((stockItem) => (
+			stockItem.stock_inventory_id === item.stock_inventory_id
+				? { ...stockItem, re_order_level: updatedReorderLevel }
+				: stockItem
+		)))
+		setEditingReorderLevel('')
+		setReorderLevelNotice(`Re-order level saved for ${item.stock_no}.`)
+	}
+
 	const saveBarcodePrice = async (event, item) => {
 		event.preventDefault()
 		setBarcodePriceError('')
@@ -435,16 +489,18 @@ export default function TafiStockInventory({ sessionToken }) {
 				{ header: 'Stock no.', key: 'stockNo', width: 18 },
 				{ header: 'Item description', key: 'description', width: 48 },
 				{ header: 'Unit of measure', key: 'unit', width: 22 },
-				{ header: 'Available', key: 'available', width: 16 }
+				{ header: 'Available', key: 'available', width: 16 },
+				{ header: 'Re-order level', key: 'reorderLevel', width: 18 }
 			]
 			worksheet.addRows(stockItems.map((item) => ({
 				stockNo: item.stock_no ?? '',
 				description: item.item_description ?? '',
 				unit: item.unit_of_measure ?? '',
-				available: item.available ?? null
+				available: item.available ?? null,
+				reorderLevel: item.re_order_level ?? 0
 			})))
 			worksheet.getRow(1).font = { bold: true }
-			worksheet.autoFilter = 'A1:D1'
+			worksheet.autoFilter = 'A1:E1'
 			worksheet.views = [{ state: 'frozen', ySplit: 1 }]
 
 			const workbookBuffer = await workbook.xlsx.writeBuffer()
@@ -645,6 +701,8 @@ export default function TafiStockInventory({ sessionToken }) {
 				{manualStockNotice && <p className="accountant-inventory-notice" role="status">{manualStockNotice}</p>}
 
 				{loadError && <p className="accountant-inventory-error" role="alert">{loadError}</p>}
+				{reorderLevelError && <p className="accountant-inventory-error" role="alert">{reorderLevelError}</p>}
+				{reorderLevelNotice && <p className="accountant-inventory-notice" role="status">{reorderLevelNotice}</p>}
 
 				{isLoading ? (
 					<p className="accountant-inventory-empty" role="status">Loading stock inventory...</p>
@@ -679,6 +737,7 @@ export default function TafiStockInventory({ sessionToken }) {
 											<th scope="col">Item description</th>
 											<th scope="col">Unit of measure</th>
 											<th scope="col">Available</th>
+											<th scope="col">Re-order level</th>
 										</tr>
 									</thead>
 									<tbody>
@@ -691,6 +750,59 @@ export default function TafiStockInventory({ sessionToken }) {
 												<td>{item.item_description}</td>
 												<td>{item.unit_of_measure}</td>
 												<td>{item.available}</td>
+												<td className="tafi-stock-reorder-level-cell">
+													{editingReorderLevel === item.stock_inventory_id ? (
+														<form
+															className="tafi-stock-reorder-level-editor"
+															onSubmit={(event) => saveReorderLevel(event, item)}
+														>
+															<input
+																type="number"
+																min="0"
+																max="99999999999.999"
+																step="0.001"
+																value={reorderLevelDraft}
+																onChange={(event) => setReorderLevelDraft(event.target.value)}
+																aria-label={`Re-order level for ${item.stock_no}`}
+																disabled={isSavingReorderLevel}
+																autoFocus
+															/>
+															<button
+																type="submit"
+																className="tafi-barcode-price-action"
+																aria-label={`Save re-order level for ${item.stock_no}`}
+																title="Save re-order level"
+																disabled={isSavingReorderLevel}
+															>
+																<Check size={16} aria-hidden="true" />
+															</button>
+															<button
+																type="button"
+																className="tafi-barcode-price-action"
+																aria-label={`Cancel re-order level edit for ${item.stock_no}`}
+																title="Cancel"
+																onClick={() => setEditingReorderLevel('')}
+																disabled={isSavingReorderLevel}
+															>
+																<X size={16} aria-hidden="true" />
+															</button>
+														</form>
+													) : (
+														<div className="tafi-stock-reorder-level-display">
+															<span>{item.re_order_level ?? 0}</span>
+															<button
+																type="button"
+																className="tafi-barcode-price-action"
+																aria-label={`Edit re-order level for ${item.stock_no}`}
+																title="Edit re-order level"
+																onClick={() => editReorderLevel(item)}
+																disabled={isSavingReorderLevel}
+															>
+																<Pencil size={15} aria-hidden="true" />
+															</button>
+														</div>
+													)}
+												</td>
 											</tr>
 										))}
 									</tbody>
