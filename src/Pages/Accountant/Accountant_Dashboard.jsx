@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { Calculator, ClipboardList, LayoutDashboard, LogOut, Package } from 'lucide-react'
+import { Barcode, Calculator, ClipboardList, LayoutDashboard, LogOut, Package } from 'lucide-react'
 import { revokeAccountantSession } from '../../lib/supabase'
 import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
 import logoImage from '../../images/Tafi logo transparent.png'
+import AccountantBarcode from './Accountant_Barcode'
 import AccountantInventoryInformation from './Accountant_Inventory_Information'
 import AccountantInventoryLog from './Accountant_Inventory_log'
 
@@ -17,7 +18,7 @@ export default function AccountantDashboard() {
 	const [activePage, setActivePage] = useSessionStorageState(
 		'tafi-accountant-dashboard-page',
 		'overview',
-		['overview', 'inventory', 'inventory-log']
+		['overview', 'inventory', 'inventory-log', 'barcode']
 	)
 
 	if (!isSessionActive) return <Navigate to="/accountant-login" replace />
@@ -72,6 +73,15 @@ export default function AccountantDashboard() {
 						<ClipboardList size={19} aria-hidden="true" />
 						<span>Branch Usage Log</span>
 					</button>
+					<button
+						type="button"
+						className={`tafi-admin-nav-item${activePage === 'barcode' ? ' active' : ''}`}
+						aria-current={activePage === 'barcode' ? 'page' : undefined}
+						onClick={() => setActivePage('barcode')}
+					>
+						<Barcode size={19} aria-hidden="true" />
+						<span>Barcode Inventory</span>
+					</button>
 				</nav>
 
 				<div className="tafi-admin-sidebar-footer">
@@ -93,7 +103,9 @@ export default function AccountantDashboard() {
 								? 'Inventory Information'
 								: activePage === 'inventory-log'
 									? 'Branch Usage Log'
-									: 'Accountant Dashboard'}
+									: activePage === 'barcode'
+										? 'Barcode Inventory'
+										: 'Accountant Dashboard'}
 						</h1>
 					</div>
 					<div className="tafi-admin-account">
@@ -108,6 +120,9 @@ export default function AccountantDashboard() {
 					)}
 					{activePage === 'inventory-log' && (
 						<AccountantInventoryLog sessionToken={accountant.session_token} />
+					)}
+					{activePage === 'barcode' && (
+						<AccountantBarcode sessionToken={accountant.session_token} />
 					)}
 				</section>
 			</main>

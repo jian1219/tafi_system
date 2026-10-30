@@ -3060,6 +3060,13 @@ fieldset.employee-emergency-contact-box {
   min-width: 140px;
 }
 
+.leave-request-attachment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 5px;
+}
+
 .leave-request-attachments button {
   display: inline-flex;
   align-items: center;

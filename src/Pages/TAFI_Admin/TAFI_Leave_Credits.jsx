@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Download, X } from 'lucide-react'
+import { Check, Download, Eye, X } from 'lucide-react'
 import {
 	addTafiAdminEmployeeLeaveCredits,
 	fileTafiAdminEmployeeLeaveRequest,
@@ -66,6 +66,15 @@ const readFileAsBase64 = (file) => new Promise((resolve, reject) => {
 	reader.readAsDataURL(file)
 })
 
+const createAttachmentBlob = (file) => {
+	const binary = window.atob(file.file_base64)
+	const bytes = new Uint8Array(binary.length)
+	for (let index = 0; index < binary.length; index += 1) {
+		bytes[index] = binary.charCodeAt(index)
+	}
+	return new Blob([bytes], { type: file.content_type })
+}
+
 const formatDate = (value) => {
 	if (!value) return 'Not provided'
 	return new Intl.DateTimeFormat('en-PH', {
@@ -116,9 +125,24 @@ export default function TafiLeaveCredits({ sessionToken }) {
 	const [leaveReason, setLeaveReason] = useState('')
 	const [selectedFiles, setSelectedFiles] = useState([])
 	const [downloadingAttachmentId, setDownloadingAttachmentId] = useState('')
+	const [viewingAttachmentId, setViewingAttachmentId] = useState('')
+	const [previewAttachment, setPreviewAttachment] = useState(null)
 	const [creditDays, setCreditDays] = useState('1.25')
 	const [reason, setReason] = useState('')
 	const [reloadVersion, setReloadVersion] = useState(0)
+
+	useEffect(() => {
+		if (!previewAttachment) return undefined
+		const handleKeyDown = (event) => {
+			if (event.key === 'Escape') setPreviewAttachment(null)
+		}
+		window.addEventListener('keydown', handleKeyDown)
+		return () => window.removeEventListener('keydown', handleKeyDown)
+	}, [previewAttachment])
+
+	useEffect(() => () => {
+		if (previewAttachment?.url) URL.revokeObjectURL(previewAttachment.url)
+	}, [previewAttachment])
 
 	useEffect(() => {
 		let isCurrent = true
@@ -401,6 +425,39 @@ export default function TafiLeaveCredits({ sessionToken }) {
 				: 'Unable to download the selected leave form.')
 		} finally {
 			setDownloadingAttachmentId('')
+		}
+	}
+
+	const viewAttachment = async (attachment) => {
+		setViewingAttachmentId(attachment.id)
+		setError('')
+		setMessage('')
+		try {
+			const { data, error: loadError } = await getTafiAdminEmployeeLeaveRequestAttachment(
+				sessionToken,
+				attachment.id
+			)
+			if (loadError) {
+				setError(loadError.message)
+				return
+			}
+			const file = data?.[0]
+			if (!file) {
+				setError('The selected leave form was not returned.')
+				return
+			}
+
+			setPreviewAttachment({
+				fileName: file.file_name,
+				contentType: file.content_type,
+				url: URL.createObjectURL(createAttachmentBlob(file))
+			})
+		} catch (loadError) {
+			setError(loadError instanceof Error
+				? loadError.message
+				: 'Unable to preview the selected leave form.')
+		} finally {
+			setViewingAttachmentId('')
 		}
 	}
 
@@ -804,17 +861,26 @@ export default function TafiLeaveCredits({ sessionToken }) {
 										<td>
 											<div className="leave-request-attachments">
 												{(request.attachments ?? []).map((attachment) => (
-													<button
-														type="button"
-														key={attachment.id}
-														disabled={downloadingAttachmentId === attachment.id}
-														onClick={() => downloadAttachment(attachment)}
-													>
-														<Download size={15} aria-hidden="true" />
-														{downloadingAttachmentId === attachment.id
-															? 'Loading…'
-															: attachment.file_name}
-													</button>
+													<div className="leave-request-attachment-actions" key={attachment.id}>
+														<button
+															type="button"
+															aria-label={`View ${attachment.file_name}`}
+															disabled={viewingAttachmentId === attachment.id}
+															onClick={() => viewAttachment(attachment)}
+														>
+															<Eye size={15} aria-hidden="true" />
+															{viewingAttachmentId === attachment.id ? 'Loading…' : 'View'}
+														</button>
+														<button
+															type="button"
+															aria-label={`Download ${attachment.file_name}`}
+															disabled={downloadingAttachmentId === attachment.id}
+															onClick={() => downloadAttachment(attachment)}
+														>
+															<Download size={15} aria-hidden="true" />
+															{downloadingAttachmentId === attachment.id ? 'Loading…' : attachment.file_name}
+														</button>
+													</div>
 												))}
 											</div>
 										</td>
@@ -853,6 +919,45 @@ export default function TafiLeaveCredits({ sessionToken }) {
 						</table>
 					</div>
 				</section>
+			)}
+			{previewAttachment && (
+				<div
+					className="employee-document-preview-backdrop"
+					role="presentation"
+					onMouseDown={(event) => {
+						if (event.target === event.currentTarget) setPreviewAttachment(null)
+					}}
+				>
+					<section
+						className="employee-document-preview"
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby="leave-attachment-preview-title"
+					>
+						<header className="employee-document-preview-heading">
+							<h5 id="leave-attachment-preview-title">{previewAttachment.fileName}</h5>
+							<button
+								type="button"
+								className="employee-document-preview-close"
+								aria-label="Close leave form preview"
+								onClick={() => setPreviewAttachment(null)}
+							>
+								<X size={20} aria-hidden="true" />
+							</button>
+						</header>
+						<div className="employee-document-preview-content">
+							{previewAttachment.contentType === 'application/pdf' ? (
+								<iframe src={previewAttachment.url} title={`Preview of ${previewAttachment.fileName}`} />
+							) : previewAttachment.contentType.startsWith('image/') ? (
+								<img src={previewAttachment.url} alt={previewAttachment.fileName} />
+							) : (
+								<div className="employee-document-preview-unsupported">
+									<p>Preview is not available for this file. Download the leave form to open it.</p>
+								</div>
+							)}
+						</div>
+					</section>
+				</div>
 			)}
 		</section>
 	)

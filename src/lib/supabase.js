@@ -1793,6 +1793,52 @@ export async function listAccountantTafiStockInventory(sessionToken) {
   }
 }
 
+export async function listAccountantTafiBarcodeInventory(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_list_tafi_barcode_inventory', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load TAFI barcode inventory.')
+    }
+  }
+}
+
+export async function listAccountantTafiStockInRecords(sessionToken, month = null, day = null) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_list_tafi_stock_in_records', {
+      p_session_token: sessionToken,
+      p_month: month ? `${month}-01` : null,
+      p_date: day || null
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load TAFI stock-in records.')
+    }
+  }
+}
+
+export async function listAccountantTafiStockOutRecords(sessionToken, month = null, day = null) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_list_tafi_stock_out_records', {
+      p_session_token: sessionToken,
+      p_month: month ? `${month}-01` : null,
+      p_date: day || null
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load TAFI stock-out records.')
+    }
+  }
+}
+
 export async function listAccountantBranchStockInventory(sessionToken) {
   try {
     const supabaseClient = await getSupabaseClient()
