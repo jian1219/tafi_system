@@ -5386,6 +5386,66 @@ fieldset.employee-emergency-contact-box {
   gap: 8px;
 }
 
+.tafi-manual-history-backdrop {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(15 23 42 / 62%);
+}
+
+.tafi-manual-history-dialog {
+  width: min(100%, 960px);
+  max-height: calc(100vh - 40px);
+  overflow: hidden;
+  padding: 24px;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgb(15 23 42 / 24%);
+}
+
+.tafi-manual-history-heading,
+.tafi-manual-history-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.tafi-manual-history-heading {
+  margin-bottom: 18px;
+}
+
+.tafi-manual-history-heading h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.1rem;
+}
+
+.tafi-manual-history-heading p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+.tafi-manual-history-actions {
+  align-items: center;
+}
+
+.tafi-manual-history-table-wrap {
+  max-height: calc(100vh - 180px);
+  overflow: auto;
+}
+
+.tafi-manual-stock-history-toggle {
+  width: 40px;
+  min-width: 40px;
+  padding: 8px;
+}
+
 .barcode-generator-form {
   margin-bottom: 20px;
 }

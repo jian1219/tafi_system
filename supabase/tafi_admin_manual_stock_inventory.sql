@@ -26,6 +26,22 @@ begin
 end;
 $$;
 
+create table if not exists public.inventory_add_manually_history (
+  id uuid primary key default gen_random_uuid(),
+  stock_no text not null,
+  item_description text not null,
+  unit_of_measure text not null,
+  manually_add bigint not null check (manually_add > 0),
+  date date not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists inventory_add_manually_history_date_idx
+  on public.inventory_add_manually_history (date desc, created_at desc);
+
+alter table public.inventory_add_manually_history enable row level security;
+revoke all on table public.inventory_add_manually_history from public, anon, authenticated;
+
 alter table public.tafi_stock_inventory
   add column if not exists manual_available numeric(14, 3) not null default 0;
 
@@ -83,10 +99,14 @@ set available = coalesce((
   where saved.stock_no = stock.stock_no
 ), 0::numeric) + stock.manual_available;
 
-create or replace function public.tafi_admin_add_manual_stock_inventory(
+drop function if exists public.tafi_admin_add_manual_stock_inventory(uuid, uuid, numeric);
+drop function if exists public.tafi_admin_add_manual_stock_inventory(uuid, uuid, numeric, date);
+
+create function public.tafi_admin_add_manual_stock_inventory(
   p_session_token uuid,
   p_stock_inventory_id uuid,
-  p_quantity numeric
+  p_quantity numeric,
+  p_date date default current_date
 )
 returns numeric
 language plpgsql
@@ -96,6 +116,9 @@ as $$
 declare
   v_manual_available numeric;
   v_available numeric;
+  v_stock_no text;
+  v_item_description text;
+  v_unit_of_measure text;
 begin
   if not exists (
     select 1
@@ -110,6 +133,10 @@ begin
     raise exception 'A TAFI stock item is required.';
   end if;
 
+  if p_date is null then
+    raise exception 'A manual stock addition date is required.';
+  end if;
+
   if p_quantity is null
     or p_quantity <= 0
     or p_quantity <> trunc(p_quantity)
@@ -117,8 +144,13 @@ begin
     raise exception 'Quantity to add must be a whole number greater than zero.';
   end if;
 
-  select stock.manual_available, stock.available
-  into v_manual_available, v_available
+  select stock.manual_available,
+         stock.available,
+         stock.stock_no,
+         stock.item_description,
+         stock.unit_of_measure
+  into v_manual_available, v_available,
+       v_stock_no, v_item_description, v_unit_of_measure
   from public.tafi_stock_inventory as stock
   where stock.id = p_stock_inventory_id
   for update;
@@ -139,12 +171,66 @@ begin
   set manual_available = manual_available + p_quantity
   where id = p_stock_inventory_id;
 
+  insert into public.inventory_add_manually_history (
+    stock_no,
+    item_description,
+    unit_of_measure,
+    manually_add,
+    date
+  )
+  values (
+    v_stock_no,
+    v_item_description,
+    v_unit_of_measure,
+    p_quantity::bigint,
+    p_date
+  );
+
   select stock.available
   into v_available
   from public.tafi_stock_inventory as stock
   where stock.id = p_stock_inventory_id;
 
   return v_available;
+end;
+$$;
+
+create or replace function public.tafi_admin_list_manual_stock_inventory_history(
+  p_session_token uuid
+)
+returns table (
+  history_id uuid,
+  stock_no text,
+  item_description text,
+  unit_of_measure text,
+  manually_add bigint,
+  date date,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1
+    from public.tafi_admin_session as admin_session
+    where admin_session.session_token = p_session_token
+      and admin_session.expires_at > now()
+  ) then
+    raise exception 'TAFI Admin session is invalid or expired' using errcode = '28000';
+  end if;
+
+  return query
+  select history.id,
+         history.stock_no,
+         history.item_description,
+         history.unit_of_measure,
+         history.manually_add,
+         history.date,
+         history.created_at
+  from public.inventory_add_manually_history as history
+  order by history.date desc, history.created_at desc, history.id desc;
 end;
 $$;
 
@@ -233,12 +319,16 @@ $$;
 
 revoke all on function public.tafi_sync_stock_available_for_stock_no(text)
   from public, anon, authenticated;
-revoke all on function public.tafi_admin_add_manual_stock_inventory(uuid, uuid, numeric)
+revoke all on function public.tafi_admin_add_manual_stock_inventory(uuid, uuid, numeric, date)
+  from public, anon, authenticated;
+revoke all on function public.tafi_admin_list_manual_stock_inventory_history(uuid)
   from public, anon, authenticated;
 revoke all on function public.tafi_admin_deduct_stock_inventory(uuid, numeric)
   from public, anon, authenticated;
 
-grant execute on function public.tafi_admin_add_manual_stock_inventory(uuid, uuid, numeric)
+grant execute on function public.tafi_admin_add_manual_stock_inventory(uuid, uuid, numeric, date)
+  to anon, authenticated;
+grant execute on function public.tafi_admin_list_manual_stock_inventory_history(uuid)
   to anon, authenticated;
 
 notify pgrst, 'reload schema';

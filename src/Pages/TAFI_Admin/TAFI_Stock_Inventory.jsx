@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Download } from 'lucide-react'
+import { Download, History, X } from 'lucide-react'
 import {
 	addTafiAdminManualStockInventory,
 	listTafiAdminBranchInventory,
+	listTafiAdminManualStockInventoryHistory,
 	listTafiAdminStockInventory,
 	listTafiAdminStockInScans,
 	listTafiAdminStockInRecords,
@@ -15,6 +16,14 @@ function getLocalMonthInputValue() {
 	const year = now.getFullYear()
 	const month = String(now.getMonth() + 1).padStart(2, '0')
 	return `${year}-${month}`
+}
+
+function getLocalDateInputValue() {
+	const now = new Date()
+	const year = now.getFullYear()
+	const month = String(now.getMonth() + 1).padStart(2, '0')
+	const day = String(now.getDate()).padStart(2, '0')
+	return `${year}-${month}-${day}`
 }
 
 function formatRecordDate(value) {
@@ -36,6 +45,7 @@ function formatRecordMonth(value) {
 
 export default function TafiStockInventory({ sessionToken }) {
 	const [stockItems, setStockItems] = useState([])
+	const [manualStockHistory, setManualStockHistory] = useState([])
 	const [branchStockItems, setBranchStockItems] = useState([])
 	const [barcodeScans, setBarcodeScans] = useState([])
 	const [stockInRecords, setStockInRecords] = useState([])
@@ -47,6 +57,7 @@ export default function TafiStockInventory({ sessionToken }) {
 	const [stockOutMonth, setStockOutMonth] = useState(getLocalMonthInputValue)
 	const [stockOutDay, setStockOutDay] = useState('')
 	const [isManualStockFormOpen, setIsManualStockFormOpen] = useState(false)
+	const [isManualStockHistoryOpen, setIsManualStockHistoryOpen] = useState(false)
 	const [isExportingStock, setIsExportingStock] = useState(false)
 	const [stockExportError, setStockExportError] = useState('')
 	const [manualStockInventoryId, setManualStockInventoryId] = useState('')
@@ -60,11 +71,13 @@ export default function TafiStockInventory({ sessionToken }) {
 	const [branchStockSearch, setBranchStockSearch] = useState('')
 	const [branchStockBranch, setBranchStockBranch] = useState('')
 	const [isLoading, setIsLoading] = useState(true)
+	const [isManualStockHistoryLoading, setIsManualStockHistoryLoading] = useState(true)
 	const [isBranchStockLoading, setIsBranchStockLoading] = useState(true)
 	const [isBarcodeLoading, setIsBarcodeLoading] = useState(true)
 	const [isStockInLoading, setIsStockInLoading] = useState(true)
 	const [isStockOutLoading, setIsStockOutLoading] = useState(true)
 	const [loadError, setLoadError] = useState('')
+	const [manualStockHistoryError, setManualStockHistoryError] = useState('')
 	const [branchStockLoadError, setBranchStockLoadError] = useState('')
 	const [barcodeLoadError, setBarcodeLoadError] = useState('')
 	const [stockInLoadError, setStockInLoadError] = useState('')
@@ -73,13 +86,15 @@ export default function TafiStockInventory({ sessionToken }) {
 		let isCurrent = true
 
 		const load = async () => {
-			const [stockResult, branchStockResult, barcodeResult] = await Promise.all([
+			const [stockResult, branchStockResult, barcodeResult, manualHistoryResult] = await Promise.all([
 				listTafiAdminStockInventory(sessionToken),
 				listTafiAdminBranchInventory(sessionToken),
-				listTafiAdminStockInScans(sessionToken)
+				listTafiAdminStockInScans(sessionToken),
+				listTafiAdminManualStockInventoryHistory(sessionToken)
 			])
 			if (!isCurrent) return
 			setIsLoading(false)
+			setIsManualStockHistoryLoading(false)
 			setIsBranchStockLoading(false)
 			setIsBarcodeLoading(false)
 			if (stockResult.error) {
@@ -99,6 +114,12 @@ export default function TafiStockInventory({ sessionToken }) {
 			} else {
 				setBarcodeLoadError('')
 				setBarcodeScans(barcodeResult.data ?? [])
+			}
+			if (manualHistoryResult.error) {
+				setManualStockHistoryError(manualHistoryResult.error.message)
+			} else {
+				setManualStockHistoryError('')
+				setManualStockHistory(manualHistoryResult.data ?? [])
 			}
 		}
 
@@ -239,6 +260,18 @@ export default function TafiStockInventory({ sessionToken }) {
 		setBarcodeScans(data ?? [])
 	}
 
+	const refreshManualStockHistory = async () => {
+		setIsManualStockHistoryLoading(true)
+		setManualStockHistoryError('')
+		const { data, error } = await listTafiAdminManualStockInventoryHistory(sessionToken)
+		setIsManualStockHistoryLoading(false)
+		if (error) {
+			setManualStockHistoryError(error.message)
+			return
+		}
+		setManualStockHistory(data ?? [])
+	}
+
 	const toggleManualStockForm = () => {
 		setIsManualStockFormOpen((isOpen) => !isOpen)
 		setManualStockInventoryId('')
@@ -262,7 +295,8 @@ export default function TafiStockInventory({ sessionToken }) {
 		const { data, error } = await addTafiAdminManualStockInventory(
 			sessionToken,
 			manualStockInventoryId,
-			quantity
+			quantity,
+			getLocalDateInputValue()
 		)
 		setIsSavingManualStock(false)
 		if (error) {
@@ -281,6 +315,7 @@ export default function TafiStockInventory({ sessionToken }) {
 				? { ...item, available: nextAvailable }
 				: item
 		)))
+		await refreshManualStockHistory()
 		setManualStockNotice(
 			`Added ${quantity} to ${selectedManualStockItem.stock_no}. Available is now ${nextAvailable}.`
 		)
@@ -460,6 +495,18 @@ export default function TafiStockInventory({ sessionToken }) {
 					>
 						{isManualStockFormOpen ? 'Cancel' : 'Add manually'}
 					</button>
+					<button
+						type="button"
+						className={`accountant-inventory-add-toggle tafi-manual-stock-history-toggle${isManualStockHistoryOpen ? ' open' : ''}`}
+						onClick={() => setIsManualStockHistoryOpen((isOpen) => !isOpen)}
+						aria-label={isManualStockHistoryOpen ? 'Hide manual stock addition history' : 'Show manual stock addition history'}
+						aria-expanded={isManualStockHistoryOpen}
+						aria-controls="tafi-manual-stock-history"
+						title={isManualStockHistoryOpen ? 'Hide manual stock addition history' : 'Show manual stock addition history'}
+						disabled={isManualStockHistoryLoading}
+					>
+						<History size={18} aria-hidden="true" />
+					</button>
 					</div>
 				</div>
 				{stockExportError && <p className="accountant-inventory-error" role="alert">{stockExportError}</p>}
@@ -587,6 +634,88 @@ export default function TafiStockInventory({ sessionToken }) {
 					</>
 				) : loadError ? null : (
 					<p className="accountant-inventory-empty">No stock items have been added yet.</p>
+				)}
+
+				{isManualStockHistoryOpen && (
+					<div
+						className="tafi-manual-history-backdrop"
+						role="presentation"
+						onMouseDown={(event) => {
+							if (event.target === event.currentTarget) setIsManualStockHistoryOpen(false)
+						}}
+					>
+						<section
+							id="tafi-manual-stock-history"
+							className="tafi-manual-history-dialog"
+							role="dialog"
+							aria-modal="true"
+							aria-labelledby="tafi-manual-stock-history-title"
+							onKeyDown={(event) => {
+								if (event.key === 'Escape') setIsManualStockHistoryOpen(false)
+							}}
+						>
+							<div className="tafi-manual-history-heading">
+								<div>
+									<h2 id="tafi-manual-stock-history-title">Manual stock addition history</h2>
+									<p>
+										{manualStockHistory.length} addition{manualStockHistory.length === 1 ? '' : 's'}
+									</p>
+								</div>
+								<div className="tafi-manual-history-actions">
+									<button
+										type="button"
+										className="accountant-inventory-add-toggle"
+										onClick={refreshManualStockHistory}
+										disabled={isManualStockHistoryLoading}
+									>
+										{isManualStockHistoryLoading ? 'Refreshing...' : 'Refresh'}
+									</button>
+									<button
+										type="button"
+										className="payroll-xlsx-dialog-close"
+										aria-label="Close manual stock addition history"
+										onClick={() => setIsManualStockHistoryOpen(false)}
+										autoFocus
+									>
+										<X size={18} aria-hidden="true" />
+									</button>
+								</div>
+							</div>
+							{manualStockHistoryError && (
+								<p className="accountant-inventory-error" role="alert">{manualStockHistoryError}</p>
+							)}
+							{isManualStockHistoryLoading ? (
+								<p className="accountant-inventory-empty" role="status">Loading manual stock history...</p>
+							) : manualStockHistoryError ? null : manualStockHistory.length ? (
+								<div className="accountant-inventory-table-wrap tafi-manual-history-table-wrap">
+									<table className="accountant-inventory-table">
+										<thead>
+											<tr>
+												<th scope="col">Stock no.</th>
+												<th scope="col">Item description</th>
+												<th scope="col">Unit of measure</th>
+												<th scope="col">Manually added</th>
+												<th scope="col">Date</th>
+											</tr>
+										</thead>
+										<tbody>
+											{manualStockHistory.map((record) => (
+												<tr key={record.history_id}>
+													<td>{record.stock_no}</td>
+													<td>{record.item_description}</td>
+													<td>{record.unit_of_measure}</td>
+													<td>{record.manually_add}</td>
+													<td>{formatRecordDate(record.date)}</td>
+												</tr>
+											))}
+										</tbody>
+									</table>
+								</div>
+							) : (
+								<p className="accountant-inventory-empty">No manual stock additions have been recorded yet.</p>
+							)}
+						</section>
+					</div>
 				)}
 			</div>
 			<div
