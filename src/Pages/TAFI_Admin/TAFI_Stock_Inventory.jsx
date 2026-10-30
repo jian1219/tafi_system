@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Download, History, X } from 'lucide-react'
+import { Check, Download, History, Pencil, X } from 'lucide-react'
 import {
 	addTafiAdminManualStockInventory,
 	listTafiAdminBranchInventory,
@@ -7,7 +7,8 @@ import {
 	listTafiAdminStockInventory,
 	listTafiAdminStockInScans,
 	listTafiAdminStockInRecords,
-	listTafiAdminStockOutRecords
+	listTafiAdminStockOutRecords,
+	updateTafiAdminStockBarcodePrice
 } from '../../lib/supabase'
 import TafiBarcodeGenerator from './TAFI_Barcode_Generator'
 
@@ -43,6 +44,15 @@ function formatRecordMonth(value) {
 	})
 }
 
+function formatBarcodePrice(value) {
+	if (value === null || value === undefined || value === '') return 'Not set'
+
+	return new Intl.NumberFormat('en-PH', {
+		style: 'currency',
+		currency: 'PHP'
+	}).format(Number(value))
+}
+
 export default function TafiStockInventory({ sessionToken }) {
 	const [stockItems, setStockItems] = useState([])
 	const [manualStockHistory, setManualStockHistory] = useState([])
@@ -66,6 +76,11 @@ export default function TafiStockInventory({ sessionToken }) {
 	const [manualStockError, setManualStockError] = useState('')
 	const [manualStockNotice, setManualStockNotice] = useState('')
 	const [barcodeSearch, setBarcodeSearch] = useState('')
+	const [editingBarcodePrice, setEditingBarcodePrice] = useState('')
+	const [barcodePriceDraft, setBarcodePriceDraft] = useState('')
+	const [isSavingBarcodePrice, setIsSavingBarcodePrice] = useState(false)
+	const [barcodePriceError, setBarcodePriceError] = useState('')
+	const [barcodePriceNotice, setBarcodePriceNotice] = useState('')
 	const [stockSearch, setStockSearch] = useState('')
 	const [stockCategory, setStockCategory] = useState('')
 	const [branchStockSearch, setBranchStockSearch] = useState('')
@@ -205,7 +220,8 @@ export default function TafiStockInventory({ sessionToken }) {
 			item.stock_no,
 			item.item_description,
 			item.unit_of_measure,
-			item.scan_count
+			item.scan_count,
+			item.price
 		].some((value) => String(value ?? '').toLocaleLowerCase().includes(query)))
 	}, [barcodeScans, barcodeSearch])
 
@@ -258,6 +274,58 @@ export default function TafiStockInventory({ sessionToken }) {
 			return
 		}
 		setBarcodeScans(data ?? [])
+	}
+
+	const editBarcodePrice = (item) => {
+		setEditingBarcodePrice(item.barcode)
+		setBarcodePriceDraft(item.price === null || item.price === undefined ? '' : String(item.price))
+		setBarcodePriceError('')
+		setBarcodePriceNotice('')
+	}
+
+	const saveBarcodePrice = async (event, item) => {
+		event.preventDefault()
+		setBarcodePriceError('')
+		setBarcodePriceNotice('')
+
+		const priceText = barcodePriceDraft.trim()
+		const price = priceText === '' ? null : Number(priceText)
+		const decimalPart = priceText.split('.')[1]
+		if (price !== null && (
+			!Number.isFinite(price)
+			|| price < 0
+			|| price > 9999999999.99
+			|| (decimalPart && decimalPart.length > 2)
+		)) {
+			setBarcodePriceError('Enter a price from 0 to 9,999,999,999.99 with no more than two decimal places.')
+			return
+		}
+
+		setIsSavingBarcodePrice(true)
+		const { data, error } = await updateTafiAdminStockBarcodePrice(
+			sessionToken,
+			item.barcode,
+			price
+		)
+		setIsSavingBarcodePrice(false)
+		if (error) {
+			setBarcodePriceError(error.message)
+			return
+		}
+
+		const updatedPrice = Array.isArray(data) ? data[0] : null
+		if (!updatedPrice) {
+			setBarcodePriceError('The price was not returned after saving. Refresh Barcode Inventory to verify it.')
+			return
+		}
+
+		setBarcodeScans((items) => items.map((scan) => (
+			scan.barcode === item.barcode
+				? { ...scan, price: updatedPrice.price }
+				: scan
+		)))
+		setEditingBarcodePrice('')
+		setBarcodePriceNotice(`Price saved for barcode ${item.barcode}.`)
 	}
 
 	const refreshManualStockHistory = async () => {
@@ -757,10 +825,16 @@ export default function TafiStockInventory({ sessionToken }) {
 									type="search"
 									value={barcodeSearch}
 									onChange={(event) => setBarcodeSearch(event.target.value)}
-									placeholder="Search barcode, stock no., description, or unit"
+									placeholder="Search barcode, stock no., description, unit, or price"
 								/>
 							</label>
 						</div>
+						{barcodePriceError && (
+							<p className="accountant-inventory-error" role="alert">{barcodePriceError}</p>
+						)}
+						{barcodePriceNotice && (
+							<p className="accountant-inventory-notice" role="status">{barcodePriceNotice}</p>
+						)}
 						{filteredBarcodeScans.length ? (
 							<div className="accountant-inventory-table-wrap">
 								<table className="accountant-inventory-table">
@@ -771,6 +845,7 @@ export default function TafiStockInventory({ sessionToken }) {
 											<th scope="col">Item description</th>
 											<th scope="col">Unit of measure</th>
 											<th scope="col">Item count</th>
+											<th scope="col">Price</th>
 										</tr>
 									</thead>
 									<tbody>
@@ -781,6 +856,59 @@ export default function TafiStockInventory({ sessionToken }) {
 												<td>{item.item_description}</td>
 												<td>{item.unit_of_measure}</td>
 												<td>{item.scan_count}</td>
+												<td className="tafi-barcode-price-cell">
+													{editingBarcodePrice === item.barcode ? (
+														<form
+															className="tafi-barcode-price-editor"
+															onSubmit={(event) => saveBarcodePrice(event, item)}
+														>
+															<input
+																type="number"
+																min="0"
+																max="9999999999.99"
+																step="0.01"
+																value={barcodePriceDraft}
+																onChange={(event) => setBarcodePriceDraft(event.target.value)}
+																aria-label={`Price for barcode ${item.barcode}`}
+																placeholder="No price"
+																disabled={isSavingBarcodePrice}
+																autoFocus
+															/>
+															<button
+																type="submit"
+																className="tafi-barcode-price-action"
+																aria-label={`Save price for barcode ${item.barcode}`}
+																title="Save price"
+																disabled={isSavingBarcodePrice}
+															>
+																<Check size={16} aria-hidden="true" />
+															</button>
+															<button
+																type="button"
+																className="tafi-barcode-price-action"
+																aria-label={`Cancel price edit for barcode ${item.barcode}`}
+																title="Cancel"
+																onClick={() => setEditingBarcodePrice('')}
+																disabled={isSavingBarcodePrice}
+															>
+																<X size={16} aria-hidden="true" />
+															</button>
+														</form>
+													) : (
+														<div className="tafi-barcode-price-display">
+															<span>{formatBarcodePrice(item.price)}</span>
+															<button
+																type="button"
+																className="tafi-barcode-price-action"
+																aria-label={`Edit price for barcode ${item.barcode}`}
+																title="Edit price"
+																onClick={() => editBarcodePrice(item)}
+															>
+																<Pencil size={15} aria-hidden="true" />
+															</button>
+														</div>
+													)}
+												</td>
 											</tr>
 										))}
 									</tbody>

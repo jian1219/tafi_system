@@ -5446,6 +5446,49 @@ fieldset.employee-emergency-contact-box {
   padding: 8px;
 }
 
+.tafi-barcode-price-cell {
+  min-width: 190px;
+}
+
+.tafi-barcode-price-display,
+.tafi-barcode-price-editor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.tafi-barcode-price-editor input {
+  width: 126px;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.tafi-barcode-price-action {
+  display: inline-grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #1d4ed8;
+  background: #fff;
+  cursor: pointer;
+}
+
+.tafi-barcode-price-action:hover:not(:disabled) {
+  background: #eff6ff;
+}
+
+.tafi-barcode-price-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .barcode-generator-form {
   margin-bottom: 20px;
 }

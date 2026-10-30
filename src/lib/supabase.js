@@ -256,6 +256,22 @@ export async function listTafiAdminStockInScans(sessionToken) {
   }
 }
 
+export async function updateTafiAdminStockBarcodePrice(sessionToken, barcode, price) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_update_stock_in_scan_price', {
+      p_session_token: sessionToken,
+      p_barcode: barcode,
+      p_price: price
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the barcode price.')
+    }
+  }
+}
+
 export async function listTafiAdminStockInRecords(sessionToken, month = null, day = null) {
   try {
     const supabaseClient = await getSupabaseClient()
