@@ -8,6 +8,7 @@ import {
 	listTafiAdminStockInRecords,
 	listTafiAdminStockOutRecords
 } from '../../lib/supabase'
+import TafiBarcodeGenerator from './TAFI_Barcode_Generator'
 
 function getLocalMonthInputValue() {
 	const now = new Date()
@@ -40,6 +41,7 @@ export default function TafiStockInventory({ sessionToken }) {
 	const [stockInRecords, setStockInRecords] = useState([])
 	const [stockOutRecords, setStockOutRecords] = useState([])
 	const [activeTab, setActiveTab] = useState('stock')
+	const [activeRecordTab, setActiveRecordTab] = useState('stockIn')
 	const [stockInMonth, setStockInMonth] = useState(getLocalMonthInputValue)
 	const [stockInDay, setStockInDay] = useState('')
 	const [stockOutMonth, setStockOutMonth] = useState(getLocalMonthInputValue)
@@ -391,25 +393,14 @@ export default function TafiStockInventory({ sessionToken }) {
 				</button>
 				<button
 					type="button"
-					id="tafi-stock-in-records-tab"
-					className={`accountant-inventory-tab${activeTab === 'stockIn' ? ' active' : ''}`}
+					id="tafi-stock-records-tab"
+					className={`accountant-inventory-tab${activeTab === 'records' ? ' active' : ''}`}
 					role="tab"
-					aria-selected={activeTab === 'stockIn'}
-					aria-controls="tafi-stock-in-records-panel"
-					onClick={() => setActiveTab('stockIn')}
+					aria-selected={activeTab === 'records'}
+					aria-controls="tafi-stock-records-panel"
+					onClick={() => setActiveTab('records')}
 				>
-					Stock In Records
-				</button>
-				<button
-					type="button"
-					id="tafi-stock-out-records-tab"
-					className={`accountant-inventory-tab${activeTab === 'stockOut' ? ' active' : ''}`}
-					role="tab"
-					aria-selected={activeTab === 'stockOut'}
-					aria-controls="tafi-stock-out-records-panel"
-					onClick={() => setActiveTab('stockOut')}
-				>
-					Stock Out Records
+					Stock Records
 				</button>
 				<button
 					type="button"
@@ -421,6 +412,17 @@ export default function TafiStockInventory({ sessionToken }) {
 					onClick={() => setActiveTab('branchInventory')}
 				>
 					Branch Inventory Stock
+				</button>
+				<button
+					type="button"
+					id="tafi-barcode-generator-tab"
+					className={`accountant-inventory-tab${activeTab === 'barcodeGenerator' ? ' active' : ''}`}
+					role="tab"
+					aria-selected={activeTab === 'barcodeGenerator'}
+					aria-controls="tafi-barcode-generator-panel"
+					onClick={() => setActiveTab('barcodeGenerator')}
+				>
+					Barcode Generator
 				</button>
 			</div>
 			<div
@@ -664,11 +666,42 @@ export default function TafiStockInventory({ sessionToken }) {
 				)}
 			</div>
 			<div
-				id="tafi-stock-in-records-panel"
+				id="tafi-stock-records-panel"
 				className="accountant-inventory-panel"
 				role="tabpanel"
+				aria-labelledby="tafi-stock-records-tab"
+				hidden={activeTab !== 'records'}
+			>
+				<div className="accountant-inventory-tabs tafi-stock-record-tabs" role="tablist" aria-label="Stock records">
+					<button
+						type="button"
+						id="tafi-stock-in-records-tab"
+						className={`accountant-inventory-tab${activeRecordTab === 'stockIn' ? ' active' : ''}`}
+						role="tab"
+						aria-selected={activeRecordTab === 'stockIn'}
+						aria-controls="tafi-stock-in-records-panel"
+						onClick={() => setActiveRecordTab('stockIn')}
+					>
+						Stock In Records
+					</button>
+					<button
+						type="button"
+						id="tafi-stock-out-records-tab"
+						className={`accountant-inventory-tab${activeRecordTab === 'stockOut' ? ' active' : ''}`}
+						role="tab"
+						aria-selected={activeRecordTab === 'stockOut'}
+						aria-controls="tafi-stock-out-records-panel"
+						onClick={() => setActiveRecordTab('stockOut')}
+					>
+						Stock Out Records
+					</button>
+				</div>
+				<div
+				id="tafi-stock-in-records-panel"
+				className="tafi-stock-records-subpanel"
+				role="tabpanel"
 				aria-labelledby="tafi-stock-in-records-tab"
-				hidden={activeTab !== 'stockIn'}
+				hidden={activeRecordTab !== 'stockIn'}
 			>
 				<div className="accountant-inventory-list-heading">
 					<div>
@@ -757,10 +790,10 @@ export default function TafiStockInventory({ sessionToken }) {
 			</div>
 			<div
 				id="tafi-stock-out-records-panel"
-				className="accountant-inventory-panel"
+				className="tafi-stock-records-subpanel"
 				role="tabpanel"
 				aria-labelledby="tafi-stock-out-records-tab"
-				hidden={activeTab !== 'stockOut'}
+				hidden={activeRecordTab !== 'stockOut'}
 			>
 				<div className="accountant-inventory-list-heading">
 					<div>
@@ -846,6 +879,7 @@ export default function TafiStockInventory({ sessionToken }) {
 						No stock-out records found{stockOutDay ? ' for this day.' : ' for this month.'}
 					</p>
 				)}
+			</div>
 			</div>
 			<div
 				id="tafi-branch-inventory-panel"
@@ -935,6 +969,15 @@ export default function TafiStockInventory({ sessionToken }) {
 				) : branchStockLoadError ? null : (
 					<p className="accountant-inventory-empty">No branch inventory stock has been recorded yet.</p>
 				)}
+			</div>
+			<div
+				id="tafi-barcode-generator-panel"
+				className="accountant-inventory-panel"
+				role="tabpanel"
+				aria-labelledby="tafi-barcode-generator-tab"
+				hidden={activeTab !== 'barcodeGenerator'}
+			>
+				<TafiBarcodeGenerator stockItems={stockItems} barcodeScans={barcodeScans} />
 			</div>
 		</div>
 	)

@@ -5300,6 +5300,14 @@ fieldset.employee-emergency-contact-box {
   border-bottom: 1px solid #e2e8f0;
 }
 
+.tafi-stock-record-tabs {
+  margin-bottom: 16px;
+}
+
+.tafi-stock-records-subpanel {
+  padding-bottom: 20px;
+}
+
 .accountant-inventory-tab {
   padding: 12px 16px;
   border: 0;
@@ -5376,6 +5384,106 @@ fieldset.employee-emergency-contact-box {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.barcode-generator-form {
+  margin-bottom: 20px;
+}
+
+.barcode-generator-stock-select {
+  grid-column: 1 / -1;
+}
+
+.barcode-generator-results-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.barcode-generator-results-heading h3 {
+  margin: 0 0 5px;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.barcode-generator-results-heading p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.84rem;
+}
+
+.barcode-generator-print-area {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.barcode-generator-label {
+  display: grid;
+  min-width: 0;
+  justify-items: center;
+  align-content: center;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: white;
+  text-align: center;
+}
+
+.barcode-generator-stock-no,
+.barcode-generator-description {
+  width: 100%;
+  margin: 0 0 4px;
+  color: #334155;
+  overflow-wrap: anywhere;
+}
+
+.barcode-generator-stock-no {
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.barcode-generator-description {
+  font-size: 0.8rem;
+}
+
+.barcode-generator-svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+@media print {
+  @page {
+    margin: 10mm;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .barcode-generator-print-area,
+  .barcode-generator-print-area * {
+    visibility: visible !important;
+  }
+
+  .barcode-generator-print-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8mm;
+  }
+
+  .barcode-generator-label {
+    break-inside: avoid;
+    border: 1px solid #111827;
+    border-radius: 0;
+    padding: 4mm;
+  }
 }
 
 .accountant-inventory-form {
