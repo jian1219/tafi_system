@@ -4,6 +4,12 @@ import JsBarcode from 'jsbarcode'
 
 const MAX_AUTOMATIC_LABELS = 50
 
+function getLocalDatePrefix(date = new Date()) {
+	const month = String(date.getMonth() + 1).padStart(2, '0')
+	const day = String(date.getDate()).padStart(2, '0')
+	return `${month}${day}${date.getFullYear()}`
+}
+
 function BarcodeGraphic({ value }) {
 	const svgRef = useRef(null)
 
@@ -66,13 +72,18 @@ export default function TafiBarcodeGenerator({ stockItems, barcodeScans }) {
 				...barcodeScans.map((item) => item.barcode),
 				...generatedLabels.map((label) => label.value)
 			])
-			values = []
-			while (values.length < quantity) {
-				const value = `TAFI-${crypto.randomUUID().toUpperCase()}`
-				if (existingValues.has(value)) continue
-				existingValues.add(value)
-				values.push(value)
-			}
+			const datePrefix = getLocalDatePrefix()
+			const dateSequencePattern = new RegExp(`^${datePrefix}-(\\d+)$`)
+			let nextSequence = 1
+			existingValues.forEach((value) => {
+				const match = String(value).match(dateSequencePattern)
+				if (match) nextSequence = Math.max(nextSequence, Number(match[1]) + 1)
+			})
+			values = Array.from({ length: quantity }, () => {
+				const value = `${datePrefix}-${nextSequence}`
+				nextSequence += 1
+				return value
+			})
 		}
 
 		const itemDetails = selectedStockItem
