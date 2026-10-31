@@ -5402,6 +5402,60 @@ fieldset.employee-emergency-contact-box {
   font-size: 0.84rem;
 }
 
+.tafi-inventory-edit-backdrop {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(15 23 42 / 62%);
+}
+
+.tafi-inventory-edit-dialog {
+  width: min(100%, 680px);
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  padding: 24px;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgb(15 23 42 / 24%);
+}
+
+.tafi-inventory-edit-dialog .accountant-inventory-heading {
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.tafi-inventory-edit-form {
+  margin-bottom: 0;
+}
+
+.tafi-inventory-edit-close {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 50%;
+  color: #475569;
+  background: #fff;
+  cursor: pointer;
+}
+
+.tafi-inventory-edit-close:hover:not(:disabled) {
+  color: #0f172a;
+  background: #f1f5f9;
+}
+
+.tafi-inventory-edit-close:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .accountant-inventory-add-toggle {
   display: inline-flex;
   min-height: 40px;
@@ -6208,6 +6262,14 @@ fieldset.employee-emergency-contact-box {
 @media (max-width: 720px) {
   .accountant-inventory-form {
     grid-template-columns: 1fr;
+  }
+
+  .tafi-inventory-edit-backdrop {
+    padding: 12px;
+  }
+
+  .tafi-inventory-edit-dialog {
+    padding: 18px;
   }
 
   .tafi-stock-preparation-scan-form {
