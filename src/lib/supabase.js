@@ -364,6 +364,125 @@ export async function listTafiAdminStockRequests(sessionToken) {
   }
 }
 
+export async function startTafiAdminStockRequestPreparation(sessionToken, requestIds) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_start_stock_request_preparation', {
+      p_session_token: sessionToken,
+      p_request_ids: requestIds
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to start stock request preparation.')
+    }
+  }
+}
+
+export async function lookupTafiAdminStockRequestBarcode(sessionToken, preparationId, barcode) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_lookup_stock_request_barcode', {
+      p_session_token: sessionToken,
+      p_preparation_id: preparationId,
+      p_barcode: barcode
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to look up this barcode.')
+    }
+  }
+}
+
+export async function saveTafiAdminStockRequestPreparationItem(
+  sessionToken,
+  preparationId,
+  barcode,
+  quantity,
+  unitPrice
+) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_save_stock_request_preparation_item', {
+      p_session_token: sessionToken,
+      p_preparation_id: preparationId,
+      p_barcode: barcode,
+      p_quantity: quantity,
+      p_unit_price: unitPrice
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the prepared item.')
+    }
+  }
+}
+
+export async function deleteTafiAdminStockRequestPreparationItem(
+  sessionToken,
+  preparationId,
+  itemId
+) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_delete_stock_request_preparation_item', {
+      p_session_token: sessionToken,
+      p_preparation_id: preparationId,
+      p_item_id: itemId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to remove the prepared item.')
+    }
+  }
+}
+
+export async function listTafiAdminStockRequestPreparationItems(sessionToken, preparationId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_stock_request_preparation_items', {
+      p_session_token: sessionToken,
+      p_preparation_id: preparationId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load prepared items.')
+    }
+  }
+}
+
+export async function listTafiAdminStockRequestPreparationHistory(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_stock_request_preparation_history', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load Inventory Transform Form history.')
+    }
+  }
+}
+
+export async function completeTafiAdminStockRequestPreparation(sessionToken, preparationId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_complete_stock_request_preparation', {
+      p_session_token: sessionToken,
+      p_preparation_id: preparationId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to mark the prepared stock delivered.')
+    }
+  }
+}
+
 export async function deliverTafiAdminStockRequest(sessionToken, requestId, quantityDelivered) {
   try {
   	const supabaseClient = await getSupabaseClient()

@@ -130,7 +130,7 @@ export default function TafiInventory({ sessionToken }) {
 
 	const deleteItem = async (item) => {
 		if (!window.confirm(
-			`Delete inventory item "${item.item_description}"? Items with stock on hand, branch usage history, requests, or barcode records cannot be deleted.`
+			`Permanently delete "${item.item_description}" and all linked stock balances, barcode records, requests, receipts, usage logs, stock history, and preparation records? This cannot be undone.`
 		)) return
 
 		setIsSaving(true)

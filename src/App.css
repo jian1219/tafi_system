@@ -5768,6 +5768,73 @@ fieldset.employee-emergency-contact-box {
   margin-top: 8px;
 }
 
+.tafi-stock-preparing-orders {
+  margin-top: 20px;
+}
+
+.tafi-stock-preparing-orders > h3,
+.tafi-stock-preparation-card > h3 {
+  margin: 16px 0 10px;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.tafi-stock-preparation-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.tafi-stock-preparation-scan-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.tafi-stock-preparation-scan-form label {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.tafi-stock-preparation-scan-form input {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #0f172a;
+  background: white;
+  font: inherit;
+}
+
+.tafi-stock-preparation-scan-form input:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.tafi-stock-preparation-scanned {
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+}
+
+.tafi-stock-preparation-scanned > p {
+  margin: 0 0 12px;
+  color: #1e3a8a;
+}
+
+.tafi-stock-preparation-item-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+}
+
 .tafi-stock-inventory-filters input,
 .tafi-stock-inventory-filters select {
   width: 100%;
@@ -6141,6 +6208,11 @@ fieldset.employee-emergency-contact-box {
 @media (max-width: 720px) {
   .accountant-inventory-form {
     grid-template-columns: 1fr;
+  }
+
+  .tafi-stock-preparation-scan-form {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .tafi-stock-inventory-filters {

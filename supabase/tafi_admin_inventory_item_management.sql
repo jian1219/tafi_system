@@ -204,18 +204,6 @@ begin
     raise exception 'The stock number is already assigned to another inventory item.';
   end if;
 
-  if exists (
-    select 1
-    from public.tafi_admin_stock_in_scans as barcode
-    where barcode.stock_no = v_inventory.stock_no
-  ) and (
-    trim(p_stock_no) is distinct from v_inventory.stock_no
-    or trim(p_item_description) is distinct from v_inventory.item_description
-    or trim(p_unit_of_measure) is distinct from v_inventory.unit_of_measure
-  ) then
-    raise exception 'This item has barcode scan records. Stock number, description, and unit cannot be changed until those barcode records are removed.';
-  end if;
-
   update public.inventory_information
   set stock_no = trim(p_stock_no),
       category = trim(p_category),
@@ -223,6 +211,13 @@ begin
       unit_of_measure = trim(p_unit_of_measure),
       supplier = trim(p_supplier)
   where id = p_inventory_id;
+
+  update public.tafi_admin_stock_in_scans as barcode
+  set stock_no = trim(p_stock_no),
+      item_description = trim(p_item_description),
+      unit_of_measure = trim(p_unit_of_measure),
+      updated_at = now()
+  where barcode.stock_no = v_inventory.stock_no;
 
   return true;
 end;
@@ -240,7 +235,7 @@ as $$
 declare
   v_stock_no text;
   v_stock_inventory_id uuid;
-  v_stock_available numeric;
+  v_preparation_ids uuid[] := array[]::uuid[];
 begin
   if not exists (
     select 1
@@ -265,59 +260,125 @@ begin
     raise exception 'The inventory item does not exist.';
   end if;
 
-  if exists (
-    select 1
-    from public.tafi_admin_stock_in_scans as barcode
-    where barcode.stock_no = v_stock_no
-  ) then
-    raise exception 'This item has barcode scan records. Remove those barcode records before deleting it.';
-  end if;
-
-  select stock.id, stock.available
-  into v_stock_inventory_id, v_stock_available
+  select stock.id
+  into v_stock_inventory_id
   from public.tafi_stock_inventory as stock
   where stock.inventory_id = p_inventory_id
   for update;
 
-  if found then
-    if v_stock_available > 0 then
-      raise exception 'This item has stock on hand. Remove or transfer its stock before deleting it.';
+  if v_stock_inventory_id is not null
+    and to_regclass('public.branch_stock_requests') is not null
+    and to_regclass('public.tafi_stock_request_preparations') is not null
+    and to_regclass('public.tafi_stock_request_preparation_items') is not null then
+    execute $query$
+      select coalesce(array_agg(preparation_id), array[]::uuid[])
+      from (
+        select request.preparation_id
+        from public.branch_stock_requests as request
+        where request.stock_inventory_id = $1
+          and request.preparation_id is not null
+        union
+        select item.preparation_id
+        from public.tafi_stock_request_preparation_items as item
+        where item.stock_inventory_id = $1
+      ) as linked_preparations
+    $query$
+    into v_preparation_ids
+    using v_stock_inventory_id;
+  end if;
+
+  if v_stock_inventory_id is not null
+    and to_regclass('public.branch_stock_receipt_history') is not null then
+    if to_regclass('public.branch_stock_requests') is not null then
+      execute $query$
+        delete from public.branch_stock_receipt_history as history
+        where history.stock_inventory_id = $1
+          or history.request_id in (
+            select request.id
+            from public.branch_stock_requests as request
+            where request.stock_inventory_id = $1
+          )
+      $query$
+      using v_stock_inventory_id;
+    else
+      execute
+        'delete from public.branch_stock_receipt_history where stock_inventory_id = $1'
+      using v_stock_inventory_id;
     end if;
+  end if;
 
-    if exists (
-      select 1
-      from public.branch_inventory as branch_stock
-      where branch_stock.stock_inventory_id = v_stock_inventory_id
-        and branch_stock.available > 0
-    ) then
-      raise exception 'This item has available branch stock. Remove or transfer it before deleting it.';
-    end if;
+  if v_stock_inventory_id is not null
+    and to_regclass('public.branch_inventory_daily_log') is not null then
+    delete from public.branch_inventory_daily_log as usage_log
+    using public.branch_inventory as branch_stock
+    where usage_log.branch_inventory_id = branch_stock.id
+      and branch_stock.stock_inventory_id = v_stock_inventory_id;
+  end if;
 
-    if exists (
-      select 1
-      from public.branch_inventory_daily_log as usage_log
-      join public.branch_inventory as branch_stock
-        on branch_stock.id = usage_log.branch_inventory_id
-      where branch_stock.stock_inventory_id = v_stock_inventory_id
-    ) then
-      raise exception 'This item has branch usage history and cannot be deleted.';
-    end if;
+  if v_stock_inventory_id is not null
+    and to_regclass('public.branch_stock_requests') is not null then
+    execute
+      'delete from public.branch_stock_requests where stock_inventory_id = $1'
+    using v_stock_inventory_id;
+  end if;
 
-    begin
-      delete from public.branch_inventory
-      where stock_inventory_id = v_stock_inventory_id;
-    exception
-      when foreign_key_violation then
-        raise exception 'This item is referenced by branch requests or history and cannot be deleted.';
-    end;
+  if v_stock_inventory_id is not null
+    and to_regclass('public.tafi_stock_request_preparation_items') is not null then
+    execute
+      'delete from public.tafi_stock_request_preparation_items where stock_inventory_id = $1'
+    using v_stock_inventory_id;
+  end if;
 
-    begin
-      delete from public.tafi_stock_inventory
-      where id = v_stock_inventory_id;
-    exception
-      when foreign_key_violation then
-        raise exception 'This item is used by stock requests or stock history and cannot be deleted.';
-    end;
+  if cardinality(v_preparation_ids) > 0 then
+    execute $query$
+      delete from public.tafi_stock_request_preparations as preparation
+      where preparation.id = any($1)
+        and not exists (
+          select 1
+          from public.branch_stock_requests as request
+          where request.preparation_id = preparation.id
+        )
+        and not exists (
+          select 1
+          from public.tafi_stock_request_preparation_items as item
+          where item.preparation_id = preparation.id
+        )
+    $query$
+    using v_preparation_ids;
+  end if;
+
+  if v_stock_inventory_id is not null
+    and to_regclass('public.tafi_stock_inventory_arrivals') is not null then
+    execute
+      'delete from public.tafi_stock_inventory_arrivals where stock_inventory_id = $1'
+    using v_stock_inventory_id;
+  end if;
+
+  if to_regclass('public.stock_in_records') is not null then
+    execute 'delete from public.stock_in_records where stock_no = $1'
+    using v_stock_no;
+  end if;
+
+  if to_regclass('public.stock_out_records') is not null then
+    execute 'delete from public.stock_out_records where stock_no = $1'
+    using v_stock_no;
+  end if;
+
+  if to_regclass('public.inventory_add_manually_history') is not null then
+    execute
+      'delete from public.inventory_add_manually_history where stock_no = $1'
+    using v_stock_no;
+  end if;
+
+  delete from public.tafi_admin_stock_in_scans
+  where stock_no = v_stock_no;
+
+  if v_stock_inventory_id is not null then
+    delete from public.branch_inventory
+    where stock_inventory_id = v_stock_inventory_id;
+
+    delete from public.tafi_stock_inventory
+    where id = v_stock_inventory_id;
   end if;
 
   delete from public.inventory_information
