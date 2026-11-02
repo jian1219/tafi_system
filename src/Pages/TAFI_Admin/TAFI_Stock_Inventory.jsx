@@ -1131,7 +1131,7 @@ export default function TafiStockInventory({ sessionToken }) {
 						aria-controls="tafi-stock-summary-records-panel"
 						onClick={() => setActiveRecordTab('summary')}
 					>
-						Summary Stock Record
+						COGS
 					</button>
 				</div>
 				<div
