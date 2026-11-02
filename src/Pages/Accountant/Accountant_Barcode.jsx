@@ -66,11 +66,14 @@ export default function AccountantBarcode({ sessionToken }) {
 			item.item_description,
 			item.unit_of_measure,
 			item.scan_count,
-			item.price
+			item.price,
+			item.total_price
 		].some((value) => String(value ?? '').toLocaleLowerCase().includes(query)))
 	}, [barcodeItems, barcodeSearch])
 
 	useEffect(() => {
+		if (activeTab !== 'barcodes') return
+
 		let isCurrent = true
 
 		const loadBarcodeInventory = async () => {
@@ -94,10 +97,12 @@ export default function AccountantBarcode({ sessionToken }) {
 		}
 
 		loadBarcodeInventory()
+		window.addEventListener('focus', loadBarcodeInventory)
 		return () => {
 			isCurrent = false
+			window.removeEventListener('focus', loadBarcodeInventory)
 		}
-	}, [sessionToken])
+	}, [activeTab, sessionToken])
 
 	useEffect(() => {
 		let isCurrent = true
@@ -290,7 +295,8 @@ export default function AccountantBarcode({ sessionToken }) {
 											<th scope="col">Item description</th>
 											<th scope="col">Unit of measure</th>
 											<th scope="col">Item count</th>
-											<th scope="col">Price</th>
+											<th scope="col">Per item price</th>
+											<th scope="col">Total Price</th>
 										</tr>
 									</thead>
 									<tbody>
@@ -302,6 +308,7 @@ export default function AccountantBarcode({ sessionToken }) {
 												<td>{item.unit_of_measure}</td>
 												<td>{item.scan_count}</td>
 												<td>{formatPrice(item.price)}</td>
+												<td>{formatPrice(item.total_price)}</td>
 											</tr>
 										))}
 									</tbody>
@@ -415,6 +422,8 @@ export default function AccountantBarcode({ sessionToken }) {
 										<th scope="col">Item description</th>
 										<th scope="col">Unit of measure</th>
 										<th scope="col">Stock in count</th>
+										<th scope="col">Per Item Price</th>
+										<th scope="col">Total Price</th>
 										<th scope="col">Date</th>
 									</tr>
 								</thead>
@@ -426,6 +435,8 @@ export default function AccountantBarcode({ sessionToken }) {
 											<td>{record.item_description}</td>
 											<td>{record.unit_of_measure}</td>
 											<td>{record.stock_in_count}</td>
+											<td>{formatPrice(record.price)}</td>
+											<td>{formatPrice(record.total_price)}</td>
 											<td>{formatRecordDate(record.date)}</td>
 										</tr>
 									))}
@@ -504,6 +515,8 @@ export default function AccountantBarcode({ sessionToken }) {
 										<th scope="col">Item description</th>
 										<th scope="col">Unit of measure</th>
 										<th scope="col">Stock out count</th>
+										<th scope="col">Per Item Price</th>
+										<th scope="col">Total Price</th>
 										<th scope="col">Date</th>
 									</tr>
 								</thead>
@@ -515,6 +528,8 @@ export default function AccountantBarcode({ sessionToken }) {
 											<td>{record.item_description}</td>
 											<td>{record.unit_of_measure}</td>
 											<td>{record.stock_out_count}</td>
+											<td>{formatPrice(record.price)}</td>
+											<td>{formatPrice(record.total_price)}</td>
 											<td>{formatRecordDate(record.date)}</td>
 										</tr>
 									))}

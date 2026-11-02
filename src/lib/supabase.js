@@ -272,18 +272,18 @@ export async function listTafiAdminStockInScans(sessionToken) {
   }
 }
 
-export async function updateTafiAdminStockBarcodePrice(sessionToken, barcode, price) {
+export async function updateTafiAdminStockBarcodeTotalPrice(sessionToken, barcode, totalPrice) {
   try {
     const supabaseClient = await getSupabaseClient()
-    return await supabaseClient.rpc('tafi_admin_update_stock_in_scan_price', {
+    return await supabaseClient.rpc('tafi_admin_update_stock_in_scan_total_price', {
       p_session_token: sessionToken,
       p_barcode: barcode,
-      p_price: price
+      p_total_price: totalPrice
     })
   } catch (error) {
     return {
       data: null,
-      error: error instanceof Error ? error : new Error('Unable to update the barcode price.')
+      error: error instanceof Error ? error : new Error('Unable to update the barcode total price.')
     }
   }
 }
@@ -300,6 +300,21 @@ export async function listTafiAdminStockInRecords(sessionToken, month = null, da
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to load stock-in records.')
+    }
+  }
+}
+
+export async function listTafiAdminSummaryStockRecords(sessionToken, month = null) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_summary_stock_records', {
+      p_session_token: sessionToken,
+      p_month: month ? `${month}-01` : null
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the stock record summary.')
     }
   }
 }

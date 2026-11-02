@@ -8,7 +8,8 @@ import {
 	listTafiAdminStockInScans,
 	listTafiAdminStockInRecords,
 	listTafiAdminStockOutRecords,
-	updateTafiAdminStockBarcodePrice,
+	listTafiAdminSummaryStockRecords,
+	updateTafiAdminStockBarcodeTotalPrice,
 	updateTafiAdminStockReorderLevel
 } from '../../lib/supabase'
 import TafiBarcodeGenerator from './TAFI_Barcode_Generator'
@@ -61,12 +62,14 @@ export default function TafiStockInventory({ sessionToken }) {
 	const [barcodeScans, setBarcodeScans] = useState([])
 	const [stockInRecords, setStockInRecords] = useState([])
 	const [stockOutRecords, setStockOutRecords] = useState([])
+	const [summaryStockRecords, setSummaryStockRecords] = useState([])
 	const [activeTab, setActiveTab] = useState('stock')
 	const [activeRecordTab, setActiveRecordTab] = useState('stockIn')
 	const [stockInMonth, setStockInMonth] = useState(getLocalMonthInputValue)
 	const [stockInDay, setStockInDay] = useState('')
 	const [stockOutMonth, setStockOutMonth] = useState(getLocalMonthInputValue)
 	const [stockOutDay, setStockOutDay] = useState('')
+	const [summaryMonth, setSummaryMonth] = useState(getLocalMonthInputValue)
 	const [isManualStockFormOpen, setIsManualStockFormOpen] = useState(false)
 	const [isManualStockHistoryOpen, setIsManualStockHistoryOpen] = useState(false)
 	const [isExportingStock, setIsExportingStock] = useState(false)
@@ -77,11 +80,11 @@ export default function TafiStockInventory({ sessionToken }) {
 	const [manualStockError, setManualStockError] = useState('')
 	const [manualStockNotice, setManualStockNotice] = useState('')
 	const [barcodeSearch, setBarcodeSearch] = useState('')
-	const [editingBarcodePrice, setEditingBarcodePrice] = useState('')
-	const [barcodePriceDraft, setBarcodePriceDraft] = useState('')
-	const [isSavingBarcodePrice, setIsSavingBarcodePrice] = useState(false)
-	const [barcodePriceError, setBarcodePriceError] = useState('')
-	const [barcodePriceNotice, setBarcodePriceNotice] = useState('')
+	const [editingBarcodeTotalPrice, setEditingBarcodeTotalPrice] = useState('')
+	const [barcodeTotalPriceDraft, setBarcodeTotalPriceDraft] = useState('')
+	const [isSavingBarcodeTotalPrice, setIsSavingBarcodeTotalPrice] = useState(false)
+	const [barcodeTotalPriceError, setBarcodeTotalPriceError] = useState('')
+	const [barcodeTotalPriceNotice, setBarcodeTotalPriceNotice] = useState('')
 	const [stockSearch, setStockSearch] = useState('')
 	const [stockCategory, setStockCategory] = useState('')
 	const [editingReorderLevel, setEditingReorderLevel] = useState('')
@@ -97,12 +100,14 @@ export default function TafiStockInventory({ sessionToken }) {
 	const [isBarcodeLoading, setIsBarcodeLoading] = useState(true)
 	const [isStockInLoading, setIsStockInLoading] = useState(true)
 	const [isStockOutLoading, setIsStockOutLoading] = useState(true)
+	const [isSummaryLoading, setIsSummaryLoading] = useState(true)
 	const [loadError, setLoadError] = useState('')
 	const [manualStockHistoryError, setManualStockHistoryError] = useState('')
 	const [branchStockLoadError, setBranchStockLoadError] = useState('')
 	const [barcodeLoadError, setBarcodeLoadError] = useState('')
 	const [stockInLoadError, setStockInLoadError] = useState('')
 	const [stockOutLoadError, setStockOutLoadError] = useState('')
+	const [summaryLoadError, setSummaryLoadError] = useState('')
 	useEffect(() => {
 		let isCurrent = true
 
@@ -202,6 +207,32 @@ export default function TafiStockInventory({ sessionToken }) {
 		}
 	}, [sessionToken, stockOutMonth, stockOutDay])
 
+	useEffect(() => {
+		let isCurrent = true
+
+		const loadSummaryRecords = async () => {
+			setIsSummaryLoading(true)
+			setSummaryLoadError('')
+			const { data, error } = await listTafiAdminSummaryStockRecords(
+				sessionToken,
+				summaryMonth || null
+			)
+			if (!isCurrent) return
+			setIsSummaryLoading(false)
+			if (error) {
+				setSummaryLoadError(error.message)
+				return
+			}
+
+			setSummaryStockRecords(data ?? [])
+		}
+
+		loadSummaryRecords()
+		return () => {
+			isCurrent = false
+		}
+	}, [sessionToken, summaryMonth])
+
 	const stockCategories = useMemo(
 		() => [...new Set(stockItems.map((item) => item.category).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
 		[stockItems]
@@ -227,7 +258,8 @@ export default function TafiStockInventory({ sessionToken }) {
 			item.item_description,
 			item.unit_of_measure,
 			item.scan_count,
-			item.price
+			item.price,
+			item.total_price
 		].some((value) => String(value ?? '').toLocaleLowerCase().includes(query)))
 	}, [barcodeScans, barcodeSearch])
 
@@ -282,11 +314,38 @@ export default function TafiStockInventory({ sessionToken }) {
 		setBarcodeScans(data ?? [])
 	}
 
-	const editBarcodePrice = (item) => {
-		setEditingBarcodePrice(item.barcode)
-		setBarcodePriceDraft(item.price === null || item.price === undefined ? '' : String(item.price))
-		setBarcodePriceError('')
-		setBarcodePriceNotice('')
+	useEffect(() => {
+		if (activeTab !== 'barcodes') return
+
+		let isCurrent = true
+		const refreshOnFocus = async () => {
+			setIsBarcodeLoading(true)
+			setBarcodeLoadError('')
+			const { data, error } = await listTafiAdminStockInScans(sessionToken)
+			if (!isCurrent) return
+			setIsBarcodeLoading(false)
+			if (error) {
+				setBarcodeLoadError(error.message)
+				return
+			}
+			setBarcodeScans(data ?? [])
+		}
+
+		void refreshOnFocus()
+		window.addEventListener('focus', refreshOnFocus)
+		return () => {
+			isCurrent = false
+			window.removeEventListener('focus', refreshOnFocus)
+		}
+	}, [activeTab, sessionToken])
+
+	const editBarcodeTotalPrice = (item) => {
+		setEditingBarcodeTotalPrice(item.barcode)
+		setBarcodeTotalPriceDraft(
+			item.total_price === null || item.total_price === undefined ? '' : String(item.total_price)
+		)
+		setBarcodeTotalPriceError('')
+		setBarcodeTotalPriceNotice('')
 	}
 
 	const editReorderLevel = (item) => {
@@ -337,49 +396,46 @@ export default function TafiStockInventory({ sessionToken }) {
 		setReorderLevelNotice(`Re-order level saved for ${item.stock_no}.`)
 	}
 
-	const saveBarcodePrice = async (event, item) => {
+	const saveBarcodeTotalPrice = async (event, item) => {
 		event.preventDefault()
-		setBarcodePriceError('')
-		setBarcodePriceNotice('')
+		setBarcodeTotalPriceError('')
+		setBarcodeTotalPriceNotice('')
 
-		const priceText = barcodePriceDraft.trim()
-		const price = priceText === '' ? null : Number(priceText)
-		const decimalPart = priceText.split('.')[1]
-		if (price !== null && (
-			!Number.isFinite(price)
-			|| price < 0
-			|| price > 9999999999.99
-			|| (decimalPart && decimalPart.length > 2)
-		)) {
-			setBarcodePriceError('Enter a price from 0 to 9,999,999,999.99 with no more than two decimal places.')
+		const totalPriceText = barcodeTotalPriceDraft.trim()
+		if (totalPriceText && !/^\d{1,29}(?:\.\d{1,2})?$/.test(totalPriceText)) {
+			setBarcodeTotalPriceError('Enter a total price with up to 29 digits before the decimal and two decimal places.')
 			return
 		}
 
-		setIsSavingBarcodePrice(true)
-		const { data, error } = await updateTafiAdminStockBarcodePrice(
+		setIsSavingBarcodeTotalPrice(true)
+		const { data, error } = await updateTafiAdminStockBarcodeTotalPrice(
 			sessionToken,
 			item.barcode,
-			price
+			totalPriceText || null
 		)
-		setIsSavingBarcodePrice(false)
+		setIsSavingBarcodeTotalPrice(false)
 		if (error) {
-			setBarcodePriceError(error.message)
+			setBarcodeTotalPriceError(error.message)
 			return
 		}
 
-		const updatedPrice = Array.isArray(data) ? data[0] : null
-		if (!updatedPrice) {
-			setBarcodePriceError('The price was not returned after saving. Refresh Barcode Inventory to verify it.')
+		const updatedTotalPrice = Array.isArray(data) ? data[0] : null
+		if (!updatedTotalPrice) {
+			setBarcodeTotalPriceError('The total price was not returned after saving. Refresh Barcode Inventory to verify it.')
 			return
 		}
 
 		setBarcodeScans((items) => items.map((scan) => (
 			scan.barcode === item.barcode
-				? { ...scan, price: updatedPrice.price }
+				? {
+					...scan,
+					price: updatedTotalPrice.price,
+					total_price: updatedTotalPrice.total_price
+				}
 				: scan
 		)))
-		setEditingBarcodePrice('')
-		setBarcodePriceNotice(`Price saved for barcode ${item.barcode}.`)
+		setEditingBarcodeTotalPrice('')
+		setBarcodeTotalPriceNotice(`Total price saved for barcode ${item.barcode}.`)
 	}
 
 	const refreshManualStockHistory = async () => {
@@ -803,6 +859,7 @@ export default function TafiStockInventory({ sessionToken }) {
 														</div>
 													)}
 												</td>
+												<td>{formatBarcodePrice(item.total_price)}</td>
 											</tr>
 										))}
 									</tbody>
@@ -941,11 +998,11 @@ export default function TafiStockInventory({ sessionToken }) {
 								/>
 							</label>
 						</div>
-						{barcodePriceError && (
-							<p className="accountant-inventory-error" role="alert">{barcodePriceError}</p>
+						{barcodeTotalPriceError && (
+							<p className="accountant-inventory-error" role="alert">{barcodeTotalPriceError}</p>
 						)}
-						{barcodePriceNotice && (
-							<p className="accountant-inventory-notice" role="status">{barcodePriceNotice}</p>
+						{barcodeTotalPriceNotice && (
+							<p className="accountant-inventory-notice" role="status">{barcodeTotalPriceNotice}</p>
 						)}
 						{filteredBarcodeScans.length ? (
 							<div className="accountant-inventory-table-wrap">
@@ -957,7 +1014,8 @@ export default function TafiStockInventory({ sessionToken }) {
 											<th scope="col">Item description</th>
 											<th scope="col">Unit of measure</th>
 											<th scope="col">Item count</th>
-											<th scope="col">Price</th>
+											<th scope="col">Per item price</th>
+											<th scope="col">Total Price</th>
 										</tr>
 									</thead>
 									<tbody>
@@ -968,53 +1026,53 @@ export default function TafiStockInventory({ sessionToken }) {
 												<td>{item.item_description}</td>
 												<td>{item.unit_of_measure}</td>
 												<td>{item.scan_count}</td>
+												<td>{formatBarcodePrice(item.price)}</td>
 												<td className="tafi-barcode-price-cell">
-													{editingBarcodePrice === item.barcode ? (
+													{editingBarcodeTotalPrice === item.barcode ? (
 														<form
 															className="tafi-barcode-price-editor"
-															onSubmit={(event) => saveBarcodePrice(event, item)}
+															onSubmit={(event) => saveBarcodeTotalPrice(event, item)}
 														>
 															<input
-																type="number"
-																min="0"
-																max="9999999999.99"
-																step="0.01"
-																value={barcodePriceDraft}
-																onChange={(event) => setBarcodePriceDraft(event.target.value)}
-																aria-label={`Price for barcode ${item.barcode}`}
-																placeholder="No price"
-																disabled={isSavingBarcodePrice}
+																type="text"
+																inputMode="decimal"
+																maxLength={32}
+																value={barcodeTotalPriceDraft}
+																onChange={(event) => setBarcodeTotalPriceDraft(event.target.value)}
+																aria-label={`Total price for barcode ${item.barcode}`}
+																placeholder="Not set"
+																disabled={isSavingBarcodeTotalPrice}
 																autoFocus
 															/>
 															<button
 																type="submit"
 																className="tafi-barcode-price-action"
-																aria-label={`Save price for barcode ${item.barcode}`}
-																title="Save price"
-																disabled={isSavingBarcodePrice}
+																aria-label={`Save total price for barcode ${item.barcode}`}
+																title="Save total price"
+																disabled={isSavingBarcodeTotalPrice}
 															>
 																<Check size={16} aria-hidden="true" />
 															</button>
 															<button
 																type="button"
 																className="tafi-barcode-price-action"
-																aria-label={`Cancel price edit for barcode ${item.barcode}`}
+																aria-label={`Cancel total price edit for barcode ${item.barcode}`}
 																title="Cancel"
-																onClick={() => setEditingBarcodePrice('')}
-																disabled={isSavingBarcodePrice}
+																onClick={() => setEditingBarcodeTotalPrice('')}
+																disabled={isSavingBarcodeTotalPrice}
 															>
 																<X size={16} aria-hidden="true" />
 															</button>
 														</form>
 													) : (
 														<div className="tafi-barcode-price-display">
-															<span>{formatBarcodePrice(item.price)}</span>
+															<span>{formatBarcodePrice(item.total_price)}</span>
 															<button
 																type="button"
 																className="tafi-barcode-price-action"
-																aria-label={`Edit price for barcode ${item.barcode}`}
-																title="Edit price"
-																onClick={() => editBarcodePrice(item)}
+																aria-label={`Edit total price for barcode ${item.barcode}`}
+																title="Edit total price"
+																onClick={() => editBarcodeTotalPrice(item)}
 															>
 																<Pencil size={15} aria-hidden="true" />
 															</button>
@@ -1063,6 +1121,17 @@ export default function TafiStockInventory({ sessionToken }) {
 						onClick={() => setActiveRecordTab('stockOut')}
 					>
 						Stock Out Records
+					</button>
+					<button
+						type="button"
+						id="tafi-stock-summary-records-tab"
+						className={`accountant-inventory-tab${activeRecordTab === 'summary' ? ' active' : ''}`}
+						role="tab"
+						aria-selected={activeRecordTab === 'summary'}
+						aria-controls="tafi-stock-summary-records-panel"
+						onClick={() => setActiveRecordTab('summary')}
+					>
+						Summary Stock Record
 					</button>
 				</div>
 				<div
@@ -1134,6 +1203,8 @@ export default function TafiStockInventory({ sessionToken }) {
 									<th scope="col">Item description</th>
 									<th scope="col">Unit of measure</th>
 									<th scope="col">Stock in count</th>
+									<th scope="col">Per Item Price</th>
+									<th scope="col">Total Price</th>
 									<th scope="col">Date</th>
 								</tr>
 							</thead>
@@ -1145,6 +1216,8 @@ export default function TafiStockInventory({ sessionToken }) {
 										<td>{record.item_description}</td>
 										<td>{record.unit_of_measure}</td>
 										<td>{record.stock_in_count}</td>
+										<td>{formatBarcodePrice(record.price)}</td>
+										<td>{formatBarcodePrice(record.total_price)}</td>
 										<td>{formatRecordDate(record.date)}</td>
 									</tr>
 								))}
@@ -1226,6 +1299,8 @@ export default function TafiStockInventory({ sessionToken }) {
 									<th scope="col">Item description</th>
 									<th scope="col">Unit of measure</th>
 									<th scope="col">Stock out count</th>
+									<th scope="col">Per Item Price</th>
+									<th scope="col">Total Price</th>
 									<th scope="col">Date</th>
 								</tr>
 							</thead>
@@ -1237,6 +1312,8 @@ export default function TafiStockInventory({ sessionToken }) {
 										<td>{record.item_description}</td>
 										<td>{record.unit_of_measure}</td>
 										<td>{record.stock_out_count}</td>
+										<td>{formatBarcodePrice(record.price)}</td>
+										<td>{formatBarcodePrice(record.total_price)}</td>
 										<td>{formatRecordDate(record.date)}</td>
 									</tr>
 								))}
@@ -1246,6 +1323,95 @@ export default function TafiStockInventory({ sessionToken }) {
 				) : (
 					<p className="accountant-inventory-empty">
 						No stock-out records found{stockOutDay ? ' for this day.' : ' for this month.'}
+					</p>
+				)}
+			</div>
+			<div
+				id="tafi-stock-summary-records-panel"
+				className="tafi-stock-records-subpanel"
+				role="tabpanel"
+				aria-labelledby="tafi-stock-summary-records-tab"
+				hidden={activeRecordTab !== 'summary'}
+			>
+				<div className="accountant-inventory-list-heading">
+					<div>
+						<h2>Summary Stock Record</h2>
+						<p>
+							{summaryStockRecords.length} item summar{summaryStockRecords.length === 1 ? 'y' : 'ies'}
+							{` for ${formatRecordMonth(summaryMonth)}`}
+						</p>
+					</div>
+				</div>
+				<div className="tafi-stock-record-filters">
+					<label htmlFor="tafi-stock-summary-record-month">
+						<span>Filter by month</span>
+						<input
+							id="tafi-stock-summary-record-month"
+							type="month"
+							value={summaryMonth}
+							required
+							onChange={(event) => {
+								if (event.target.value) setSummaryMonth(event.target.value)
+							}}
+						/>
+					</label>
+				</div>
+				{summaryLoadError && (
+					<p className="accountant-inventory-error" role="alert">{summaryLoadError}</p>
+				)}
+				{isSummaryLoading ? (
+					<p className="accountant-inventory-empty" role="status">Loading stock record summary...</p>
+				) : summaryLoadError ? null : summaryStockRecords.length ? (
+					<div
+						className="accountant-inventory-table-wrap tafi-summary-stock-record-table-wrap"
+						role="region"
+						aria-label="Summary stock record table"
+						tabIndex={0}
+					>
+						<table className="accountant-inventory-table tafi-summary-stock-record-table">
+							<thead>
+								<tr>
+									<th scope="col" rowSpan="2">Stock no.</th>
+									<th scope="col" rowSpan="2">Item description</th>
+									<th scope="col" rowSpan="2">Unit of measure</th>
+									<th scope="colgroup" colSpan="2">Beginning Inventory</th>
+									<th scope="colgroup" colSpan="2">Stock in</th>
+									<th scope="colgroup" colSpan="2">Stock out</th>
+									<th scope="colgroup" colSpan="2">Ending Inventory</th>
+								</tr>
+								<tr>
+									<th scope="col">Quantity</th>
+									<th scope="col">Total</th>
+									<th scope="col">Quantity</th>
+									<th scope="col">Total</th>
+									<th scope="col">Quantity</th>
+									<th scope="col">Total</th>
+									<th scope="col">Quantity</th>
+									<th scope="col">Total</th>
+								</tr>
+							</thead>
+							<tbody>
+								{summaryStockRecords.map((record) => (
+									<tr key={record.stock_no}>
+										<td>{record.stock_no}</td>
+										<td>{record.item_description}</td>
+										<td>{record.unit_of_measure}</td>
+										<td>{Number(record.beginning_inventory_quantity).toLocaleString()}</td>
+										<td>{formatBarcodePrice(record.beginning_inventory_total)}</td>
+										<td>{Number(record.stock_in_quantity).toLocaleString()}</td>
+										<td>{formatBarcodePrice(record.stock_in_total)}</td>
+										<td>{Number(record.stock_out_quantity).toLocaleString()}</td>
+										<td>{formatBarcodePrice(record.stock_out_total)}</td>
+										<td>{Number(record.ending_inventory_quantity).toLocaleString()}</td>
+										<td>{formatBarcodePrice(record.ending_inventory_total)}</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				) : (
+					<p className="accountant-inventory-empty">
+						No stock records found for this month.
 					</p>
 				)}
 			</div>
