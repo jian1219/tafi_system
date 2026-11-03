@@ -21,6 +21,12 @@ const createRequestLine = () => ({
 })
 
 const formatOrderNumber = (groupId) => groupId?.slice(0, 8).toUpperCase() ?? '—'
+const formatPrice = (value) => value === null || value === undefined
+	? '—'
+	: new Intl.NumberFormat('en-PH', {
+		style: 'currency',
+		currency: 'PHP'
+	}).format(Number(value))
 const requestDateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
 	timeZone: 'Asia/Manila',
 	year: 'numeric',
@@ -63,7 +69,6 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 	const [itemSearch, setItemSearch] = useState('')
 	const [activeTab, setActiveTab] = useState('request')
 	const [selectedRequestMonth, setSelectedRequestMonth] = useState('')
-	const [receivedQuantities, setReceivedQuantities] = useState({})
 	const [isLoading, setIsLoading] = useState(Boolean(sessionToken))
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [receivingRequestId, setReceivingRequestId] = useState('')
@@ -224,22 +229,35 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 		const submittedItemCount = requestLines.length
 		setRequestLines([createRequestLine()])
 		setIsReviewingRequest(false)
+		const exportDetails = { branchName, requestedItems, requestDate, submittedItemCount }
+		let fileName = ''
+		setPendingRequestExport(null)
+		setRequestExportError('')
+		try {
+			fileName = await downloadBranchStockRequestWorkbook(branchName, requestedItems, requestDate)
+		} catch (error) {
+			setPendingRequestExport(exportDetails)
+			setRequestExportError(
+				error instanceof Error ? error.message : 'Unable to prepare the requested download.'
+			)
+		}
+
 		const result = await loadRequestData(sessionToken)
 		setIsSubmitting(false)
 		if (result.error) {
-			setPendingRequestExport({ branchName, requestedItems, requestDate, submittedItemCount })
-			setRequestExportError('')
 			setErrorMessage(result.error.message)
-			setNotice('Request submitted, but the request list could not be refreshed. You can still download the Excel requisition.')
+			setNotice(fileName
+				? `Request submitted, but the request list could not be refreshed. Downloaded ${fileName}.`
+				: 'Request submitted, but the request list could not be refreshed. Use the prompt to retry the Excel download.')
 			return
 		}
 
 		setStockItems(result.stockItems)
 		setRequests(result.requests)
 		setReceiptHistory(result.history)
-		setPendingRequestExport({ branchName, requestedItems, requestDate, submittedItemCount })
-		setRequestExportError('')
-		setNotice(`${submittedItemCount} item${submittedItemCount === 1 ? '' : 's'} submitted in one stock request to TAFI Admin. Download the Excel requisition from the prompt.`)
+		setNotice(fileName
+			? `${submittedItemCount} item${submittedItemCount === 1 ? '' : 's'} submitted in one stock request to TAFI Admin. Downloaded ${fileName}.`
+			: `${submittedItemCount} item${submittedItemCount === 1 ? '' : 's'} submitted in one stock request to TAFI Admin. Use the prompt to retry the Excel download.`)
 	}
 
 	const handleDownloadRequestExport = async () => {
@@ -276,17 +294,9 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 	}
 
 	const handleReceive = async (request) => {
-		const quantityInput = receivedQuantities[request.request_id]
-		const quantityReceived = Number(quantityInput)
-		if (
-			quantityInput === undefined
-			|| quantityInput === ''
-			|| !Number.isFinite(quantityReceived)
-			|| quantityReceived < 0
-			|| !Number.isInteger(quantityReceived)
-			|| quantityReceived > Number(request.quantity_delivered)
-		) {
-			setReceiptError(`Enter a whole-number counted quantity received (0 to ${request.quantity_delivered}) before confirming.`)
+		const quantityReceived = Number(request.quantity_delivered)
+		if (!Number.isFinite(quantityReceived) || quantityReceived < 0 || !Number.isInteger(quantityReceived)) {
+			setReceiptError('The delivered quantity is invalid, so this order cannot be received.')
 			setReceiptNotice('')
 			return
 		}
@@ -307,13 +317,8 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 		}
 
 		setRequests((current) => current.map((item) => item.request_id === request.request_id
-			? { ...item, status: 'received', quantity_received: Number(receivedQuantities[request.request_id]) }
+			? { ...item, status: 'received', quantity_received: quantityReceived }
 			: item))
-		setReceivedQuantities((current) => {
-			const next = { ...current }
-			delete next[request.request_id]
-			return next
-		})
 		const result = await loadRequestData(sessionToken)
 		setReceivingRequestId('')
 		if (result.error) {
@@ -325,7 +330,7 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 		setStockItems(result.stockItems)
 		setRequests(result.requests)
 		setReceiptHistory(result.history)
-		setReceiptNotice('Receipt confirmed. Counted quantity added to branch inventory.')
+		setReceiptNotice('Receipt confirmed. Delivered quantity added to branch inventory.')
 	}
 
 	return (
@@ -659,7 +664,7 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 				<div className="accountant-inventory-heading">
 					<div>
 						<h2>Orders delivered to {branchName}</h2>
-						<p>Count each delivery and enter the actual quantity received before confirming.</p>
+						<p>Confirm receipt to add the full shipped quantity to branch inventory.</p>
 					</div>
 				</div>
 				{receiptError && <p className="accountant-inventory-error" role="alert">{receiptError}</p>}
@@ -677,7 +682,8 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 									<th scope="col">Description</th>
 									<th scope="col">Unit</th>
 									<th scope="col">Quantity shipped</th>
-									<th scope="col">Counted quantity received</th>
+									<th scope="col">Per item price</th>
+									<th scope="col">Total</th>
 									<th scope="col">Action</th>
 								</tr>
 							</thead>
@@ -689,26 +695,8 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 										<td>{request.item_description}</td>
 										<td>{request.unit_of_measure}</td>
 										<td>{request.quantity_delivered}</td>
-										<td>
-											<label className="branch-stock-received-field">
-												<span>Counted quantity received</span>
-												<input
-													className="branch-stock-received-input"
-													type="number"
-													min="0"
-													max={request.quantity_delivered}
-													step="1"
-													placeholder="Enter quantity"
-													aria-label={`Counted quantity received for ${request.stock_no}`}
-													value={receivedQuantities[request.request_id] ?? ''}
-													onChange={(event) => setReceivedQuantities((current) => ({
-														...current,
-														[request.request_id]: event.target.value
-													}))}
-													disabled={Boolean(receivingRequestId)}
-												/>
-											</label>
-										</td>
+										<td>{formatPrice(request.unit_price)}</td>
+										<td>{formatPrice(request.total_price)}</td>
 										<td>
 											<button
 												type="button"
@@ -752,7 +740,9 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 											<th scope="col">Unit</th>
 											<th scope="col">Requested</th>
 											<th scope="col">Shipped</th>
-											<th scope="col">Counted received</th>
+											<th scope="col">Per item price</th>
+											<th scope="col">Total</th>
+											<th scope="col">Received quantity</th>
 										</tr>
 									</thead>
 									<tbody>
@@ -765,6 +755,8 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 												<td>{receipt.unit_of_measure}</td>
 												<td>{receipt.quantity_requested}</td>
 												<td>{receipt.quantity_delivered}</td>
+												<td>{formatPrice(receipt.unit_price)}</td>
+												<td>{formatPrice(receipt.total_price)}</td>
 												<td>{receipt.quantity_received}</td>
 											</tr>
 										))}

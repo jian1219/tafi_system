@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { CalendarDays, ChevronDown, CircleDollarSign, ClipboardList, LogOut, MinusCircle, Package, PlusCircle, ShieldCheck, Trophy, Users, Wallet } from 'lucide-react'
+import { CalendarDays, ChevronDown, CircleDollarSign, ClipboardList, Home, LogOut, MinusCircle, Package, PlusCircle, ShieldCheck, Trophy, Users, Wallet } from 'lucide-react'
 import { revokeTafiAdminSession } from '../../lib/supabase'
 import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
@@ -9,12 +9,14 @@ import TafiEmployeeContributions from './TAFI_Employee_Contributions'
 import TafiEmployeeAttendance from './TAFI_Employee_Attendance'
 import TafiLeaveCredits from './TAFI_Leave_Credits'
 import TafiBranchPayroll from './TAFI_Branch_Payroll'
+import TafiOverview from './TAFI_Overview'
 const TafiOtherAdditionPay = lazy(() => import('./TAFI_Other_Addition_Pay'))
 const TafiOtherDeductionPay = lazy(() => import('./TAFI_Other_Deduction_Pay'))
 const TafiCashAdvance = lazy(() => import('./TAFI_Cash_Advance'))
 const TafiRankings = lazy(() => import('./TAFI_Rankings'))
 const TafiInventory = lazy(() => import('./TAFI_Inventory'))
 const TafiStockInventory = lazy(() => import('./TAFI_Stock_Inventory'))
+const TafiBranchInventoryStock = lazy(() => import('./TAFI_branch_inventory_stock'))
 const TafiRequestStockOrder = lazy(() => import('./TAFI_Request_Stock_Order'))
 const TafiInventoryLog = lazy(() => import('./TAFI_Inventory_log'))
 import logoImage from '../../images/Tafi logo transparent.png'
@@ -46,13 +48,15 @@ const navigationGroups = [
 		label: 'Inventory',
 		items: [
 			{ id: 'inventory', label: 'Inventory Information', icon: Package },
-			{ id: 'stock-inventory', label: 'Stock Inventory', icon: Package },
-			{ id: 'stock-requests', label: 'Stock Requests', icon: ClipboardList },
+			{ id: 'stock-inventory', label: 'TAFI Stock Inventory', icon: Package },
+			{ id: 'branch-inventory-stock', label: 'Branch Inventory Stock', icon: Package },
+			{ id: 'stock-requests', label: 'Branch Stock Requests', icon: ClipboardList },
 			{ id: 'inventory-log', label: 'Branch Usage Log', icon: ClipboardList }
 		]
 	}
 ]
-const navigationItems = navigationGroups.flatMap((group) => group.items)
+const overviewNavigationItem = { id: 'overview', label: 'Overview', icon: Home }
+const navigationItems = [overviewNavigationItem, ...navigationGroups.flatMap((group) => group.items)]
 
 export default function TafiDashboard() {
 	const location = useLocation()
@@ -61,7 +65,7 @@ export default function TafiDashboard() {
 	const isSessionActive = useRoleSessionExpiry(tafiAdmin, '/tafi-admin-login')
 	const [activePage, setActivePage] = useSessionStorageState(
 		'tafi-admin-dashboard-page',
-		'employees',
+		'overview',
 		navigationItems.map((item) => item.id)
 	)
 	const [expandedGroups, setExpandedGroups] = useState(() => {
@@ -71,6 +75,16 @@ export default function TafiDashboard() {
 		return { [activeGroup?.id ?? 'employee-management']: true }
 	})
 	const [signOutError, setSignOutError] = useState('')
+
+	const navigateToPage = (id) => {
+		setActivePage(id)
+		const activeGroup = navigationGroups.find((group) =>
+			group.items.some((item) => item.id === id)
+		)
+		if (activeGroup) {
+			setExpandedGroups((current) => ({ ...current, [activeGroup.id]: true }))
+		}
+	}
 
 	if (!isSessionActive) return <Navigate to="/tafi-admin-login" replace />
 
@@ -97,6 +111,15 @@ export default function TafiDashboard() {
 
 				<p className="tafi-admin-nav-label">Workspace</p>
 				<nav className="tafi-admin-nav" aria-label="Dashboard sections">
+					<button
+						type="button"
+						className={`tafi-admin-nav-item${activePage === overviewNavigationItem.id ? ' active' : ''}`}
+						aria-current={activePage === overviewNavigationItem.id ? 'page' : undefined}
+						onClick={() => navigateToPage(overviewNavigationItem.id)}
+					>
+						<Home size={19} aria-hidden="true" />
+						<span>{overviewNavigationItem.label}</span>
+					</button>
 					{navigationGroups.map((group) => {
 						const isExpanded = Boolean(expandedGroups[group.id])
 						const containsActivePage = group.items.some((item) => item.id === activePage)
@@ -129,10 +152,7 @@ export default function TafiDashboard() {
 											type="button"
 											className={`tafi-admin-nav-item${activePage === id ? ' active' : ''}`}
 											aria-current={activePage === id ? 'page' : undefined}
-											onClick={() => {
-												setActivePage(id)
-												setExpandedGroups((current) => ({ ...current, [group.id]: true }))
-											}}
+											onClick={() => navigateToPage(id)}
 										>
 											<Icon size={19} aria-hidden="true" />
 											<span>{label}</span>
@@ -167,7 +187,9 @@ export default function TafiDashboard() {
 				</header>
 
 				<section className="tafi-admin-content" aria-live="polite">
-					{activePage === 'employees'
+					{activePage === 'overview'
+						? <TafiOverview adminName={tafiAdmin.admin_name} />
+						: activePage === 'employees'
 						? <TafiEmployee sessionToken={tafiAdmin.session_token} />
 						: activePage === 'attendance'
 							? <TafiEmployeeAttendance sessionToken={tafiAdmin.session_token} />
@@ -193,7 +215,13 @@ export default function TafiDashboard() {
 											<TafiStockInventory sessionToken={tafiAdmin.session_token} />
 										</Suspense>
 									)
-									: activePage === 'stock-requests'
+								: activePage === 'branch-inventory-stock'
+									? (
+										<Suspense fallback={<p className="other-deduction-message" role="status">Loading branch inventory stock...</p>}>
+											<TafiBranchInventoryStock sessionToken={tafiAdmin.session_token} />
+										</Suspense>
+									)
+								: activePage === 'stock-requests'
 										? (
 											<Suspense fallback={<p className="other-deduction-message" role="status">Loading stock requests...</p>}>
 												<TafiRequestStockOrder sessionToken={tafiAdmin.session_token} />

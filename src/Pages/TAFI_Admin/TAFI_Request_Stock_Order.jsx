@@ -10,6 +10,7 @@ import {
 	saveTafiAdminStockRequestPreparationItem,
 	startTafiAdminStockRequestPreparation
 } from '../../lib/supabase'
+import { downloadTafiStockRequestHoitf } from './tafiStockRequestHoitfExport'
 
 const requestDateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
 	timeZone: 'Asia/Manila',
@@ -21,16 +22,28 @@ const requestDateLabelFormatter = new Intl.DateTimeFormat(undefined, {
 	timeZone: 'Asia/Manila',
 	dateStyle: 'full'
 })
+const preparationPriceFormatter = new Intl.NumberFormat('en-PH', {
+	style: 'currency',
+	currency: 'PHP'
+})
 const getRequestDateKey = (createdAt) => {
 	const parts = requestDateKeyFormatter.formatToParts(new Date(createdAt))
 	return ['year', 'month', 'day']
 		.map((partType) => parts.find((part) => part.type === partType).value)
 		.join('-')
 }
+const getPreparationHistoryDateKey = (requestDate) => String(requestDate ?? '').slice(0, 10)
+const formatPreparationTotalPrice = (quantity, unitPrice) => {
+	if (unitPrice === null || unitPrice === undefined || unitPrice === '') return '—'
+	const totalPrice = Number(quantity) * Number(unitPrice)
+	return Number.isFinite(totalPrice) ? preparationPriceFormatter.format(totalPrice) : '—'
+}
 
 export default function TafiRequestStockOrder({ sessionToken }) {
 	const [requests, setRequests] = useState([])
 	const [branchFilter, setBranchFilter] = useState('')
+	const [transformBranchFilter, setTransformBranchFilter] = useState('')
+	const [transformSelectedMonth, setTransformSelectedMonth] = useState('')
 	const [selectedMonth, setSelectedMonth] = useState('')
 	const [activeTab, setActiveTab] = useState('requests')
 	const [isLoading, setIsLoading] = useState(true)
@@ -99,6 +112,13 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 		() => [...new Set(requests.map((request) => request.branch_name).filter(Boolean))]
 			.sort((a, b) => a.localeCompare(b)),
 		[requests]
+	)
+	const transformBranches = useMemo(
+		() => [...new Set([
+			...requests.map((request) => request.branch_name),
+			...preparationHistory.map((item) => item.branch_name)
+		].filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+		[preparationHistory, requests]
 	)
 
 	const filteredRequests = useMemo(() => {
@@ -179,6 +199,32 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 			|| first.branchName.localeCompare(second.branchName)
 		)
 	}, [requests])
+	const filteredPreparingDeliveryBatches = useMemo(
+		() => preparingDeliveryBatches.filter((batch) => (
+			batch.branchName === transformBranchFilter
+			&& (!transformSelectedMonth || batch.dateKey.startsWith(transformSelectedMonth))
+		)),
+		[preparingDeliveryBatches, transformBranchFilter, transformSelectedMonth]
+	)
+	const filteredPreparationHistory = useMemo(
+		() => preparationHistory.filter((item) => (
+			item.branch_name === transformBranchFilter
+			&& (!transformSelectedMonth
+				|| getPreparationHistoryDateKey(item.request_date).startsWith(transformSelectedMonth))
+		)),
+		[preparationHistory, transformBranchFilter, transformSelectedMonth]
+	)
+	const preparationHistoryByDate = useMemo(() => {
+		const groups = new Map()
+		filteredPreparationHistory.forEach((item) => {
+			const dateKey = getPreparationHistoryDateKey(item.request_date)
+			if (!groups.has(dateKey)) groups.set(dateKey, [])
+			groups.get(dateKey).push(item)
+		})
+		return [...groups.entries()]
+			.sort(([firstDate], [secondDate]) => secondDate.localeCompare(firstDate))
+			.map(([dateKey, items]) => ({ dateKey, items }))
+	}, [filteredPreparationHistory])
 	const pendingDeliveryDates = useMemo(() => {
 		const groups = new Map()
 		pendingDeliveryBatches.forEach((batch) => {
@@ -398,11 +444,26 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 			sessionToken,
 			preparationId
 		)
-		setIsCompletingPreparation(false)
 		if (error) {
+			setIsCompletingPreparation(false)
 			setErrorMessage(error.message)
 			return
 		}
+
+		let hoitfFileName = ''
+		let hoitfDownloadError = null
+		try {
+			hoitfFileName = await downloadTafiStockRequestHoitf(
+				preparationItems,
+				activePreparationRequests[0]?.branch_name
+			)
+		} catch (downloadError) {
+			hoitfDownloadError = downloadError instanceof Error
+				? downloadError.message
+				: 'Unable to prepare the HOITF workbook.'
+		}
+
+		setIsCompletingPreparation(false)
 		setPreparationId('')
 		setPreparationItems([])
 		setRequests((current) => current.map((request) => deliveredRequestIds.has(request.request_id)
@@ -414,14 +475,18 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 			: request))
 		const refreshError = await loadRequests()
 		const historyError = await loadPreparationHistory()
-		if (refreshError) {
-			setNotice('The stock was marked delivered, but the request list could not be refreshed.')
-			return
-		}
 		setActiveTab('deliver')
-		setNotice(historyError
-			? 'Prepared quantities were deducted from TAFI barcode stock and marked delivered, but the transform history could not be refreshed.'
-			: 'Prepared quantities were deducted from TAFI barcode stock and marked delivered.')
+		const followUpErrors = [
+			refreshError && `The request list could not be refreshed: ${refreshError.message}`,
+			historyError && `The transform history could not be refreshed: ${historyError.message}`,
+			hoitfDownloadError && `The HOITF workbook could not be downloaded: ${hoitfDownloadError}`
+		].filter(Boolean)
+		setErrorMessage(followUpErrors.join(' '))
+		setNotice(
+			`Prepared quantities were deducted from TAFI barcode stock and marked delivered. ${
+				hoitfFileName ? `Downloaded ${hoitfFileName}.` : ''
+			}`
+		)
 	}
 
 	return (
@@ -696,17 +761,45 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 						<p>Scan the requested barcode items, enter prepared quantities, and confirm unit prices if needed.</p>
 					</div>
 				</div>
+				{!preparationId && (
+					<div className="tafi-stock-inventory-filters">
+						<label>
+							<span>Filter by branch</span>
+							<select
+								value={transformBranchFilter}
+								onChange={(event) => setTransformBranchFilter(event.target.value)}
+							>
+								<option value="" disabled>Select a branch</option>
+								{transformBranches.map((branch) => (
+									<option key={branch} value={branch}>{branch}</option>
+								))}
+							</select>
+						</label>
+						<label className="tafi-stock-request-month-filter">
+							<span>Filter by month</span>
+							<input
+								type="month"
+								value={transformSelectedMonth}
+								onChange={(event) => setTransformSelectedMonth(event.target.value)}
+							/>
+						</label>
+					</div>
+				)}
 				{errorMessage && <p className="accountant-inventory-error" role="alert">{errorMessage}</p>}
 				{notice && <p className="accountant-inventory-notice" role="status">{notice}</p>}
 
 				{!preparationId ? (
 					<>
-						{preparingDeliveryBatches.length ? (
+						{!transformBranchFilter ? (
+							<p className="accountant-inventory-empty">
+								Select a branch to view its preparations and completed transform records.
+							</p>
+						) : filteredPreparingDeliveryBatches.length ? (
 							<div className="tafi-stock-preparing-orders">
 								<p className="accountant-inventory-empty">
 									Choose a preparation in progress to reopen its scan list.
 								</p>
-								{preparingDeliveryBatches.map((batch) => (
+								{filteredPreparingDeliveryBatches.map((batch) => (
 									<section
 										className="accountant-inventory-panel tafi-stock-delivery-branch"
 										key={batch.key}
@@ -732,6 +825,11 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 									</section>
 								))}
 							</div>
+						) : preparingDeliveryBatches.length ? (
+							<p className="accountant-inventory-empty">
+								No preparations in progress for {transformBranchFilter}
+								{transformSelectedMonth ? ` in ${transformSelectedMonth}.` : '.'}
+							</p>
 						) : (
 							<p className="accountant-inventory-empty">
 								Start a preparation from the Purchase Order Request Form to open its scan list.
@@ -744,42 +842,58 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 								<p className="accountant-inventory-empty" role="status">
 									Loading transform history...
 								</p>
-							) : preparationHistory.length ? (
-								<div className="accountant-inventory-table-wrap">
-									<table className="accountant-inventory-table">
-										<thead>
-											<tr>
-												<th scope="col">Branch</th>
-												<th scope="col">Request date</th>
-												<th scope="col">Stock no.</th>
-												<th scope="col">Category</th>
-												<th scope="col">Item description</th>
-												<th scope="col">Unit of measure</th>
-												<th scope="col">Quantity</th>
-												<th scope="col">Unit price</th>
-												<th scope="col">Barcode</th>
-											</tr>
-										</thead>
-										<tbody>
-											{preparationHistory.map((item) => (
-												<tr key={`${item.preparation_id}-${item.barcode}`}>
-													<td>{item.branch_name}</td>
-													<td>{item.request_date}</td>
-													<td>{item.stock_no}</td>
-													<td>{item.category || '—'}</td>
-													<td>{item.item_description}</td>
-													<td>{item.unit_of_measure}</td>
-													<td>{item.quantity}</td>
-													<td>{item.unit_price ?? '—'}</td>
-													<td>{item.barcode}</td>
-												</tr>
-											))}
-										</tbody>
-									</table>
-								</div>
+							) : !transformBranchFilter ? (
+								<p className="accountant-inventory-empty">
+									Select a branch to view its completed transform records.
+								</p>
+							) : filteredPreparationHistory.length ? (
+								preparationHistoryByDate.map(({ dateKey, items }) => {
+									const date = dateKey ? new Date(`${dateKey}T12:00:00+08:00`) : null
+									const dateLabel = date && !Number.isNaN(date.getTime())
+										? requestDateLabelFormatter.format(date)
+										: 'Date unavailable'
+									return (
+										<div className="tafi-stock-delivery-date-group" key={dateKey || 'date-unavailable'}>
+											<h4 className="tafi-stock-delivery-date-heading">{dateLabel}</h4>
+											<div className="accountant-inventory-table-wrap">
+												<table className="accountant-inventory-table">
+													<thead>
+														<tr>
+															<th scope="col">Branch</th>
+															<th scope="col">Stock no.</th>
+															<th scope="col">Category</th>
+															<th scope="col">Item description</th>
+															<th scope="col">Unit of measure</th>
+															<th scope="col">Quantity</th>
+															<th scope="col">Unit price</th>
+															<th scope="col">Total price</th>
+															<th scope="col">Barcode</th>
+														</tr>
+													</thead>
+													<tbody>
+														{items.map((item) => (
+															<tr key={`${item.preparation_id}-${item.barcode}`}>
+																<td>{item.branch_name}</td>
+																<td>{item.stock_no}</td>
+																<td>{item.category || '—'}</td>
+																<td>{item.item_description}</td>
+																<td>{item.unit_of_measure}</td>
+																<td>{item.quantity}</td>
+																<td>{item.unit_price ?? '—'}</td>
+																<td>{formatPreparationTotalPrice(item.quantity, item.unit_price)}</td>
+																<td>{item.barcode}</td>
+															</tr>
+														))}
+													</tbody>
+												</table>
+											</div>
+										</div>
+									)
+								})
 							) : (
 								<p className="accountant-inventory-empty">
-									No completed transform records are available.
+									No completed transform records match {transformBranchFilter}
+									{transformSelectedMonth ? ` in ${transformSelectedMonth}.` : '.'}
 								</p>
 							)}
 						</section>
@@ -916,6 +1030,7 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 												<th scope="col">Unit of measure</th>
 												<th scope="col">Quantity</th>
 												<th scope="col">Unit price</th>
+												<th scope="col">Total price</th>
 												<th scope="col">Barcode</th>
 												<th scope="col">Action</th>
 											</tr>
@@ -929,6 +1044,7 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 													<td>{item.unit_of_measure}</td>
 													<td>{item.quantity}</td>
 													<td>{item.unit_price ?? '—'}</td>
+													<td>{formatPreparationTotalPrice(item.quantity, item.unit_price)}</td>
 													<td>{item.barcode}</td>
 													<td>
 														<button

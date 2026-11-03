@@ -5780,7 +5780,8 @@ fieldset.employee-emergency-contact-box {
   font-weight: 650;
 }
 
-.tafi-stock-record-filters input {
+.tafi-stock-record-filters input,
+.tafi-stock-record-filters select {
   min-height: 42px;
   padding: 9px 11px;
   border: 1px solid #cbd5e1;
@@ -5791,7 +5792,8 @@ fieldset.employee-emergency-contact-box {
   font-size: 0.88rem;
 }
 
-.tafi-stock-record-filters input:focus-visible {
+.tafi-stock-record-filters input:focus-visible,
+.tafi-stock-record-filters select:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 1px;
 }
@@ -5994,6 +5996,25 @@ fieldset.employee-emergency-contact-box {
   color: #1e293b;
 }
 
+.branch-inventory-table tbody tr {
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.branch-inventory-table tbody tr:hover td,
+.branch-inventory-table tbody tr:focus-visible td {
+  background-color: #eff6ff;
+}
+
+.branch-inventory-table tbody tr.branch-inventory-row-selected td {
+  background-color: #dbeafe;
+}
+
+.branch-inventory-table tbody tr.branch-inventory-row-selected:hover td,
+.branch-inventory-table tbody tr.branch-inventory-row-selected:focus-visible td {
+  background-color: #bfdbfe;
+}
+
 .accountant-inventory-table tbody tr.accountant-inventory-row-zero-stock td {
   color: #991b1b;
   background: #fef2f2;
@@ -6077,37 +6098,6 @@ fieldset.employee-emergency-contact-box {
 .branch-inventory-history-date select:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 1px;
-}
-
-.branch-stock-received-field {
-  display: grid;
-  min-width: 150px;
-  gap: 5px;
-  color: #475569;
-  font-size: 0.72rem;
-  font-weight: 650;
-}
-
-.branch-stock-received-input {
-  width: 100%;
-  min-height: 40px;
-  padding: 8px 10px;
-  border: 1px solid #94a3b8;
-  border-radius: 7px;
-  color: #0f172a;
-  background: #fff;
-  font: inherit;
-  font-size: 0.86rem;
-}
-
-.branch-stock-received-input:focus-visible {
-  outline: 2px solid #2563eb;
-  outline-offset: 1px;
-}
-
-.branch-stock-received-input:disabled {
-  background: #f1f5f9;
-  cursor: wait;
 }
 
 .branch-stock-request-line {
@@ -8144,6 +8134,114 @@ fieldset.employee-emergency-contact-box {
 
 .tafi-admin-content {
   min-width: 0;
+}
+
+.tafi-overview {
+  display: grid;
+  gap: 18px;
+}
+
+.tafi-overview-intro,
+.tafi-overview-card {
+  padding: 22px;
+  border: 1px solid #e2eae6;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(24, 58, 51, 0.045);
+}
+
+.tafi-overview-intro .eyebrow {
+  margin: 0 0 8px;
+  color: #9a7a32;
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.tafi-overview-intro h2,
+.tafi-overview-card h3 {
+  margin: 0;
+  color: #17363a;
+}
+
+.tafi-overview-intro > p:last-child {
+  margin: 8px 0 0;
+  color: #48615c;
+}
+
+.tafi-overview-verse {
+  margin: 0;
+  padding: 18px 22px;
+  border: 1px solid #e8dfbf;
+  border-left: 4px solid #d5b45b;
+  border-radius: 12px;
+  background: #fbf8ed;
+}
+
+.tafi-overview-verse p {
+  margin: 0;
+  color: #344c43;
+  font-size: 1.02rem;
+  font-style: italic;
+  line-height: 1.6;
+}
+
+.tafi-overview-verse cite {
+  display: block;
+  margin-top: 8px;
+  color: #765d1f;
+  font-size: 0.82rem;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.tafi-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 16px;
+}
+
+.tafi-overview-card h3 {
+  margin: 10px 0 8px;
+  font-size: 1rem;
+}
+
+.tafi-overview-card > p {
+  margin: 0;
+  color: #48615c;
+  line-height: 1.55;
+}
+
+.tafi-overview-card-category {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #267e69;
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tafi-overview-important {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-left: 3px solid #d5b45b;
+  border-radius: 0 8px 8px 0;
+  background: #fbf8ed;
+}
+
+.tafi-overview-important strong {
+  color: #765d1f;
+  font-size: 0.78rem;
+}
+
+.tafi-overview-important p {
+  margin: 4px 0 0;
+  color: #5c5234;
+  font-size: 0.86rem;
+  line-height: 1.5;
 }
 
 @media (max-width: 900px) {

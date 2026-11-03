@@ -2003,6 +2003,21 @@ export async function listAccountantTafiStockOutRecords(sessionToken, month = nu
   }
 }
 
+export async function listAccountantTafiSummaryStockRecords(sessionToken, month = null) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_list_tafi_summary_stock_records', {
+      p_session_token: sessionToken,
+      p_month: month ? `${month}-01` : null
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the stock record summary.')
+    }
+  }
+}
+
 export async function listAccountantBranchStockInventory(sessionToken) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -2276,6 +2291,20 @@ export async function listBranchStockReceiptHistory(sessionToken) {
   		data: null,
   		error: error instanceof Error ? error : new Error('Unable to load stock receipt history.')
   	}
+  }
+}
+
+export async function listBranchStockInRecords(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_list_stock_in_records', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load branch stock-in records.')
+    }
   }
 }
 

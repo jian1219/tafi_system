@@ -112,7 +112,7 @@ export default function AccountantDashboard() {
 						onClick={() => setActivePage('barcode')}
 					>
 						<Barcode size={19} aria-hidden="true" />
-						<span>Barcode Inventory</span>
+						<span>TAFI Inventory</span>
 					</button>
 				</nav>
 

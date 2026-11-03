@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import {
 	listAccountantTafiBarcodeInventory,
 	listAccountantTafiStockInRecords,
-	listAccountantTafiStockOutRecords
+	listAccountantTafiStockOutRecords,
+	listAccountantTafiSummaryStockRecords
 } from '../../lib/supabase'
 
 function getLocalMonthInputValue() {
@@ -52,9 +53,13 @@ export default function AccountantBarcode({ sessionToken }) {
 	const [stockInError, setStockInError] = useState('')
 	const [stockOutRecords, setStockOutRecords] = useState([])
 	const [stockOutMonth, setStockOutMonth] = useState(getLocalMonthInputValue)
-	const [stockOutDay, setStockOutDay] = useState('')
+	const [stockOutBranch, setStockOutBranch] = useState('')
 	const [isStockOutLoading, setIsStockOutLoading] = useState(true)
 	const [stockOutError, setStockOutError] = useState('')
+	const [summaryStockRecords, setSummaryStockRecords] = useState([])
+	const [summaryMonth, setSummaryMonth] = useState(getLocalMonthInputValue)
+	const [isSummaryLoading, setIsSummaryLoading] = useState(true)
+	const [summaryError, setSummaryError] = useState('')
 
 	const filteredBarcodeItems = useMemo(() => {
 		const query = barcodeSearch.trim().toLocaleLowerCase()
@@ -70,6 +75,29 @@ export default function AccountantBarcode({ sessionToken }) {
 			item.total_price
 		].some((value) => String(value ?? '').toLocaleLowerCase().includes(query)))
 	}, [barcodeItems, barcodeSearch])
+	const stockOutBranches = useMemo(
+		() => [...new Set([
+			...stockOutRecords.map((record) => record.branch),
+			stockOutBranch
+		].filter(Boolean))]
+			.sort((left, right) => left.localeCompare(right)),
+		[stockOutBranch, stockOutRecords]
+	)
+	const filteredStockOutRecords = useMemo(
+		() => stockOutRecords.filter((record) => record.branch === stockOutBranch),
+		[stockOutBranch, stockOutRecords]
+	)
+	const stockOutRecordsByDate = useMemo(() => {
+		const groups = new Map()
+		filteredStockOutRecords.forEach((record) => {
+			const dateKey = String(record.date ?? '').slice(0, 10)
+			if (!groups.has(dateKey)) groups.set(dateKey, [])
+			groups.get(dateKey).push(record)
+		})
+		return [...groups.entries()]
+			.sort(([firstDate], [secondDate]) => secondDate.localeCompare(firstDate))
+			.map(([dateKey, records]) => ({ dateKey, records }))
+	}, [filteredStockOutRecords])
 
 	useEffect(() => {
 		if (activeTab !== 'barcodes') return
@@ -151,8 +179,7 @@ export default function AccountantBarcode({ sessionToken }) {
 			setStockOutError('')
 			const { data, error } = await listAccountantTafiStockOutRecords(
 				sessionToken,
-				stockOutMonth || null,
-				stockOutDay || null
+				stockOutMonth || null
 			)
 			if (!isCurrent) return
 			setIsStockOutLoading(false)
@@ -168,7 +195,39 @@ export default function AccountantBarcode({ sessionToken }) {
 		return () => {
 			isCurrent = false
 		}
-	}, [sessionToken, stockOutDay, stockOutMonth])
+	}, [sessionToken, stockOutMonth])
+
+	useEffect(() => {
+		let isCurrent = true
+
+		const loadSummaryRecords = async () => {
+			if (!sessionToken) {
+				setIsSummaryLoading(false)
+				setSummaryError('Accountant session is unavailable. Please sign in again.')
+				return
+			}
+
+			setIsSummaryLoading(true)
+			setSummaryError('')
+			const { data, error } = await listAccountantTafiSummaryStockRecords(
+				sessionToken,
+				summaryMonth || null
+			)
+			if (!isCurrent) return
+			setIsSummaryLoading(false)
+			if (error) {
+				setSummaryError(error.message)
+				return
+			}
+
+			setSummaryStockRecords(data ?? [])
+		}
+
+		loadSummaryRecords()
+		return () => {
+			isCurrent = false
+		}
+	}, [sessionToken, summaryMonth])
 
 	const refreshBarcodeInventory = async () => {
 		setIsBarcodeLoading(true)
@@ -205,8 +264,7 @@ export default function AccountantBarcode({ sessionToken }) {
 		setStockOutError('')
 		const { data, error } = await listAccountantTafiStockOutRecords(
 			sessionToken,
-			stockOutMonth || null,
-			stockOutDay || null
+			stockOutMonth || null
 		)
 		setIsStockOutLoading(false)
 		if (error) {
@@ -215,6 +273,22 @@ export default function AccountantBarcode({ sessionToken }) {
 		}
 
 		setStockOutRecords(data ?? [])
+	}
+
+	const refreshSummaryRecords = async () => {
+		setIsSummaryLoading(true)
+		setSummaryError('')
+		const { data, error } = await listAccountantTafiSummaryStockRecords(
+			sessionToken,
+			summaryMonth || null
+		)
+		setIsSummaryLoading(false)
+		if (error) {
+			setSummaryError(error.message)
+			return
+		}
+
+		setSummaryStockRecords(data ?? [])
 	}
 
 	return (
@@ -353,6 +427,17 @@ export default function AccountantBarcode({ sessionToken }) {
 					>
 						Stock Out Records
 					</button>
+					<button
+						type="button"
+						id="accountant-tafi-stock-summary-tab"
+						className={`accountant-inventory-tab${activeRecordTab === 'summary' ? ' active' : ''}`}
+						role="tab"
+						aria-selected={activeRecordTab === 'summary'}
+						aria-controls="accountant-tafi-stock-summary-panel"
+						onClick={() => setActiveRecordTab('summary')}
+					>
+						COGS
+					</button>
 				</div>
 
 				<div
@@ -459,10 +544,9 @@ export default function AccountantBarcode({ sessionToken }) {
 						<div>
 							<h2>Stock Out Records</h2>
 							<p>
-								{stockOutRecords.length} record{stockOutRecords.length === 1 ? '' : 's'}
-								{stockOutDay
-									? ` for ${formatRecordDate(stockOutDay)}`
-									: ` for ${formatRecordMonth(stockOutMonth)}`}
+								{stockOutBranch
+									? `${filteredStockOutRecords.length} record${filteredStockOutRecords.length === 1 ? '' : 's'} for ${stockOutBranch} in ${formatRecordMonth(stockOutMonth)}`
+									: `Select a branch to view stock-out records for ${formatRecordMonth(stockOutMonth)}`}
 							</p>
 						</div>
 						<button
@@ -484,60 +568,162 @@ export default function AccountantBarcode({ sessionToken }) {
 								required
 								onChange={(event) => {
 									if (event.target.value) setStockOutMonth(event.target.value)
-									setStockOutDay('')
 								}}
 							/>
 						</label>
-						<label htmlFor="accountant-tafi-stock-out-day">
-							<span>Filter by day (optional)</span>
-							<input
-								id="accountant-tafi-stock-out-day"
-								type="date"
-								value={stockOutDay}
-								onChange={(event) => {
-									const date = event.target.value
-									setStockOutDay(date)
-									if (date) setStockOutMonth(date.slice(0, 7))
-								}}
-							/>
+						<label htmlFor="accountant-tafi-stock-out-branch">
+							<span>Filter by branch</span>
+							<select
+								id="accountant-tafi-stock-out-branch"
+								value={stockOutBranch}
+								onChange={(event) => setStockOutBranch(event.target.value)}
+							>
+								<option value="" disabled>Select a branch</option>
+								{stockOutBranches.map((branch) => (
+									<option key={branch} value={branch}>{branch}</option>
+								))}
+							</select>
 						</label>
 					</div>
 					{stockOutError && <p className="accountant-inventory-error" role="alert">{stockOutError}</p>}
 					{isStockOutLoading ? (
 						<p className="accountant-inventory-empty" role="status">Loading stock-out records...</p>
-					) : stockOutError ? null : stockOutRecords.length ? (
-						<div className="accountant-inventory-table-wrap">
-							<table className="accountant-inventory-table">
+					) : stockOutError ? null : !stockOutBranch ? (
+						<p className="accountant-inventory-empty" role="status">
+							Select a branch to view its stock-out records.
+						</p>
+					) : filteredStockOutRecords.length ? (
+						stockOutRecordsByDate.map(({ dateKey, records }) => (
+							<div className="tafi-stock-delivery-date-group" key={dateKey || 'date-unavailable'}>
+								<h3 className="tafi-stock-delivery-date-heading">{formatRecordDate(dateKey)}</h3>
+								<div className="accountant-inventory-table-wrap">
+									<table className="accountant-inventory-table">
+										<thead>
+											<tr>
+												<th scope="col">Barcode</th>
+												<th scope="col">Stock no.</th>
+												<th scope="col">Item description</th>
+												<th scope="col">Unit of measure</th>
+												<th scope="col">Branch</th>
+												<th scope="col">Stock out count</th>
+												<th scope="col">Per Item Price</th>
+												<th scope="col">Total Price</th>
+											</tr>
+										</thead>
+										<tbody>
+											{records.map((record, index) => (
+												<tr key={`${record.barcode}-${record.stock_no}-${dateKey}-${index}`}>
+													<td>{record.barcode}</td>
+													<td>{record.stock_no}</td>
+													<td>{record.item_description}</td>
+													<td>{record.unit_of_measure}</td>
+													<td>{record.branch || '—'}</td>
+													<td>{record.stock_out_count}</td>
+													<td>{formatPrice(record.price)}</td>
+													<td>{formatPrice(record.total_price)}</td>
+												</tr>
+											))}
+										</tbody>
+									</table>
+								</div>
+							</div>
+						))
+					) : (
+						<p className="accountant-inventory-empty">No stock-out records found for this filter.</p>
+					)}
+				</div>
+
+				<div
+					id="accountant-tafi-stock-summary-panel"
+					className="tafi-stock-records-subpanel"
+					role="tabpanel"
+					aria-labelledby="accountant-tafi-stock-summary-tab"
+					hidden={activeRecordTab !== 'summary'}
+				>
+					<div className="accountant-inventory-list-heading">
+						<div>
+							<h2>Summary Stock Record</h2>
+							<p>
+								{summaryStockRecords.length} item summar{summaryStockRecords.length === 1 ? 'y' : 'ies'}
+								{` for ${formatRecordMonth(summaryMonth)}`}
+							</p>
+						</div>
+						<button
+							type="button"
+							className="accountant-inventory-add-toggle"
+							onClick={refreshSummaryRecords}
+							disabled={isSummaryLoading}
+						>
+							{isSummaryLoading ? 'Refreshing...' : 'Refresh'}
+						</button>
+					</div>
+					<div className="tafi-stock-record-filters">
+						<label htmlFor="accountant-tafi-stock-summary-month">
+							<span>Filter by month</span>
+							<input
+								id="accountant-tafi-stock-summary-month"
+								type="month"
+								value={summaryMonth}
+								required
+								onChange={(event) => {
+									if (event.target.value) setSummaryMonth(event.target.value)
+								}}
+							/>
+						</label>
+					</div>
+					{summaryError && <p className="accountant-inventory-error" role="alert">{summaryError}</p>}
+					{isSummaryLoading ? (
+						<p className="accountant-inventory-empty" role="status">Loading stock record summary...</p>
+					) : summaryError ? null : summaryStockRecords.length ? (
+						<div
+							className="accountant-inventory-table-wrap tafi-summary-stock-record-table-wrap"
+							role="region"
+							aria-label="Summary stock record table"
+							tabIndex={0}
+						>
+							<table className="accountant-inventory-table tafi-summary-stock-record-table">
 								<thead>
 									<tr>
-										<th scope="col">Barcode</th>
-										<th scope="col">Stock no.</th>
-										<th scope="col">Item description</th>
-										<th scope="col">Unit of measure</th>
-										<th scope="col">Stock out count</th>
-										<th scope="col">Per Item Price</th>
-										<th scope="col">Total Price</th>
-										<th scope="col">Date</th>
+										<th scope="col" rowSpan="2">Stock no.</th>
+										<th scope="col" rowSpan="2">Item description</th>
+										<th scope="col" rowSpan="2">Unit of measure</th>
+										<th scope="colgroup" colSpan="2">Beginning Inventory</th>
+										<th scope="colgroup" colSpan="2">Stock in</th>
+										<th scope="colgroup" colSpan="2">Stock out</th>
+										<th scope="colgroup" colSpan="2">Ending Inventory</th>
+									</tr>
+									<tr>
+										<th scope="col">Quantity</th>
+										<th scope="col">Total</th>
+										<th scope="col">Quantity</th>
+										<th scope="col">Total</th>
+										<th scope="col">Quantity</th>
+										<th scope="col">Total</th>
+										<th scope="col">Quantity</th>
+										<th scope="col">Total</th>
 									</tr>
 								</thead>
 								<tbody>
-									{stockOutRecords.map((record) => (
-										<tr key={`${record.barcode}-${record.date}`}>
-											<td>{record.barcode}</td>
+									{summaryStockRecords.map((record) => (
+										<tr key={record.stock_no}>
 											<td>{record.stock_no}</td>
 											<td>{record.item_description}</td>
 											<td>{record.unit_of_measure}</td>
-											<td>{record.stock_out_count}</td>
-											<td>{formatPrice(record.price)}</td>
-											<td>{formatPrice(record.total_price)}</td>
-											<td>{formatRecordDate(record.date)}</td>
+											<td>{Number(record.beginning_inventory_quantity).toLocaleString()}</td>
+											<td>{formatPrice(record.beginning_inventory_total)}</td>
+											<td>{Number(record.stock_in_quantity).toLocaleString()}</td>
+											<td>{formatPrice(record.stock_in_total)}</td>
+											<td>{Number(record.stock_out_quantity).toLocaleString()}</td>
+											<td>{formatPrice(record.stock_out_total)}</td>
+											<td>{Number(record.ending_inventory_quantity).toLocaleString()}</td>
+											<td>{formatPrice(record.ending_inventory_total)}</td>
 										</tr>
 									))}
 								</tbody>
 							</table>
 						</div>
 					) : (
-						<p className="accountant-inventory-empty">No stock-out records found for this filter.</p>
+						<p className="accountant-inventory-empty">No stock records found for this month.</p>
 					)}
 				</div>
 			</div>

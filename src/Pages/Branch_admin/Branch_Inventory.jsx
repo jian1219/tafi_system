@@ -6,6 +6,7 @@ export default function BranchInventory({ branchName = 'Branch', branchAdmin }) 
 	const [inventoryItems, setInventoryItems] = useState([])
 	const [searchTerm, setSearchTerm] = useState('')
 	const [categoryFilter, setCategoryFilter] = useState('')
+	const [selectedInventoryItemId, setSelectedInventoryItemId] = useState(null)
 	const [isLoading, setIsLoading] = useState(Boolean(sessionToken))
 	const [loadError, setLoadError] = useState('')
 	const [retryCount, setRetryCount] = useState(0)
@@ -103,7 +104,7 @@ export default function BranchInventory({ branchName = 'Branch', branchAdmin }) 
 					</div>
 					{filteredItems.length ? (
 						<div className="accountant-inventory-table-wrap">
-							<table className="accountant-inventory-table">
+							<table className="accountant-inventory-table branch-inventory-table">
 								<thead>
 									<tr>
 										<th scope="col">Stock no.</th>
@@ -115,7 +116,22 @@ export default function BranchInventory({ branchName = 'Branch', branchAdmin }) 
 								</thead>
 								<tbody>
 									{filteredItems.map((item) => (
-										<tr key={item.branch_inventory_id}>
+										<tr
+											key={item.branch_inventory_id}
+											className={selectedInventoryItemId === item.branch_inventory_id
+												? 'branch-inventory-row-selected'
+												: undefined}
+											aria-label={`Select inventory row for stock ${item.stock_no}`}
+											aria-selected={selectedInventoryItemId === item.branch_inventory_id}
+											tabIndex={0}
+											onClick={() => setSelectedInventoryItemId(item.branch_inventory_id)}
+											onKeyDown={(event) => {
+												if (event.key === 'Enter' || event.key === ' ') {
+													event.preventDefault()
+													setSelectedInventoryItemId(item.branch_inventory_id)
+												}
+											}}
+										>
 											<td>{item.stock_no}</td>
 											<td>{item.category}</td>
 											<td>{item.item_description}</td>

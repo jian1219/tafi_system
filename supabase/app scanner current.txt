@@ -1,0 +1,410 @@
+TAFI ADMIN STOCK REQUEST TAB
+Detailed Flow, Supabase Tables, RPCs, and Adaptation Guide
+
+PURPOSE
+
+This guide explains the Stock Requests tab and Inventory Transform Form in the TAFI Scanner project. It is written so you can explain the design to another project or use it as an adaptation checklist.
+
+This is a description of the reference project's implementation. The other project may use different table names, request statuses, authentication, barcode inventory, receipt handling, or stock rules. Inspect that project's schema and adapt the design rather than copying the SQL unchanged.
+
+
+1. CONCEPTUAL OVERVIEW
+
+The Stock Requests tab is the TAFI Admin workflow for taking branch stock requests, preparing the requested items, and recording the point at which those items leave TAFI stock.
+
+It has two views:
+
+- Requests: shows active request groups. An admin can start preparation for a pending group or resume a group already being prepared.
+- History: shows preparation lines for completed/delivered preparations.
+
+The workflow separates three events:
+
+1. Branch requests quantities.
+2. TAFI Admin prepares items. Scanning and saving preparation lines do not deduct current stock.
+3. TAFI Admin confirms delivery. The database validates and deducts TAFI stock, writes dated stock-out history, and marks the request delivered as one transaction.
+
+After TAFI marks a request delivered, the branch still uses its separate receipt flow to confirm what physically arrived. TAFI delivery and branch receipt are not the same status transition.
+
+
+2. USER FLOW, STEP BY STEP
+
+STEP A — Open the Requests tab
+
+The app loads requests through the session-protected RPC:
+
+  tafi_admin_list_stock_requests(p_session_token)
+
+The returned request rows include the branch, requested stock item and quantity, status, timestamps, current inventory availability, and any preparation ID.
+
+In the app, rows are grouped by request_group_id. A group card shows:
+
+- Branch name.
+- Request date displayed from the group's created_at value.
+- Each stock number and description.
+- Requested quantity and unit.
+- Group status.
+- An action to start or resume preparation.
+
+The app can label a group Pending, Preparing, or Needs review:
+
+- Pending means every row in the group is pending and has no preparation ID.
+- Preparing means every row is preparing and points to the same preparation ID.
+- Needs review means the group contains inconsistent statuses or preparation links.
+
+The app only enables the preparation action for a group where every row is pending or every row is preparing consistently. The database validates the request IDs again; the UI is not the security or integrity boundary.
+
+The SQL list RPC returns requests of all statuses. The Requests view filters to groups containing pending or preparing rows. Delivered request history is displayed in the History view instead.
+
+STEP B — Start a new preparation or resume one
+
+For a pending group, the app calls:
+
+  tafi_admin_start_stock_request_preparation(
+      p_session_token,
+      p_request_ids
+  )
+
+The function:
+
+- Validates the TAFI Admin session.
+- Requires at least one request ID.
+- Locks the selected request rows.
+- Confirms all supplied IDs exist and are not duplicated.
+- Requires all selected requests to belong to one branch and one Manila-local request date.
+- Requires every selected request to still be pending and not already linked to a preparation.
+- Creates one preparation header.
+- Changes the selected request rows to preparing and links them to the new preparation.
+- Returns the preparation UUID.
+
+For a request group already preparing, the app reuses its existing preparation ID. It does not create another header. The Inventory Transform Form then reloads its saved lines from Supabase, so work can continue after leaving and reopening the screen.
+
+STEP C — Scan a requested item's barcode
+
+The Inventory Transform Form provides a Scan Item Barcode button. The operator uses the camera scanner; there is no manual barcode-entry field.
+
+After the camera detects a barcode, the app calls:
+
+  tafi_admin_lookup_stock_request_barcode(
+      p_session_token,
+      p_preparation_id,
+      p_barcode
+  )
+
+The lookup function:
+
+- Validates the TAFI Admin session and that the preparation is still preparing.
+- Rejects a blank barcode.
+- Checks that the barcode exists in TAFI's barcode inventory.
+- Checks that its current barcode balance is greater than zero.
+- Resolves the barcode's stock number to a TAFI stock inventory item and category.
+- Confirms that the resolved item is among this preparation's requested items.
+- Returns barcode, stock inventory ID, stock number, category, item description, unit, saved price, and current barcode balance.
+
+An unknown barcode, zero balance, or item not included in the preparation is rejected. The app explains the error and the operator can start another scan.
+
+STEP D — Enter prepared quantity and optional unit price
+
+After a valid lookup, the app displays the matched item information and current barcode balance. The operator enters:
+
+- A positive whole-number quantity being prepared.
+- An optional non-negative unit price, limited to two decimal places.
+
+The app calculates a maximum quantity based on the barcode balance and the remaining requested quantity for that item. The database independently validates the quantity and remaining request total.
+
+The app calls:
+
+  tafi_admin_save_stock_request_preparation_item(
+      p_session_token,
+      p_preparation_id,
+      p_barcode,
+      p_quantity,
+      p_unit_price
+  )
+
+The function verifies the session, preparation state, barcode mapping, stock balance, request membership, quantity, and price. It saves a snapshot of the item details with the barcode and preparation quantity.
+
+There is one preparation line per barcode per preparation. Scanning the same barcode again updates that line's quantity and optional unit price rather than creating a second line. The UI lets the operator delete a saved line while the preparation is still open.
+
+IMPORTANT: Saving a preparation line does not deduct TAFI stock. It records intended preparation only. A barcode balance can change before delivery, so it is checked again at final delivery.
+
+STEP E — Track prepared totals
+
+The form displays each requested stock item's total prepared quantity compared with its requested quantity, as well as all saved barcode lines.
+
+The app enables Mark Delivered only if:
+
+- Every requested stock item has a prepared total exactly equal to its requested total.
+- No extra prepared stock item exists.
+- Requested totals are whole numbers, because preparation quantities and barcode balances are integer quantities.
+
+If a request uses a fractional quantity, the form explains that it cannot be completed by this integer barcode-preparation flow. The database also performs an exact requested-versus-prepared comparison; the client-side check is only an early UX safeguard.
+
+STEP F — Confirm delivery
+
+The operator presses Mark Delivered and confirms the dialog. The app calls:
+
+  tafi_admin_complete_stock_request_preparation(
+      p_session_token,
+      p_preparation_id
+  )
+
+The function validates and locks the preparation and its request rows, then checks that:
+
+- The session is valid and unexpired.
+- The preparation is still preparing.
+- There are requests attached to it and all are still preparing.
+- Prepared totals exactly match requested totals for every stock item.
+- Each preparation line's stock item still maps to the recorded stock number.
+- Each barcode still has the recorded mapping and sufficient live balance.
+- Each barcode still belongs to an item requested by this preparation.
+
+For each preparation line, it subtracts the prepared quantity from the current barcode balance and adds that quantity to the dated stock-out record. It then marks the linked requests delivered, sets their delivered quantities and delivery metadata, and marks the preparation header delivered.
+
+All of these changes occur within the same PostgreSQL function call and transaction. If a check or write fails, PostgreSQL rolls back the call's writes; the app displays the error and leaves the preparation available for correction or retry. It must not be interpreted as a successful partial delivery.
+
+After success, the app shows a confirmation and closes the form. It does not carry out the branch's later receipt confirmation.
+
+STEP G — View preparation history
+
+The History view calls:
+
+  tafi_admin_list_stock_request_preparation_history(p_session_token)
+
+It lists delivered preparation lines, including branch, request date, status, stock number, category, description, unit, quantity, optional unit price, barcode, and delivery timestamp.
+
+History is based on the retained preparation header and preparation-line rows; it is not reconstructed solely from the daily stock-out totals. The stock-out table remains a separate inventory audit/reporting surface.
+
+
+3. SUPABASE TABLES AND WHAT EACH ONE DOES
+
+A. public.branch_stock_requests — existing branch request rows
+
+This is an existing prerequisite table in the target schema. The preparation migration changes/uses it; it does not create the whole original request system.
+
+Fields used by the preparation migration and RPCs include:
+
+- id: individual request row ID.
+- request_group_id: groups rows submitted as one branch request.
+- branch_id: the requesting branch.
+- stock_inventory_id: requested TAFI stock item.
+- quantity_requested: requested amount; numeric in the list RPC.
+- status: pending, preparing, delivered, or received.
+- created_at: used to derive the Manila-local request date and display the request date.
+- preparation_id: added by the preparation migration; links a preparing request row to its preparation header.
+- quantity_delivered, delivered_at, delivered_by_tafi_admin_id: delivery details populated when TAFI delivers.
+- quantity_received, received_at, received_by_branch_admin_id: receipt details populated later by the branch's separate receive workflow.
+
+The migration adds a foreign key from preparation_id to the preparation header with ON DELETE RESTRICT and an index on (preparation_id, stock_inventory_id).
+
+Status/receipt consistency enforced by the migration:
+
+- pending: no preparation ID and no delivery or receipt values.
+- preparing: has a preparation ID; delivery and receipt values are still unset.
+- delivered: has a positive delivered quantity no greater than requested, delivery timestamp, and delivering TAFI Admin; receipt values remain unset.
+- received: retains delivery details and has a received quantity from zero through the delivered amount, a receipt timestamp, and receiving branch admin.
+
+The branch request system owns the original request data and the branch's later receipt process. The preparation flow should not replace that receipt process.
+
+B. public.tafi_stock_request_preparations — preparation session/header
+
+One row represents the persistent preparation session for a branch request batch.
+
+Columns:
+
+- id: UUID primary key, generated automatically.
+- branch_id: branch for this preparation; references public.branch with deletion restricted.
+- request_date: Manila-local date derived from the selected requests' created_at values.
+- status: preparing or delivered.
+- started_by_tafi_admin_id: TAFI Admin who started it; references public.tafi_admin with deletion restricted.
+- created_at: when the session was created.
+- updated_at: last preparation/delivery update.
+- delivered_at: delivery timestamp, null until delivery succeeds.
+
+The request rows point to this header through branch_stock_requests.preparation_id. This header makes an unfinished preparation resumable and provides the shared lifecycle state for the request rows.
+
+C. public.tafi_stock_request_preparation_items — prepared item lines
+
+One row represents the prepared quantity for one barcode in one preparation.
+
+Columns:
+
+- id: UUID primary key.
+- preparation_id: parent preparation header; deletion is restricted.
+- stock_inventory_id: resolved TAFI stock item; references public.tafi_stock_inventory with deletion restricted.
+- barcode: scanned barcode.
+- stock_no: stock-number snapshot at preparation time.
+- category: category snapshot; nullable.
+- item_description: description snapshot.
+- unit_of_measure: unit snapshot.
+- quantity: positive whole-number prepared quantity.
+- unit_price: optional non-negative price with two decimal places.
+- created_at and updated_at: line timestamps.
+
+Unique key:
+
+  (preparation_id, barcode)
+
+This allows a barcode to have one line per preparation. Re-saving that barcode updates the existing line. The additional index on (preparation_id, stock_inventory_id, barcode) supports looking up and totaling the lines belonging to a requested stock item.
+
+The item metadata is saved as a snapshot so the preparation/history can display what was recorded even if catalog information changes later. The stock_inventory_id is retained as a relationship to the TAFI item.
+
+D. public.tafi_stock_inventory — existing TAFI stock catalog/balance
+
+This is an existing prerequisite table. The request rows and preparation lines reference its id. The stock-request list RPC joins it to return stock number, item description, unit, and `available`.
+
+The `available` value returned for a request is the catalog/inventory-level availability shown with the request. Barcode lookup and final deduction use the per-barcode scan_count described below. These are related but distinct quantities: the barcode's count is the amount eligible for deduction from that particular barcode.
+
+E. public.tafi_admin_stock_in_scans — existing barcode mapping and live barcode balance
+
+Despite "stock_in" in the name, this table is the authoritative live balance per barcode used by the stock-out and request-preparation delivery flows.
+
+Columns from the base stock-in scan migration:
+
+- barcode: primary key; one row per barcode.
+- stock_no: stock number linked to the barcode.
+- item_description and unit_of_measure: stored barcode item details.
+- scan_count: current barcode balance; constrained to be zero or greater.
+- created_at and updated_at: barcode-row timestamps.
+- price: added by tafi_admin_stock_in_scan_price.sql as numeric(12,2), nullable and non-negative. The barcode lookup returns it as a suggested/default unit price.
+
+Preparation scanning only reads this table. Final delivery subtracts from scan_count, conditional on the barcode still mapping to the expected item and having enough stock.
+
+F. public.stock_out_records — existing dated stock-out history
+
+The stock-out migration creates this table. It records the deducted quantity by barcode and date. Its primary key is (barcode, date), so stock-outs of the same barcode on one date accumulate into one daily total.
+
+Columns:
+
+- barcode.
+- stock_no.
+- item_description.
+- unit_of_measure.
+- stock_out_count: positive accumulated quantity removed.
+- date: stock-out date.
+
+During preparation delivery, the final database function adds each barcode's prepared quantity to today's Manila-local stock-out total. This table is history, not the live balance.
+
+G. public.tafi_admin_session and public.tafi_admin
+
+These are existing authentication tables. Every request/preparation RPC validates the supplied session token against tafi_admin_session and requires expires_at to be later than the current time. Starting and completing a preparation also obtains the authenticated TAFI Admin ID for audit fields.
+
+
+4. RPC REFERENCE
+
+1. tafi_admin_list_stock_requests(p_session_token)
+   Returns the request rows and joined branch/inventory display data, including request IDs, request group, branch, stock inventory ID, stock number, item, requested quantity, aggregate available stock, status, delivered/received values, timestamps, and preparation ID.
+
+2. tafi_admin_start_stock_request_preparation(p_session_token, p_request_ids)
+   Validates a group of pending rows, creates the persistent header, links the requests, changes their status to preparing, and returns preparation_id.
+
+3. tafi_admin_lookup_stock_request_barcode(p_session_token, p_preparation_id, p_barcode)
+   Validates the scan and returns the resolved requested item, category, current barcode balance, and saved barcode price. Does not write or deduct stock.
+
+4. tafi_admin_save_stock_request_preparation_item(p_session_token, p_preparation_id, p_barcode, p_quantity, p_unit_price)
+   Validates and inserts or updates a preparation line. Does not deduct stock.
+
+5. tafi_admin_list_stock_request_preparation_items(p_session_token, p_preparation_id)
+   Loads saved lines so an unfinished preparation can resume.
+
+6. tafi_admin_delete_stock_request_preparation_item(p_session_token, p_preparation_id, p_item_id)
+   Deletes one line only while the preparation is preparing.
+
+7. tafi_admin_complete_stock_request_preparation(p_session_token, p_preparation_id)
+   Validates the full preparation, deducts current barcode balances, adds dated stock-out history, and marks requests/header delivered atomically. Returns the number of delivered request rows.
+
+8. tafi_admin_list_stock_request_preparation_history(p_session_token)
+   Lists item snapshots for delivered preparations.
+
+The migration also defines tafi_admin_deliver_stock_requests and tafi_admin_deliver_stock_request_group as wrapper delivery functions. The Flutter Stock Requests flow described here calls tafi_admin_complete_stock_request_preparation directly.
+
+
+5. SECURITY AND TRANSACTION DESIGN
+
+- The two preparation tables have row-level security enabled.
+- Direct table privileges are revoked from PUBLIC, anon, and authenticated.
+- The app uses SECURITY DEFINER RPC functions instead of direct table reads/writes.
+- Functions set an empty search_path and reference schema-qualified objects.
+- Function execution is revoked from PUBLIC, then granted to anon and authenticated roles. The custom TAFI session-token check inside each function is still required.
+- The UI does not directly update status or stock counts.
+- Database locks and conditional updates provide protection against a second operator changing the request or consuming the barcode balance between scan and delivery.
+- A function call that raises an error is rolled back by PostgreSQL; balance changes, stock-out-history writes, and delivery status are not partially committed.
+
+For another project, preserve its own established security conventions. Do not copy role grants or session validation without confirming how that project's database roles and custom sessions work.
+
+
+6. EXAMPLE
+
+Suppose Branch North requests:
+
+- 5 bags of item RICE-01.
+- 2 cases of item OIL-02.
+
+TAFI Admin starts preparation. The database creates one preparation header and links both request rows to it. Both request rows become preparing.
+
+The operator scans barcode RICE-BARCODE-A and saves 3 bags. The preparation line stores the barcode, item snapshot, quantity 3, and optional unit price. The live barcode count is unchanged.
+
+The operator scans RICE-BARCODE-B and saves 2 bags. Rice preparation now totals 5 of 5. The operator scans an oil barcode and saves 2 cases. Every requested quantity now matches exactly, so Mark Delivered is enabled.
+
+When confirmed, one database transaction verifies the requests and lines, checks both barcode mappings and current balances, subtracts 3 and 2 from the rice barcodes and 2 from the oil barcode, increments the dated stock-out history for each barcode, and marks the requests and preparation delivered.
+
+The branch later confirms actual receipt using its existing branch receive workflow. That separate action updates the branch request receipt fields; it does not undo or repeat the TAFI stock deduction.
+
+
+7. MIGRATION DEPENDENCIES AND ORDER
+
+The preparation migration header says it must run after:
+
+- branch_stock_requests.sql.
+- branch_stock_request_batches.sql.
+- stock_request_delivery_receipt.sql.
+- tafi_stock_inventory_barcode_balance.sql.
+- tafi_admin_stock_in_scan_price.sql.
+- tafi_admin_stock_out_records.sql.
+- The TAFI Admin session migration.
+
+It also checks that public.inventory_information, public.tafi_stock_inventory, public.tafi_admin_stock_in_scans, public.stock_out_records, and public.tafi_admin_session exist, and checks that tafi_admin_stock_in_scans has a price column.
+
+The price-column migration itself requires tafi_admin_stock_in_scans. The stock-out migration requires the barcode table and the session-validating inventory RPC. In a project with these same base migrations, a practical order is:
+
+1. TAFI Admin/authentication and inventory/catalog base migrations.
+2. Branch table and branch_admin/tafi_admin base tables.
+3. Barcode stock-in scan table and stock-in RPC.
+4. Branch stock requests and request-batch migrations.
+5. Branch delivery/receipt migration.
+6. Barcode-balance prerequisites, if separate in the target schema.
+7. tafi_admin_stock_in_scan_price.sql.
+8. tafi_admin_stock_out_records.sql.
+9. tafi_admin_stock_request_preparations.sql.
+
+Confirm the actual dependencies in the target project's migrations before running them. The preparation SQL is wrapped in BEGIN/COMMIT and sends a PostgREST schema reload notification.
+
+
+8. IMPORTANT DESIGN NOTES FOR ANOTHER PROJECT
+
+- Distinguish request_group_id (the branch-submitted group) from preparation_id (the admin's persistent work session) and request row id (one requested stock item).
+- Make sure each preparation includes all request rows that should be delivered together. The start RPC requires one branch and one request date.
+- Ensure that the target project's request_group_id actually has the same branch/date grouping assumptions as the preparation RPC.
+- Check request quantity units. This implementation stores prepared quantities as bigint and therefore supports whole units only. Fractional requested quantities cannot be exactly prepared by this flow without a deliberate schema/UI change.
+- Decide whether duplicate scans of one barcode should update one line or create an event log. This design updates one line per preparation/barcode and keeps final preparation history; it is not a per-scan audit log.
+- Use a stable inventory ID and revalidate barcode mapping at delivery. Do not trust only the description captured at scan time.
+- Keep barcode stock deductions out of the scan/save RPCs. Deduct only once, at confirmed delivery.
+- Preserve the stock-out history write in the same transaction as the balance decrement and status transition.
+- Keep receipt separate from delivery so the branch can report actual received quantities independently.
+- Consider how to handle canceled/edited requests, reopening a delivered preparation, removal or reassignment of a barcode, item deletion, and repeated delivery requests.
+- Test valid and expired sessions, starting a pending group, resuming a preparation, valid/unknown/out-of-request/zero-balance barcodes, duplicate barcode saves, invalid quantities/prices, incomplete/excess totals, exact totals, changed barcode mapping, insufficient/concurrently changed stock, repeated delivery, transaction rollback, and branch receipt as a separate step.
+
+
+9. REFERENCE FILES IN THIS PROJECT
+
+- lib/pages/stock_requests_page.dart: request grouping, pending/preparing states, start/resume action, and history view.
+- lib/pages/stock_request_preparation_page.dart: camera scan, item confirmation, prepared lines, exact quantity gate, and delivery confirmation.
+- lib/services/tafi_admin_stock_request_service.dart: named Supabase RPCs and response parsing.
+- lib/pages/dashboard_page.dart: Requests tab registration and service/session wiring.
+- lib/models/stock_request.dart: request RPC response model.
+- lib/models/stock_request_barcode_match.dart: barcode lookup response model.
+- lib/models/stock_request_preparation_item.dart: saved line response model.
+- lib/models/stock_request_preparation_history.dart: delivered history response model.
+- supabase/tafi_admin_stock_request_preparations.sql: preparation tables, request status constraints, RPCs, grants, and transaction logic.
+- supabase/tafi_admin_stock_in_scan_price.sql: optional barcode price column required by the preparation migration.
+- supabase/tafi_admin_stock_in_scans.sql: current barcode balance table.
+- supabase/tafi_admin_stock_out_records.sql: dated stock-out history table and RPCs.
