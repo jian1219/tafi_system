@@ -5379,6 +5379,55 @@ fieldset.employee-emergency-contact-box {
   padding: 20px 0;
 }
 
+.accountant-stock-card-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  min-width: 0;
+  width: 100%;
+}
+
+.accountant-stock-card {
+  min-width: 0;
+  max-width: 100%;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.accountant-stock-card-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.accountant-stock-card-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px 20px;
+  margin: 0 0 16px;
+}
+
+.accountant-stock-card-details dt {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.accountant-stock-card-details dd {
+  margin: 4px 0 0;
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.accountant-stock-card-table {
+  min-width: 1500px;
+}
+
 .accountant-inventory-heading,
 .accountant-inventory-list-heading {
   display: flex;

@@ -1929,6 +1929,20 @@ export async function listAccountantInventoryInformation(sessionToken) {
   }
 }
 
+export async function listAccountantInventoryTransformHistory(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_list_tafi_stock_request_preparation_history', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load Inventory Transform Form history.')
+    }
+  }
+}
+
 export async function listAccountantManualStockInventoryHistory(sessionToken) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -2014,6 +2028,20 @@ export async function listAccountantTafiSummaryStockRecords(sessionToken, month 
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to load the stock record summary.')
+    }
+  }
+}
+
+export async function listAccountantInventoryStockCardRecords(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_list_inventory_stock_card_records', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load Inventory Stock Card records.')
     }
   }
 }

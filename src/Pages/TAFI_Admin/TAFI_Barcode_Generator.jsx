@@ -33,6 +33,7 @@ export default function TafiBarcodeGenerator({ stockItems, barcodeScans }) {
 	const [barcodeMode, setBarcodeMode] = useState('manual')
 	const [manualBarcodeValue, setManualBarcodeValue] = useState('')
 	const [automaticQuantity, setAutomaticQuantity] = useState('1')
+	const [automaticStartNumber, setAutomaticStartNumber] = useState('50')
 	const [stockInventoryId, setStockInventoryId] = useState('')
 	const [generatedLabels, setGeneratedLabels] = useState([])
 	const [errorMessage, setErrorMessage] = useState('')
@@ -68,22 +69,30 @@ export default function TafiBarcodeGenerator({ stockItems, barcodeScans }) {
 				setErrorMessage(`Enter a quantity from 1 to ${MAX_AUTOMATIC_LABELS}.`)
 				return
 			}
+			const startNumber = Number(automaticStartNumber)
+			if (!Number.isSafeInteger(startNumber) || startNumber < 1) {
+				setErrorMessage('Enter a starting number that is a positive whole number.')
+				return
+			}
+			if (!Number.isSafeInteger(startNumber + quantity - 1)) {
+				setErrorMessage('The requested barcode sequence exceeds the supported number range.')
+				return
+			}
+
 			const existingValues = new Set([
 				...barcodeScans.map((item) => item.barcode),
 				...generatedLabels.map((label) => label.value)
 			])
 			const datePrefix = getLocalDatePrefix()
-			const dateSequencePattern = new RegExp(`^${datePrefix}-(\\d+)$`)
-			let nextSequence = 1
-			existingValues.forEach((value) => {
-				const match = String(value).match(dateSequencePattern)
-				if (match) nextSequence = Math.max(nextSequence, Number(match[1]) + 1)
-			})
-			values = Array.from({ length: quantity }, () => {
-				const value = `${datePrefix}-${nextSequence}`
-				nextSequence += 1
-				return value
-			})
+			values = Array.from(
+				{ length: quantity },
+				(_, index) => `${datePrefix}-${startNumber + index}`
+			)
+			const duplicateValue = values.find((value) => existingValues.has(value))
+			if (duplicateValue) {
+				setErrorMessage(`Barcode ${duplicateValue} already exists. Choose a different starting number.`)
+				return
+			}
 		}
 
 		const itemDetails = selectedStockItem
@@ -102,6 +111,7 @@ export default function TafiBarcodeGenerator({ stockItems, barcodeScans }) {
 			}))
 		])
 		if (barcodeMode === 'manual') setManualBarcodeValue('')
+		else setAutomaticStartNumber(String(Number(automaticStartNumber) + values.length))
 	}
 
 	return (
@@ -132,18 +142,31 @@ export default function TafiBarcodeGenerator({ stockItems, barcodeScans }) {
 						/>
 					</label>
 				) : (
-					<label>
-						<span>Number of labels (maximum {MAX_AUTOMATIC_LABELS})</span>
-						<input
-							type="number"
-							min="1"
-							max={MAX_AUTOMATIC_LABELS}
-							step="1"
-							value={automaticQuantity}
-							onChange={(event) => setAutomaticQuantity(event.target.value)}
-							required
-						/>
-					</label>
+					<>
+						<label>
+							<span>Number of labels (maximum {MAX_AUTOMATIC_LABELS})</span>
+							<input
+								type="number"
+								min="1"
+								max={MAX_AUTOMATIC_LABELS}
+								step="1"
+								value={automaticQuantity}
+								onChange={(event) => setAutomaticQuantity(event.target.value)}
+								required
+							/>
+						</label>
+						<label>
+							<span>Starting number</span>
+							<input
+								type="number"
+								min="1"
+								step="1"
+								value={automaticStartNumber}
+								onChange={(event) => setAutomaticStartNumber(event.target.value)}
+								required
+							/>
+						</label>
+					</>
 				)}
 				<label className="barcode-generator-stock-select">
 					<span>Inventory item (optional)</span>

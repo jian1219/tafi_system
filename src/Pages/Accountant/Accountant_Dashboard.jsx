@@ -6,8 +6,10 @@ import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
 import logoImage from '../../images/Tafi logo transparent.png'
 import AccountantBarcode from './Accountant_Barcode'
+import AccountantBranchStockRecords from './Accountant_Branch_Stock_records'
 import AccountantInventoryInformation from './Accountant_Inventory_Information'
 import AccountantInventoryLog from './Accountant_Inventory_log'
+import AccountantInventoryTransferForm from './Accountant_Inventory_Transfer_Form'
 
 export default function AccountantDashboard() {
 	const location = useLocation()
@@ -19,7 +21,14 @@ export default function AccountantDashboard() {
 	const [activePage, setActivePage] = useSessionStorageState(
 		'tafi-accountant-dashboard-page',
 		'overview',
-		['overview', 'inventory', 'inventory-log', 'barcode']
+		[
+			'overview',
+			'inventory',
+			'inventory-log',
+			'inventory-transform',
+			'barcode',
+			'branch-stock-records'
+		]
 	)
 	const [noAvailableStockCount, setNoAvailableStockCount] = useState(null)
 	const [isLoadingNoAvailableStockCount, setIsLoadingNoAvailableStockCount] = useState(false)
@@ -96,6 +105,15 @@ export default function AccountantDashboard() {
 						<Package size={19} aria-hidden="true" />
 						<span>Inventory Information</span>
 					</button>
+						<button
+						type="button"
+						className={`tafi-admin-nav-item${activePage === 'barcode' ? ' active' : ''}`}
+						aria-current={activePage === 'barcode' ? 'page' : undefined}
+						onClick={() => setActivePage('barcode')}
+					>
+						<Barcode size={19} aria-hidden="true" />
+						<span>TAFI Inventory</span>
+					</button>
 					<button
 						type="button"
 						className={`tafi-admin-nav-item${activePage === 'inventory-log' ? ' active' : ''}`}
@@ -107,13 +125,23 @@ export default function AccountantDashboard() {
 					</button>
 					<button
 						type="button"
-						className={`tafi-admin-nav-item${activePage === 'barcode' ? ' active' : ''}`}
-						aria-current={activePage === 'barcode' ? 'page' : undefined}
-						onClick={() => setActivePage('barcode')}
+						className={`tafi-admin-nav-item${activePage === 'inventory-transform' ? ' active' : ''}`}
+						aria-current={activePage === 'inventory-transform' ? 'page' : undefined}
+						onClick={() => setActivePage('inventory-transform')}
 					>
-						<Barcode size={19} aria-hidden="true" />
-						<span>TAFI Inventory</span>
+						<ClipboardList size={19} aria-hidden="true" />
+						<span>Inventory Transform Records</span>
 					</button>
+					<button
+							type="button"
+							className={`tafi-admin-nav-item${activePage === 'branch-stock-records' ? ' active' : ''}`}
+							aria-current={activePage === 'branch-stock-records' ? 'page' : undefined}
+							onClick={() => setActivePage('branch-stock-records')}
+						>
+							<Package size={19} aria-hidden="true" />
+							<span>Branch Stock Records</span>
+						</button>
+					
 				</nav>
 
 				<div className="tafi-admin-sidebar-footer">
@@ -135,9 +163,13 @@ export default function AccountantDashboard() {
 								? 'Inventory Information'
 								: activePage === 'inventory-log'
 									? 'Branch Usage Log'
-									: activePage === 'barcode'
-										? 'Barcode Inventory'
-										: 'Accountant Dashboard'}
+								: activePage === 'inventory-transform'
+									? 'Inventory Transform Records'
+								: activePage === 'barcode'
+									? 'TAFI Inventory'
+										: activePage === 'branch-stock-records'
+											? 'Branch Stock Records'
+											: 'Accountant Dashboard'}
 						</h1>
 					</div>
 					<div className="tafi-admin-account">
@@ -175,8 +207,14 @@ export default function AccountantDashboard() {
 					{activePage === 'inventory-log' && (
 						<AccountantInventoryLog sessionToken={accountant.session_token} />
 					)}
+					{activePage === 'inventory-transform' && (
+						<AccountantInventoryTransferForm sessionToken={accountant.session_token} />
+					)}
 					{activePage === 'barcode' && (
 						<AccountantBarcode sessionToken={accountant.session_token} />
+					)}
+					{activePage === 'branch-stock-records' && (
+						<AccountantBranchStockRecords />
 					)}
 				</section>
 			</main>

@@ -3,7 +3,9 @@ import {
 	listAccountantTafiBarcodeInventory,
 	listAccountantTafiStockInRecords,
 	listAccountantTafiStockOutRecords,
-	listAccountantTafiSummaryStockRecords
+	listAccountantTafiSummaryStockRecords,
+	listAccountantInventoryStockCardRecords,
+	listAccountantInventoryInformation
 } from '../../lib/supabase'
 
 function getLocalMonthInputValue() {
@@ -39,9 +41,21 @@ function formatPrice(value) {
 	}).format(Number(value))
 }
 
+function formatStockCardQuantity(value) {
+	if (value === null || value === undefined || value === '') return '—'
+	return Number(value).toLocaleString(undefined, { maximumFractionDigits: 3 })
+}
+
 export default function AccountantBarcode({ sessionToken }) {
 	const [activeTab, setActiveTab] = useState('barcodes')
 	const [activeRecordTab, setActiveRecordTab] = useState('stockIn')
+	const [stockCardRecords, setStockCardRecords] = useState([])
+	const [tritonInventoryItems, setTritonInventoryItems] = useState([])
+	const [selectedStockNo, setSelectedStockNo] = useState('')
+	const [stockCardReloadVersion, setStockCardReloadVersion] = useState(0)
+	const [isStockCardLoading, setIsStockCardLoading] = useState(false)
+	const [stockCardError, setStockCardError] = useState('')
+	const [tritonInventoryError, setTritonInventoryError] = useState('')
 	const [barcodeItems, setBarcodeItems] = useState([])
 	const [barcodeSearch, setBarcodeSearch] = useState('')
 	const [isBarcodeLoading, setIsBarcodeLoading] = useState(true)
@@ -98,6 +112,38 @@ export default function AccountantBarcode({ sessionToken }) {
 			.sort(([firstDate], [secondDate]) => secondDate.localeCompare(firstDate))
 			.map(([dateKey, records]) => ({ dateKey, records }))
 	}, [filteredStockOutRecords])
+	const stockCardGroups = useMemo(() => {
+		const groups = new Map()
+
+		tritonInventoryItems.forEach((item) => {
+			if (!groups.has(item.stock_no)) {
+				groups.set(item.stock_no, {
+					stockNo: item.stock_no,
+					itemDescription: item.item_description,
+					category: item.category,
+					unitOfMeasure: item.unit_of_measure,
+					records: []
+				})
+			}
+		})
+
+		stockCardRecords.forEach((record) => {
+			if (!groups.has(record.stock_no)) {
+				groups.set(record.stock_no, {
+					stockNo: record.stock_no,
+					itemDescription: record.item_description,
+					category: record.category,
+					unitOfMeasure: record.unit_of_measure,
+					records: []
+				})
+			}
+			groups.get(record.stock_no).records.push(record)
+		})
+		return [...groups.values()].sort((first, second) => first.stockNo.localeCompare(second.stockNo))
+	}, [stockCardRecords, tritonInventoryItems])
+	const selectedStockCard = stockCardGroups.find((stockCard) => (
+		stockCard.stockNo === selectedStockNo
+	)) ?? stockCardGroups[0] ?? null
 
 	useEffect(() => {
 		if (activeTab !== 'barcodes') return
@@ -229,6 +275,48 @@ export default function AccountantBarcode({ sessionToken }) {
 		}
 	}, [sessionToken, summaryMonth])
 
+	useEffect(() => {
+		if (activeTab !== 'stock-card') return undefined
+
+		let isCurrent = true
+		const loadStockCardRecords = async () => {
+			if (!sessionToken) {
+				setIsStockCardLoading(false)
+				setStockCardError('Accountant session is unavailable. Please sign in again.')
+				setTritonInventoryError('Accountant session is unavailable. Please sign in again.')
+				return
+			}
+
+			setIsStockCardLoading(true)
+			setStockCardError('')
+			setTritonInventoryError('')
+			const [stockCardResult, inventoryResult] = await Promise.all([
+				listAccountantInventoryStockCardRecords(sessionToken),
+				listAccountantInventoryInformation(sessionToken)
+			])
+			if (!isCurrent) return
+			setIsStockCardLoading(false)
+
+			if (stockCardResult.error) {
+				setStockCardError(stockCardResult.error.message)
+				setStockCardRecords([])
+			} else {
+				setStockCardRecords(stockCardResult.data ?? [])
+			}
+			if (inventoryResult.error) {
+				setTritonInventoryError(inventoryResult.error.message)
+				setTritonInventoryItems([])
+			} else {
+				setTritonInventoryItems(inventoryResult.data ?? [])
+			}
+		}
+
+		loadStockCardRecords()
+		return () => {
+			isCurrent = false
+		}
+	}, [activeTab, sessionToken, stockCardReloadVersion])
+
 	const refreshBarcodeInventory = async () => {
 		setIsBarcodeLoading(true)
 		setBarcodeError('')
@@ -303,7 +391,7 @@ export default function AccountantBarcode({ sessionToken }) {
 					aria-controls="accountant-tafi-barcode-panel"
 					onClick={() => setActiveTab('barcodes')}
 				>
-					TAFI Barcode Inventory
+					Barcoded Stocks
 				</button>
 				<button
 					type="button"
@@ -315,6 +403,17 @@ export default function AccountantBarcode({ sessionToken }) {
 					onClick={() => setActiveTab('records')}
 				>
 					Stock Records
+				</button>
+				<button
+					type="button"
+					id="accountant-tafi-inventory-stock-card-tab"
+					className={`accountant-inventory-tab${activeTab === 'stock-card' ? ' active' : ''}`}
+					role="tab"
+					aria-selected={activeTab === 'stock-card'}
+					aria-controls="accountant-tafi-inventory-stock-card-panel"
+					onClick={() => setActiveTab('stock-card')}
+				>
+					Inventory Stock Card
 				</button>
 			</div>
 
@@ -726,6 +825,152 @@ export default function AccountantBarcode({ sessionToken }) {
 						<p className="accountant-inventory-empty">No stock records found for this month.</p>
 					)}
 				</div>
+			</div>
+
+			<div
+				id="accountant-tafi-inventory-stock-card-panel"
+				className="accountant-inventory-panel"
+				role="tabpanel"
+				aria-labelledby="accountant-tafi-inventory-stock-card-tab"
+				hidden={activeTab !== 'stock-card'}
+			>
+				<div className="accountant-inventory-list-heading">
+					<div>
+						<h2>Inventory Stock Card</h2>
+						<p>
+							{stockCardRecords.length} ledger record{stockCardRecords.length === 1 ? '' : 's'}
+							{' · '}{stockCardGroups.length} stock card{stockCardGroups.length === 1 ? '' : 's'}
+						</p>
+					</div>
+					<button
+						type="button"
+						className="accountant-inventory-add-toggle"
+						onClick={() => setStockCardReloadVersion((version) => version + 1)}
+						disabled={isStockCardLoading}
+					>
+						{isStockCardLoading ? 'Refreshing...' : 'Refresh'}
+					</button>
+				</div>
+				{!isStockCardLoading && stockCardGroups.length > 0 && (
+					<div className="tafi-stock-inventory-filters">
+						<label>
+							<span>Stock No.</span>
+							<select
+								value={selectedStockCard?.stockNo ?? ''}
+								onChange={(event) => setSelectedStockNo(event.target.value)}
+								aria-label="Select a stock card by stock number"
+							>
+								{stockCardGroups.map((stockCard) => (
+									<option key={stockCard.stockNo} value={stockCard.stockNo}>
+										{stockCard.stockNo}
+									</option>
+								))}
+							</select>
+						</label>
+					</div>
+				)}
+				{tritonInventoryError && (
+					<p className="accountant-inventory-error" role="alert">
+						TRITON Inventory Info could not be loaded: {tritonInventoryError}
+					</p>
+				)}
+				{stockCardError && (
+					<p className="accountant-inventory-error" role="alert">
+						Stock card records could not be loaded: {stockCardError}
+					</p>
+				)}
+				{isStockCardLoading ? (
+					<p className="accountant-inventory-empty" role="status">Loading inventory stock cards...</p>
+				) : (
+					<div className="accountant-stock-card-list">
+						{(selectedStockCard ? [selectedStockCard] : [{
+							stockNo: '',
+							itemDescription: '',
+							category: '',
+							unitOfMeasure: '',
+							records: []
+						}]).map((stockCard, index) => (
+							<section
+								className="accountant-stock-card"
+								key={stockCard.stockNo || `empty-stock-card-${index}`}
+							>
+								<dl className="accountant-stock-card-details">
+									<div>
+										<dt>Stock No:</dt>
+										<dd>{stockCard.stockNo || '—'}</dd>
+									</div>
+									<div>
+										<dt>Item Description:</dt>
+										<dd>{stockCard.itemDescription || '—'}</dd>
+									</div>
+									<div>
+										<dt>Category:</dt>
+										<dd>{stockCard.category || '—'}</dd>
+									</div>
+									<div>
+										<dt>Unit of measure:</dt>
+										<dd>{stockCard.unitOfMeasure || '—'}</dd>
+									</div>
+								</dl>
+								<div
+									className="accountant-inventory-table-wrap accountant-stock-card-table-wrap"
+									role="region"
+									aria-label={`Inventory stock card table for ${stockCard.stockNo || 'new record'}`}
+									tabIndex={0}
+								>
+									<table className="accountant-inventory-table accountant-stock-card-table">
+										<thead>
+											<tr>
+												<th scope="col" rowSpan="2">Date</th>
+												<th scope="col" rowSpan="2">Reference</th>
+												<th scope="col" rowSpan="2">Description</th>
+												<th scope="colgroup" colSpan="3">In (Purchase)</th>
+												<th scope="colgroup" colSpan="3">Out</th>
+												<th scope="col" rowSpan="2">Balance Qty</th>
+												<th scope="col" rowSpan="2">Balance Unit Cost</th>
+												<th scope="col" rowSpan="2">Running Balance</th>
+											</tr>
+											<tr>
+												<th scope="col">QTY</th>
+												<th scope="col">Unit Cost</th>
+												<th scope="col">Total</th>
+												<th scope="col">QTY</th>
+												<th scope="col">Unit Cost</th>
+												<th scope="col">Total</th>
+											</tr>
+										</thead>
+										<tbody>
+											{stockCard.records.length ? stockCard.records.map((record) => (
+												<tr key={record.id}>
+													<td>{formatRecordDate(record.date)}</td>
+													<td>{record.reference || '—'}</td>
+													<td>{record.description || '—'}</td>
+													<td>{formatStockCardQuantity(record.in_qty)}</td>
+													<td>{formatPrice(record.in_unit_cost)}</td>
+													<td>{formatPrice(record.in_total)}</td>
+													<td>{formatStockCardQuantity(record.out_qty)}</td>
+													<td>{formatPrice(record.out_unit_cost)}</td>
+													<td>{formatPrice(record.out_total)}</td>
+													<td>{formatStockCardQuantity(record.balance_qty)}</td>
+													<td>{formatPrice(record.balance_unit_cost)}</td>
+													<td>{formatPrice(record.running_balance)}</td>
+												</tr>
+											)) : (
+												<tr>
+													<td colSpan="12" className="accountant-inventory-empty">
+														{stockCardError
+															? 'Stock card records are unavailable.'
+															: 'No inventory stock card records have been added yet.'}
+													</td>
+												</tr>
+											)}
+										</tbody>
+									</table>
+								</div>
+							</section>
+						))}
+					</div>
+				)}
 			</div>
 		</div>
 	)
