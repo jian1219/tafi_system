@@ -68,6 +68,122 @@ export async function listTafiAdminBranches(sessionToken) {
   }
 }
 
+export async function listTafiAdminBranchCDJEntries(sessionToken, branchId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const entries = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('tafi_admin_list_branch_cdj_entries', {
+        p_session_token: sessionToken,
+        p_branch_id: branchId,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      entries.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: entries, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the branch Cash Disbursement Journal.')
+    }
+  }
+}
+
+export async function listTafiAdminBranchDailySummaryCDJ(sessionToken, branchId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const summaries = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('tafi_admin_list_branch_daily_summary_cdj', {
+        p_session_token: sessionToken,
+        p_branch_id: branchId,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      summaries.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: summaries, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the branch daily Cash Disbursement Journal summary.')
+    }
+  }
+}
+
+export async function createTafiAdminTafiCDJEntry(sessionToken, entry) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_create_tafi_cdj_entry', {
+      p_session_token: sessionToken,
+      p_ref_no: entry.refNo,
+      p_disbursement_voucher_no: entry.disbursementVoucherNo,
+      p_description: entry.description,
+      p_account_titles: entry.accountTitle,
+      p_payee_supplier: entry.payeeSupplier,
+      p_tin: entry.tin,
+      p_cash: entry.cash,
+      p_bank_transfer: entry.bankTransfer,
+      p_gcash: entry.gcash,
+      p_cwt: entry.cwt
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the TAFI Cash Disbursement Journal entry.')
+    }
+  }
+}
+
+export async function listTafiAdminTafiCDJEntries(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const entries = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('tafi_admin_list_tafi_cdj_entries', {
+        p_session_token: sessionToken,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      entries.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: entries, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the TAFI Cash Disbursement Journal.')
+    }
+  }
+}
+
 export async function listTafiAdminBranchInventoryUsageHistory(sessionToken, branchId, usageDate) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -2074,6 +2190,122 @@ export async function listAccountantInventoryBranches(sessionToken) {
   }
 }
 
+export async function listAccountantBranchCDJEntries(sessionToken, branchId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const entries = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('accountant_list_branch_cdj_entries', {
+        p_session_token: sessionToken,
+        p_branch_id: branchId,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      entries.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: entries, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the branch Cash Disbursement Journal.')
+    }
+  }
+}
+
+export async function createAccountantTafiCDJEntry(sessionToken, entry) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_create_tafi_cdj_entry', {
+      p_session_token: sessionToken,
+      p_ref_no: entry.refNo,
+      p_disbursement_voucher_no: entry.disbursementVoucherNo,
+      p_description: entry.description,
+      p_account_titles: entry.accountTitle,
+      p_payee_supplier: entry.payeeSupplier,
+      p_tin: entry.tin,
+      p_cash: entry.cash,
+      p_bank_transfer: entry.bankTransfer,
+      p_gcash: entry.gcash,
+      p_cwt: entry.cwt
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the TAFI Cash Disbursement Journal entry.')
+    }
+  }
+}
+
+export async function listAccountantTafiCDJEntries(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const entries = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('accountant_list_tafi_cdj_entries', {
+        p_session_token: sessionToken,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      entries.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: entries, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the TAFI Cash Disbursement Journal.')
+    }
+  }
+}
+
+export async function listAccountantBranchDailySummaryCDJ(sessionToken, branchId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const summaries = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('accountant_list_branch_daily_summary_cdj', {
+        p_session_token: sessionToken,
+        p_branch_id: branchId,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      summaries.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: summaries, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the branch daily Cash Disbursement Journal summary.')
+    }
+  }
+}
+
 export async function listAccountantBranchInventoryUsageHistory(sessionToken, branchId, usageDate) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -2662,6 +2894,107 @@ export async function createBranchCashAdvanceLoan(sessionToken, cashAdvance) {
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to save the cash advance.')
+    }
+  }
+}
+
+export async function createBranchCDJEntry(sessionToken, entry) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_create_cdj_entry', {
+      p_session_token: sessionToken,
+      p_ref_no: entry.refNo,
+      p_disbursement_voucher_no: entry.disbursementVoucherNo,
+      p_description: entry.description,
+      p_account_titles: entry.accountTitle,
+      p_payee_supplier: entry.payeeSupplier,
+      p_tin: entry.tin,
+      p_cash: entry.cash,
+      p_bank_transfer: entry.bankTransfer,
+      p_gcash: entry.gcash,
+      p_cwt: entry.cwt
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the Cash Disbursement Journal entry.')
+    }
+  }
+}
+
+export async function listBranchCDJEntries(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const entries = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('branch_admin_list_cdj_entries', {
+        p_session_token: sessionToken,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      entries.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: entries, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load Cash Disbursement Journal entries.')
+    }
+  }
+}
+
+export async function listBranchDailySummaryCDJ(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const summaries = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('branch_admin_list_daily_summary_cdj', {
+        p_session_token: sessionToken,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      summaries.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: summaries, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the daily Cash Disbursement Journal summary.')
+    }
+  }
+}
+
+export async function updateBranchDailySummaryCDJReferences(sessionToken, summaryDate, references) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_update_daily_summary_cdj_refs', {
+      p_session_token: sessionToken,
+      p_date: summaryDate,
+      p_check_ref_no: references.checkRefNo,
+      p_disbursement_voucher_no: references.disbursementVoucherNo
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the daily summary references.')
     }
   }
 }

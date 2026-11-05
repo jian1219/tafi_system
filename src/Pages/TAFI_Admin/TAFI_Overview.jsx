@@ -1,4 +1,4 @@
-import { CalendarDays, CircleDollarSign, Package, Users } from 'lucide-react'
+import { CalendarDays, CircleDollarSign, Package, Receipt, Users } from 'lucide-react'
 
 const overviewCards = [
 	{
@@ -32,6 +32,14 @@ const overviewCards = [
 		icon: Package,
 		summary: 'TAFI and branch stock records track requests, receipts, and daily usage.',
 		important: 'Confirm deliveries and receipts so branch inventory stays aligned.'
+	},
+	{
+		id: 'expense-cdj',
+		title: 'Cash Disbursement Journals',
+		category: 'Expense',
+		icon: Receipt,
+		summary: 'Branch CDJ and TAFI CDJ record and organize disbursement activity.',
+		important: 'Verify account titles and payment amounts when recording or reviewing entries.'
 	}
 ]
 

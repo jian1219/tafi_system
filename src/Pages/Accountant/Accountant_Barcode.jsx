@@ -50,11 +50,13 @@ export default function AccountantBarcode({ sessionToken }) {
 	const [activeTab, setActiveTab] = useState('barcodes')
 	const [activeRecordTab, setActiveRecordTab] = useState('stockIn')
 	const [stockCardRecords, setStockCardRecords] = useState([])
+	const [stockInStockCardRecords, setStockInStockCardRecords] = useState([])
 	const [tritonInventoryItems, setTritonInventoryItems] = useState([])
 	const [selectedStockNo, setSelectedStockNo] = useState('')
 	const [stockCardReloadVersion, setStockCardReloadVersion] = useState(0)
 	const [isStockCardLoading, setIsStockCardLoading] = useState(false)
 	const [stockCardError, setStockCardError] = useState('')
+	const [stockInStockCardError, setStockInStockCardError] = useState('')
 	const [tritonInventoryError, setTritonInventoryError] = useState('')
 	const [barcodeItems, setBarcodeItems] = useState([])
 	const [barcodeSearch, setBarcodeSearch] = useState('')
@@ -139,8 +141,31 @@ export default function AccountantBarcode({ sessionToken }) {
 			}
 			groups.get(record.stock_no).records.push(record)
 		})
+		stockInStockCardRecords.forEach((record) => {
+			if (!groups.has(record.stock_no)) {
+				groups.set(record.stock_no, {
+					stockNo: record.stock_no,
+					itemDescription: record.item_description,
+					category: '',
+					unitOfMeasure: record.unit_of_measure,
+					records: []
+				})
+			}
+			groups.get(record.stock_no).records.push({
+				id: `stock-in-${record.barcode}-${record.date}`,
+				date: record.date,
+				in_qty: record.stock_in_count,
+				in_unit_cost: record.price,
+				in_total: record.total_price
+			})
+		})
+		groups.forEach((stockCard) => {
+			stockCard.records.sort((first, second) => (
+				String(first.date ?? '').localeCompare(String(second.date ?? ''))
+			))
+		})
 		return [...groups.values()].sort((first, second) => first.stockNo.localeCompare(second.stockNo))
-	}, [stockCardRecords, tritonInventoryItems])
+	}, [stockCardRecords, stockInStockCardRecords, tritonInventoryItems])
 	const selectedStockCard = stockCardGroups.find((stockCard) => (
 		stockCard.stockNo === selectedStockNo
 	)) ?? stockCardGroups[0] ?? null
@@ -283,16 +308,19 @@ export default function AccountantBarcode({ sessionToken }) {
 			if (!sessionToken) {
 				setIsStockCardLoading(false)
 				setStockCardError('Accountant session is unavailable. Please sign in again.')
+				setStockInStockCardError('Accountant session is unavailable. Please sign in again.')
 				setTritonInventoryError('Accountant session is unavailable. Please sign in again.')
 				return
 			}
 
 			setIsStockCardLoading(true)
 			setStockCardError('')
+			setStockInStockCardError('')
 			setTritonInventoryError('')
-			const [stockCardResult, inventoryResult] = await Promise.all([
+			const [stockCardResult, inventoryResult, stockInResult] = await Promise.all([
 				listAccountantInventoryStockCardRecords(sessionToken),
-				listAccountantInventoryInformation(sessionToken)
+				listAccountantInventoryInformation(sessionToken),
+				listAccountantTafiStockInRecords(sessionToken, null, null)
 			])
 			if (!isCurrent) return
 			setIsStockCardLoading(false)
@@ -302,6 +330,12 @@ export default function AccountantBarcode({ sessionToken }) {
 				setStockCardRecords([])
 			} else {
 				setStockCardRecords(stockCardResult.data ?? [])
+			}
+			if (stockInResult.error) {
+				setStockInStockCardError(stockInResult.error.message)
+				setStockInStockCardRecords([])
+			} else {
+				setStockInStockCardRecords(stockInResult.data ?? [])
 			}
 			if (inventoryResult.error) {
 				setTritonInventoryError(inventoryResult.error.message)
@@ -838,7 +872,8 @@ export default function AccountantBarcode({ sessionToken }) {
 					<div>
 						<h2>Inventory Stock Card</h2>
 						<p>
-							{stockCardRecords.length} ledger record{stockCardRecords.length === 1 ? '' : 's'}
+							{stockCardRecords.length + stockInStockCardRecords.length} ledger record
+							{stockCardRecords.length + stockInStockCardRecords.length === 1 ? '' : 's'}
 							{' · '}{stockCardGroups.length} stock card{stockCardGroups.length === 1 ? '' : 's'}
 						</p>
 					</div>
@@ -877,6 +912,11 @@ export default function AccountantBarcode({ sessionToken }) {
 				{stockCardError && (
 					<p className="accountant-inventory-error" role="alert">
 						Stock card records could not be loaded: {stockCardError}
+					</p>
+				)}
+				{stockInStockCardError && (
+					<p className="accountant-inventory-error" role="alert">
+						Stock In records could not be loaded: {stockInStockCardError}
 					</p>
 				)}
 				{isStockCardLoading ? (
@@ -958,8 +998,8 @@ export default function AccountantBarcode({ sessionToken }) {
 											)) : (
 												<tr>
 													<td colSpan="12" className="accountant-inventory-empty">
-														{stockCardError
-															? 'Stock card records are unavailable.'
+														{stockCardError || stockInStockCardError
+															? 'Some stock card records are unavailable.'
 															: 'No inventory stock card records have been added yet.'}
 													</td>
 												</tr>

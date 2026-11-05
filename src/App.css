@@ -3889,6 +3889,214 @@ fieldset.employee-emergency-contact-box {
   cursor: not-allowed;
 }
 
+.branch-cdj-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: end;
+  gap: 14px;
+  padding: 18px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.branch-cdj-field {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.branch-cdj-field input,
+.branch-cdj-field select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.branch-cdj-form > button {
+  min-height: 42px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #1d4ed8;
+  color: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.branch-cdj-form > button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.branch-cdj-total {
+  display: grid;
+  min-height: 42px;
+  align-content: center;
+  gap: 3px;
+  color: #475569;
+  font-size: 0.78rem;
+}
+
+.branch-cdj-total strong {
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.branch-cdj-table {
+  min-width: 1500px;
+}
+
+.branch-cdj-table:not(.branch-daily-summary-cdj-table) td:nth-child(4) {
+  min-width: 190px;
+  max-width: 280px;
+  white-space: normal;
+}
+
+.branch-cdj-date-cell {
+  vertical-align: top;
+  font-weight: 700;
+}
+
+.branch-cdj-grand-total td {
+  border-top: 2px solid #94a3b8;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.branch-daily-summary-cdj-table {
+  min-width: 7800px;
+  table-layout: fixed;
+}
+
+.cash-advance-table.branch-daily-summary-cdj-table th,
+.cash-advance-table.branch-daily-summary-cdj-table td {
+  padding: 14px 12px;
+  vertical-align: middle;
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.branch-daily-summary-cdj-table th:nth-child(1),
+.branch-daily-summary-cdj-table td:nth-child(1) {
+  width: 130px;
+}
+
+.branch-daily-summary-cdj-table th:nth-child(2),
+.branch-daily-summary-cdj-table td:nth-child(2) {
+  width: 185px;
+}
+
+.branch-daily-summary-cdj-table th:nth-child(3),
+.branch-daily-summary-cdj-table td:nth-child(3) {
+  width: 220px;
+}
+
+.branch-daily-summary-cdj-table th:nth-child(n + 4):not(:last-child),
+.branch-daily-summary-cdj-table td:nth-child(n + 4):not(:last-child) {
+  text-align: right;
+}
+
+.branch-daily-summary-cdj-table th:nth-child(n + 4):nth-child(-n + 8),
+.branch-daily-summary-cdj-table td:nth-child(n + 4):nth-child(-n + 8) {
+  width: 125px;
+}
+
+.branch-daily-summary-cdj-table th:nth-child(n + 9):not(:last-child),
+.branch-daily-summary-cdj-table td:nth-child(n + 9):not(:last-child) {
+  width: 135px;
+}
+
+.branch-daily-summary-cdj-table th:last-child,
+.branch-daily-summary-cdj-table td:last-child {
+  width: 100px;
+  text-align: center;
+}
+
+.cash-advance-table.branch-daily-summary-cdj-table.accountant-daily-summary-cdj-table th:last-child,
+.cash-advance-table.branch-daily-summary-cdj-table.accountant-daily-summary-cdj-table td:last-child {
+  width: 135px;
+  text-align: right;
+}
+
+.branch-daily-summary-cdj-table td:nth-child(n + 4):not(:last-child) {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.branch-daily-summary-cdj-table td:nth-child(4) {
+  min-width: 0;
+  max-width: none;
+}
+
+.branch-daily-summary-cdj-table tbody tr.branch-daily-summary-row {
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.branch-daily-summary-cdj-table tbody tr.branch-daily-summary-row:hover > td {
+  background: #eff6ff;
+}
+
+.branch-daily-summary-cdj-table tbody tr.branch-daily-summary-row-selected > td {
+  background: #dbeafe;
+}
+
+.branch-daily-summary-cdj-table tbody tr.branch-daily-summary-row-selected:hover > td {
+  background: #bfdbfe;
+}
+
+.branch-daily-summary-cdj-table tbody tr:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+.branch-daily-summary-ref-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+}
+
+.branch-daily-summary-ref-input:disabled {
+  background: #f8fafc;
+}
+
+.branch-daily-summary-save-button {
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: #1d4ed8;
+  color: #fff;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.branch-daily-summary-save-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .cash-advance-message {
   margin: 14px 0;
   color: #475569;
@@ -3923,6 +4131,13 @@ fieldset.employee-emergency-contact-box {
   align-items: end;
 }
 
+.branch-cdj-journal-filters {
+  display: flex;
+  align-items: end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
 .cash-advance-month-control {
   display: grid;
   gap: 6px;
@@ -3931,7 +4146,8 @@ fieldset.employee-emergency-contact-box {
   font-weight: 700;
 }
 
-.cash-advance-month-control input {
+.cash-advance-month-control input,
+.cash-advance-month-control select {
   min-height: 38px;
   padding: 7px 10px;
   border: 1px solid #cbd5e1;
@@ -3939,6 +4155,10 @@ fieldset.employee-emergency-contact-box {
   background: #fff;
   color: #0f172a;
   font: inherit;
+}
+
+.branch-cdj-journal-filters select {
+  min-width: 260px;
 }
 
 .cash-advance-table-wrap {
@@ -4880,6 +5100,10 @@ fieldset.employee-emergency-contact-box {
   }
 
   .cash-advance-form {
+    grid-template-columns: 1fr;
+  }
+
+  .branch-cdj-form {
     grid-template-columns: 1fr;
   }
 
@@ -8446,6 +8670,25 @@ fieldset.employee-emergency-contact-box {
     height: 100vh;
     min-height: 0;
     overflow: hidden;
+  }
+
+  .dashboard-sidebar {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .dashboard-sidebar .tafi-admin-nav {
+    flex: 1 1 auto;
+    min-height: 0;
+    align-content: start;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .dashboard-sidebar .tafi-admin-nav::-webkit-scrollbar {
+    display: none;
   }
 
   .tafi-admin-sidebar {

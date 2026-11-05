@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { CalendarDays, ChevronDown, CircleDollarSign, ClipboardList, Home, LogOut, MinusCircle, Package, PlusCircle, ShieldCheck, Trophy, Users, Wallet } from 'lucide-react'
+import { CalendarDays, ChevronDown, CircleDollarSign, ClipboardList, Home, LogOut, MinusCircle, Package, PlusCircle, Receipt, ShieldCheck, Trophy, Users, Wallet } from 'lucide-react'
 import { revokeTafiAdminSession } from '../../lib/supabase'
 import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
@@ -19,6 +19,8 @@ const TafiStockInventory = lazy(() => import('./TAFI_Stock_Inventory'))
 const TafiBranchInventoryStock = lazy(() => import('./TAFI_branch_inventory_stock'))
 const TafiRequestStockOrder = lazy(() => import('./TAFI_Request_Stock_Order'))
 const TafiInventoryLog = lazy(() => import('./TAFI_Inventory_log'))
+const TafiBranchCDJ = lazy(() => import('./TAFI_Branch_cdj'))
+const TafiTafiCDJ = lazy(() => import('./TAFI_TAFI_cdj'))
 import logoImage from '../../images/Tafi logo transparent.png'
 
 const navigationGroups = [
@@ -52,6 +54,14 @@ const navigationGroups = [
 			{ id: 'branch-inventory-stock', label: 'Branch Inventory Stock', icon: Package },
 			{ id: 'stock-requests', label: 'Branch Stock Requests', icon: ClipboardList },
 			{ id: 'inventory-log', label: 'Branch Usage Log', icon: ClipboardList }
+		]
+	},
+	{
+		id: 'expense',
+		label: 'Expense',
+		items: [
+			{ id: 'branch-cdj', label: 'Branch CDJ', icon: Receipt },
+			{ id: 'tafi-cdj', label: 'TAFI CDJ', icon: Receipt }
 		]
 	}
 ]
@@ -233,6 +243,18 @@ export default function TafiDashboard() {
 													<TafiInventoryLog sessionToken={tafiAdmin.session_token} />
 												</Suspense>
 											)
+								: activePage === 'branch-cdj'
+									? (
+										<Suspense fallback={<p className="cash-advance-message" role="status">Loading Branch CDJ...</p>}>
+											<TafiBranchCDJ sessionToken={tafiAdmin.session_token} />
+										</Suspense>
+									)
+								: activePage === 'tafi-cdj'
+									? (
+										<Suspense fallback={<p className="cash-advance-message" role="status">Loading TAFI CDJ...</p>}>
+											<TafiTafiCDJ sessionToken={tafiAdmin.session_token} />
+										</Suspense>
+									)
 								: activePage === 'other-additions'
 									? (
 										<Suspense fallback={<p className="other-deduction-message" role="status">Loading payroll addition tools…</p>}>

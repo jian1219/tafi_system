@@ -10,6 +10,7 @@ import {
   MinusCircle,
   Package,
   PlusCircle,
+  Receipt,
   Users,
   Wallet
 } from 'lucide-react'
@@ -27,6 +28,9 @@ import BranchInventory from './Branch_Inventory'
 import BranchInventoryLog from './Branch_Inventory_log'
 import BranchStockRecord from './Branch_Stock_record'
 import BranchRequestStock from './Branch_Request_Stock'
+import BranchAdminExpenseCDJ from './Branch_admin_expense_CDJ'
+import BranchAdminExpenseMonthlySummary from './Branch_admin_expense_Monthly_summary'
+import BranchAdminExpenseDailySummary from './Branch_admin_expense_daily_summary'
 import { revokeBranchAdminSession } from '../../lib/supabase'
 import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
@@ -49,6 +53,15 @@ const navigationGroups = [
       { name: 'Others Deduction Pay', label: 'Other Deduction Pay', component: BranchOtherDeduction, icon: MinusCircle },
       { name: 'Cash Advance Pay', label: 'Cash Advance', component: BranchCashAdvance, icon: CircleDollarSign },
       { name: 'Branch payroll', label: 'Branch Payroll', component: BranchPayroll, icon: Wallet }
+    ]
+  },
+  {
+    id: 'expense',
+    label: 'Expense',
+    items: [
+      { name: 'Cash Disbursement Journal', label: 'Cash Disbursement Journal', component: BranchAdminExpenseCDJ, icon: Receipt },
+      { name: 'Daily Summary', label: 'Daily Summary', component: BranchAdminExpenseDailySummary, icon: CalendarDays },
+      { name: 'Monthly Summary', label: 'Monthly Summary', component: BranchAdminExpenseMonthlySummary, icon: CalendarDays }
     ]
   },
   {

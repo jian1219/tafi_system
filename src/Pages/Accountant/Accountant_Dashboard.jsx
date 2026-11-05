@@ -1,15 +1,43 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { Barcode, Calculator, ClipboardList, LayoutDashboard, LogOut, Package } from 'lucide-react'
+import { Barcode, Calculator, ChevronDown, ClipboardList, LayoutDashboard, LogOut, Package, Receipt } from 'lucide-react'
 import { listAccountantTafiStockInventory, revokeAccountantSession } from '../../lib/supabase'
 import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
 import logoImage from '../../images/Tafi logo transparent.png'
 import AccountantBarcode from './Accountant_Barcode'
 import AccountantBranchStockRecords from './Accountant_Branch_Stock_records'
+import AccountantTafiCDJ from './Accountant_TAFI_cdj'
 import AccountantInventoryInformation from './Accountant_Inventory_Information'
 import AccountantInventoryLog from './Accountant_Inventory_log'
 import AccountantInventoryTransferForm from './Accountant_Inventory_Transfer_Form'
+import AccountantBranchCDJ from './Accountant_Branch_cdj'
+
+const overviewNavigationItem = { id: 'overview', label: 'Overview', icon: LayoutDashboard }
+const inventoryNavigationGroup = {
+	id: 'inventory',
+	label: 'Inventory',
+	items: [
+		{ id: 'inventory', label: 'Inventory Information', icon: Package },
+		{ id: 'barcode', label: 'TAFI Inventory', icon: Barcode },
+		{ id: 'inventory-log', label: 'Branch Usage Log', icon: ClipboardList },
+		{ id: 'inventory-transform', label: 'Inventory Transform Records', icon: ClipboardList },
+		{ id: 'branch-stock-records', label: 'Branch Stock Records', icon: Package }
+	]
+}
+const expenseNavigationGroup = {
+	id: 'expense',
+	label: 'Expense',
+	items: [
+		{ id: 'tafi-cdj', label: 'TAFI CDJ', icon: Receipt },
+		{ id: 'branch-cdj', label: 'Branch CDJ', icon: Receipt }
+	]
+}
+const dashboardPages = [
+	overviewNavigationItem.id,
+	...inventoryNavigationGroup.items.map((item) => item.id),
+	...expenseNavigationGroup.items.map((item) => item.id)
+]
 
 export default function AccountantDashboard() {
 	const location = useLocation()
@@ -21,18 +49,27 @@ export default function AccountantDashboard() {
 	const [activePage, setActivePage] = useSessionStorageState(
 		'tafi-accountant-dashboard-page',
 		'overview',
-		[
-			'overview',
-			'inventory',
-			'inventory-log',
-			'inventory-transform',
-			'barcode',
-			'branch-stock-records'
-		]
+		dashboardPages
 	)
+	const [isInventoryExpanded, setIsInventoryExpanded] = useState(() => (
+		inventoryNavigationGroup.items.some((item) => item.id === activePage)
+	))
+	const [isExpenseExpanded, setIsExpenseExpanded] = useState(() => (
+		expenseNavigationGroup.items.some((item) => item.id === activePage)
+	))
 	const [noAvailableStockCount, setNoAvailableStockCount] = useState(null)
 	const [isLoadingNoAvailableStockCount, setIsLoadingNoAvailableStockCount] = useState(false)
 	const [noAvailableStockCountError, setNoAvailableStockCountError] = useState('')
+
+	const navigateToPage = (page) => {
+		setActivePage(page)
+		if (inventoryNavigationGroup.items.some((item) => item.id === page)) {
+			setIsInventoryExpanded(true)
+		}
+		if (expenseNavigationGroup.items.some((item) => item.id === page)) {
+			setIsExpenseExpanded(true)
+		}
+	}
 
 	useEffect(() => {
 		if (activePage !== 'overview' || !sessionToken) return undefined
@@ -89,59 +126,77 @@ export default function AccountantDashboard() {
 				<nav className="tafi-admin-nav" aria-label="Dashboard sections">
 					<button
 						type="button"
-						className={`tafi-admin-nav-item${activePage === 'overview' ? ' active' : ''}`}
-						aria-current={activePage === 'overview' ? 'page' : undefined}
-						onClick={() => setActivePage('overview')}
+						className={`tafi-admin-nav-item${activePage === overviewNavigationItem.id ? ' active' : ''}`}
+						aria-current={activePage === overviewNavigationItem.id ? 'page' : undefined}
+						onClick={() => navigateToPage(overviewNavigationItem.id)}
 					>
 						<LayoutDashboard size={19} aria-hidden="true" />
-						<span>Overview</span>
+						<span>{overviewNavigationItem.label}</span>
 					</button>
-					<button
-						type="button"
-						className={`tafi-admin-nav-item${activePage === 'inventory' ? ' active' : ''}`}
-						aria-current={activePage === 'inventory' ? 'page' : undefined}
-						onClick={() => setActivePage('inventory')}
-					>
-						<Package size={19} aria-hidden="true" />
-						<span>Inventory Information</span>
-					</button>
+					<div className="tafi-admin-nav-group">
 						<button
-						type="button"
-						className={`tafi-admin-nav-item${activePage === 'barcode' ? ' active' : ''}`}
-						aria-current={activePage === 'barcode' ? 'page' : undefined}
-						onClick={() => setActivePage('barcode')}
-					>
-						<Barcode size={19} aria-hidden="true" />
-						<span>TAFI Inventory</span>
-					</button>
-					<button
-						type="button"
-						className={`tafi-admin-nav-item${activePage === 'inventory-log' ? ' active' : ''}`}
-						aria-current={activePage === 'inventory-log' ? 'page' : undefined}
-						onClick={() => setActivePage('inventory-log')}
-					>
-						<ClipboardList size={19} aria-hidden="true" />
-						<span>Branch Usage Log</span>
-					</button>
-					<button
-						type="button"
-						className={`tafi-admin-nav-item${activePage === 'inventory-transform' ? ' active' : ''}`}
-						aria-current={activePage === 'inventory-transform' ? 'page' : undefined}
-						onClick={() => setActivePage('inventory-transform')}
-					>
-						<ClipboardList size={19} aria-hidden="true" />
-						<span>Inventory Transform Records</span>
-					</button>
-					<button
 							type="button"
-							className={`tafi-admin-nav-item${activePage === 'branch-stock-records' ? ' active' : ''}`}
-							aria-current={activePage === 'branch-stock-records' ? 'page' : undefined}
-							onClick={() => setActivePage('branch-stock-records')}
+							className={`tafi-admin-nav-group-toggle${inventoryNavigationGroup.items.some((item) => item.id === activePage) ? ' has-active' : ''}`}
+							aria-expanded={isInventoryExpanded}
+							aria-controls="accountant-inventory-nav-items"
+							onClick={() => setIsInventoryExpanded((expanded) => !expanded)}
 						>
-							<Package size={19} aria-hidden="true" />
-							<span>Branch Stock Records</span>
+							<span>{inventoryNavigationGroup.label}</span>
+							<ChevronDown size={16} aria-hidden="true" />
 						</button>
-					
+						<div
+							className="tafi-admin-nav-group-items"
+							id="accountant-inventory-nav-items"
+							role="group"
+							aria-label={inventoryNavigationGroup.label}
+							hidden={!isInventoryExpanded}
+						>
+							{inventoryNavigationGroup.items.map(({ id, label, icon: Icon }) => (
+								<button
+									key={id}
+									type="button"
+									className={`tafi-admin-nav-item${activePage === id ? ' active' : ''}`}
+									aria-current={activePage === id ? 'page' : undefined}
+									onClick={() => navigateToPage(id)}
+								>
+									<Icon size={19} aria-hidden="true" />
+									<span>{label}</span>
+								</button>
+							))}
+						</div>
+					</div>
+					<div className="tafi-admin-nav-group">
+						<button
+							type="button"
+							className={`tafi-admin-nav-group-toggle${expenseNavigationGroup.items.some((item) => item.id === activePage) ? ' has-active' : ''}`}
+							aria-expanded={isExpenseExpanded}
+							aria-controls="accountant-expense-nav-items"
+							onClick={() => setIsExpenseExpanded((expanded) => !expanded)}
+						>
+							<span>{expenseNavigationGroup.label}</span>
+							<ChevronDown size={16} aria-hidden="true" />
+						</button>
+						<div
+							className="tafi-admin-nav-group-items"
+							id="accountant-expense-nav-items"
+							role="group"
+							aria-label={expenseNavigationGroup.label}
+							hidden={!isExpenseExpanded}
+						>
+							{expenseNavigationGroup.items.map(({ id, label, icon: Icon }) => (
+								<button
+									key={id}
+									type="button"
+									className={`tafi-admin-nav-item${activePage === id ? ' active' : ''}`}
+									aria-current={activePage === id ? 'page' : undefined}
+									onClick={() => navigateToPage(id)}
+								>
+									<Icon size={19} aria-hidden="true" />
+									<span>{label}</span>
+								</button>
+							))}
+						</div>
+					</div>
 				</nav>
 
 				<div className="tafi-admin-sidebar-footer">
@@ -159,7 +214,11 @@ export default function AccountantDashboard() {
 					<div>
 						<p className="eyebrow">TAFI Accountant workspace</p>
 						<h1>
-							{activePage === 'inventory'
+							{activePage === 'branch-cdj'
+								? 'Branch Cash Disbursement Journal'
+								: activePage === 'tafi-cdj'
+									? 'TAFI CDJ'
+								: activePage === 'inventory'
 								? 'Inventory Information'
 								: activePage === 'inventory-log'
 									? 'Branch Usage Log'
@@ -215,6 +274,12 @@ export default function AccountantDashboard() {
 					)}
 					{activePage === 'branch-stock-records' && (
 						<AccountantBranchStockRecords />
+					)}
+					{activePage === 'branch-cdj' && (
+						<AccountantBranchCDJ sessionToken={accountant.session_token} />
+					)}
+					{activePage === 'tafi-cdj' && (
+						<AccountantTafiCDJ sessionToken={accountant.session_token} />
 					)}
 				</section>
 			</main>
