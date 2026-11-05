@@ -748,6 +748,19 @@ button {
   position: relative;
 }
 
+.branch-admin-help-note {
+  margin: auto 0 0;
+  padding: 14px 12px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  color: #d7e4e0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.branch-admin-help-note strong {
+  color: #fff;
+}
+
 .dashboard-brand {
   display: grid;
   place-items: center;

@@ -185,6 +185,9 @@ export default function BranchAdminDashboard() {
               )
             })}
           </nav>
+          <p className="branch-admin-help-note">
+            If you have a concern or run into a problem with the system, please tell <strong>Ian G.</strong> 
+          </p>
         </aside>
 
         <main className="dashboard-main">
