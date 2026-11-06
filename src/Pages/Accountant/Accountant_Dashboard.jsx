@@ -12,6 +12,7 @@ import AccountantInventoryInformation from './Accountant_Inventory_Information'
 import AccountantInventoryLog from './Accountant_Inventory_log'
 import AccountantInventoryTransferForm from './Accountant_Inventory_Transfer_Form'
 import AccountantBranchCDJ from './Accountant_Branch_cdj'
+import AccountantAPSubsidiaryLedger from './Accountant_AP_Subsidiary_ledger'
 
 const overviewNavigationItem = { id: 'overview', label: 'Overview', icon: LayoutDashboard }
 const inventoryNavigationGroup = {
@@ -30,7 +31,8 @@ const expenseNavigationGroup = {
 	label: 'Expense',
 	items: [
 		{ id: 'tafi-cdj', label: 'TAFI CDJ', icon: Receipt },
-		{ id: 'branch-cdj', label: 'Branch CDJ', icon: Receipt }
+		{ id: 'branch-cdj', label: 'Branch CDJ', icon: Receipt },
+		{ id: 'ap-subsidiary-ledger', label: 'AP Subsidiary Ledger', icon: Receipt }
 	]
 }
 const dashboardPages = [
@@ -214,7 +216,9 @@ export default function AccountantDashboard() {
 					<div>
 						<p className="eyebrow">TAFI Accountant workspace</p>
 						<h1>
-							{activePage === 'branch-cdj'
+							{activePage === 'ap-subsidiary-ledger'
+								? 'AP Subsidiary Ledger'
+								: activePage === 'branch-cdj'
 								? 'Branch Cash Disbursement Journal'
 								: activePage === 'tafi-cdj'
 									? 'TAFI CDJ'
@@ -280,6 +284,9 @@ export default function AccountantDashboard() {
 					)}
 					{activePage === 'tafi-cdj' && (
 						<AccountantTafiCDJ sessionToken={accountant.session_token} />
+					)}
+					{activePage === 'ap-subsidiary-ledger' && (
+						<AccountantAPSubsidiaryLedger sessionToken={accountant.session_token} />
 					)}
 				</section>
 			</main>

@@ -3854,6 +3854,46 @@ fieldset.employee-emergency-contact-box {
   font-size: 1.45rem;
 }
 
+.branch-cdj-add-entry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  background: #1d4ed8;
+  box-shadow: 0 2px 5px rgba(29, 78, 216, 0.18);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.branch-cdj-add-entry:hover:not(:disabled) {
+  background: #1e40af;
+  box-shadow: 0 4px 10px rgba(29, 78, 216, 0.24);
+  transform: translateY(-1px);
+}
+
+.branch-cdj-add-entry:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.branch-cdj-add-entry:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+.branch-cdj-add-entry svg {
+  flex: 0 0 auto;
+}
+
 .cash-advance-form {
   display: grid;
   grid-template-columns: minmax(180px, 1.3fr) repeat(2, minmax(160px, 1fr)) auto;
@@ -3909,6 +3949,10 @@ fieldset.employee-emergency-contact-box {
   gap: 14px;
   padding: 18px 0;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.branch-cdj-form[hidden] {
+  display: none;
 }
 
 .branch-cdj-field {
@@ -9437,5 +9481,295 @@ fieldset.employee-emergency-contact-box {
 
   .ranking-employee-branch {
     font-size: 0.62rem;
+  }
+}
+
+.ap-ledger-page {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  color: #172033;
+}
+
+.ap-ledger-heading,
+.ap-ledger-list-heading,
+.ap-ledger-form-heading,
+.ap-ledger-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ap-ledger-heading h2,
+.ap-ledger-list-heading h3,
+.ap-ledger-form-heading h3 {
+  margin: 0;
+  color: #172033;
+}
+
+.ap-ledger-heading > div > p:last-child,
+.ap-ledger-list-heading p,
+.ap-ledger-form-heading span,
+.ap-ledger-list-heading span {
+  margin: 5px 0 0;
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+.ap-ledger-primary-button,
+.ap-ledger-secondary-button,
+.ap-ledger-edit-button {
+  min-height: 38px;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ap-ledger-primary-button {
+  color: #fff;
+  background: #1d4ed8;
+}
+
+.ap-ledger-primary-button:hover:not(:disabled) {
+  background: #1e40af;
+}
+
+.ap-ledger-primary-button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.ap-ledger-secondary-button {
+  color: #334155;
+  background: #e2e8f0;
+}
+
+.ap-ledger-edit-button {
+  min-height: 32px;
+  padding: 6px 10px;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.ap-ledger-primary-button:focus-visible,
+.ap-ledger-secondary-button:focus-visible,
+.ap-ledger-edit-button:focus-visible,
+.ap-ledger-field input:focus-visible,
+.ap-ledger-field select:focus-visible,
+.ap-ledger-field textarea:focus-visible,
+.ap-ledger-new-supplier button:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+.ap-ledger-form,
+.ap-ledger-list {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid #dbe3ec;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.ap-ledger-form {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.ap-ledger-form-heading {
+  grid-column: 1 / -1;
+  align-items: flex-start;
+}
+
+.ap-ledger-form-heading h3 {
+  font-size: 1rem;
+}
+
+.ap-ledger-form-heading span {
+  text-align: right;
+}
+
+.ap-ledger-form-grid {
+  display: contents;
+}
+
+.ap-ledger-field {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.ap-ledger-field input,
+.ap-ledger-field select,
+.ap-ledger-field textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 39px;
+  padding: 9px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  color: #172033;
+  background: #fff;
+  font: inherit;
+  font-size: 0.86rem;
+}
+
+.ap-ledger-field textarea {
+  resize: vertical;
+}
+
+.ap-ledger-field.wide {
+  grid-column: span 2;
+}
+
+.ap-ledger-new-supplier {
+  display: grid;
+  gap: 6px;
+}
+
+.ap-ledger-new-supplier button {
+  justify-self: start;
+  padding: 2px 0;
+  border: 0;
+  color: #1d4ed8;
+  background: transparent;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.ap-ledger-form-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+.ap-ledger-form-actions .ap-ledger-primary-button,
+.ap-ledger-form-actions .ap-ledger-secondary-button {
+  min-height: 42px;
+}
+
+.ap-ledger-alert,
+.ap-ledger-success {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 8px;
+  font-size: 0.86rem;
+}
+
+.ap-ledger-alert {
+  color: #991b1b;
+  background: #fef2f2;
+}
+
+.ap-ledger-success {
+  color: #166534;
+  background: #f0fdf4;
+}
+
+.ap-ledger-list {
+  display: grid;
+  gap: 13px;
+}
+
+.ap-ledger-table-scroll {
+  max-height: min(58vh, 640px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.ap-ledger-table {
+  width: 100%;
+  min-width: 1900px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.ap-ledger-table .ap-ledger-table-message {
+  padding: 28px;
+  color: #64748b;
+  text-align: center;
+}
+
+.ap-ledger-table .ap-ledger-amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ap-ledger-table td:nth-child(6),
+.ap-ledger-table td:nth-child(7),
+.ap-ledger-table td:nth-child(19) {
+  max-width: 260px;
+  white-space: normal;
+}
+
+.ap-ledger-status {
+  display: inline-block;
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.ap-ledger-status.preparing_check {
+  color: #854d0e;
+  background: #fef3c7;
+}
+
+.ap-ledger-status.paid {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.ap-ledger-status.check_for_pick_up {
+  color: #fff;
+  background: #8b5e3c;
+}
+
+@media (max-width: 720px) {
+  .ap-ledger-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ap-ledger-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .ap-ledger-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ap-ledger-field.wide {
+    grid-column: auto;
+  }
+
+  .ap-ledger-form,
+  .ap-ledger-list {
+    padding: 13px;
+  }
+
+  .ap-ledger-form-heading {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .ap-ledger-form-heading span {
+    text-align: left;
   }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Plus, X } from 'lucide-react'
 import { createBranchCDJEntry, listBranchCDJEntries } from '../../lib/supabase'
 
 const accountTitles = [
@@ -105,6 +106,7 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [isFormOpen, setIsFormOpen] = useState(false)
   const [selectedMonth, setSelectedMonth] = useState(() => getManilaDateKey().slice(0, 7))
   const [selectedAccountTitle, setSelectedAccountTitle] = useState('')
   const currentDate = getManilaDateKey()
@@ -203,6 +205,7 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
     }
 
     setForm(createEmptyEntry())
+    setIsFormOpen(false)
     const { data, error: loadError } = await listBranchCDJEntries(sessionToken)
     setIsSaving(false)
     if (loadError) {
@@ -226,9 +229,32 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
             Record branch disbursements and review saved entries.
           </p>
         </div>
+        <button
+          type="button"
+          className="branch-cdj-add-entry"
+          disabled={isSaving}
+          aria-expanded={isFormOpen}
+          aria-controls="branch-cdj-entry-form"
+          onClick={() => {
+            setIsFormOpen((isOpen) => !isOpen)
+            setError('')
+            setMessage('')
+            if (isFormOpen) setForm(createEmptyEntry())
+          }}
+        >
+          {isFormOpen
+            ? <X size={17} aria-hidden="true" />
+            : <Plus size={17} aria-hidden="true" />}
+          {isFormOpen ? 'Close form' : 'Add CDJ Entry'}
+        </button>
       </header>
 
-      <form className="branch-cdj-form" onSubmit={handleSubmit}>
+      <form
+        id="branch-cdj-entry-form"
+        className="branch-cdj-form"
+        hidden={!isFormOpen}
+        onSubmit={handleSubmit}
+      >
         <label className="branch-cdj-field">
           <span>Date</span>
           <input type="date" value={currentDate} readOnly />

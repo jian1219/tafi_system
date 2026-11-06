@@ -15,7 +15,6 @@ import { getPayrollPeriods } from '../../lib/payrollPeriods'
 
 const today = new Date()
 const currentMonthKey = getLocalDateKey(today).slice(0, 7)
-const currentMonthName = today.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
 
 const getMonthRange = (monthKey) => {
   const [year, month] = monthKey.split('-').map(Number)
@@ -81,6 +80,7 @@ export default function BranchOtherDeduction({
   const [weekIndex, setWeekIndex] = useState(0)
   const [paymentAmount, setPaymentAmount] = useState('')
   const [hdmfMonth, setHdmfMonth] = useState(currentMonthKey)
+  const [undertimeMonth, setUndertimeMonth] = useState(currentMonthKey)
   const [otherMonth, setOtherMonth] = useState(currentMonthKey)
   const [undertimeEmployeeCode, setUndertimeEmployeeCode] = useState('')
   const [undertimeDate, setUndertimeDate] = useState(getLocalDateKey(today))
@@ -96,6 +96,7 @@ export default function BranchOtherDeduction({
   const [isSaving, setIsSaving] = useState(false)
   const sessionToken = providedSessionToken ?? branchAdmin?.session_token
   const hdmfMonthRange = getMonthRange(hdmfMonth)
+  const undertimeMonthRange = getMonthRange(undertimeMonth)
   const otherMonthRange = getMonthRange(otherMonth)
   const hdmfPayrollWeeks = getPayrollWeeks(hdmfMonth)
   const otherPayrollWeeks = getPayrollWeeks(otherMonth)
@@ -117,8 +118,8 @@ export default function BranchOtherDeduction({
       deductionApi.listHdmfPayments(sessionToken, hdmfMonthRange.startDate, hdmfMonthRange.endDate),
       deductionApi.listUndertimeDeductions(
         sessionToken,
-        getLocalDateKey(new Date(today.getFullYear(), today.getMonth(), 1)),
-        getLocalDateKey(new Date(today.getFullYear(), today.getMonth() + 1, 0))
+        undertimeMonthRange.startDate,
+        undertimeMonthRange.endDate
       ),
       deductionApi.listOtherDeductions(
         sessionToken,
@@ -135,7 +136,17 @@ export default function BranchOtherDeduction({
       otherDeductions: loadedOtherDeductions ?? [],
       error: employeeError ?? loanError ?? paymentError ?? undertimeError ?? otherDeductionsError
     }
-  }, [sessionToken, providedEmployees, deductionApi, hdmfMonthRange.startDate, hdmfMonthRange.endDate, otherMonthRange.startDate, otherMonthRange.endDate])
+  }, [
+    sessionToken,
+    providedEmployees,
+    deductionApi,
+    hdmfMonthRange.startDate,
+    hdmfMonthRange.endDate,
+    undertimeMonthRange.startDate,
+    undertimeMonthRange.endDate,
+    otherMonthRange.startDate,
+    otherMonthRange.endDate
+  ])
 
   useEffect(() => {
     let isCurrent = true
@@ -610,8 +621,22 @@ export default function BranchOtherDeduction({
           <div className="other-deduction-history-heading">
             <div>
               <h4>Undertime deduction history</h4>
-              <p>{currentMonthName} · Each entry records undertime minutes on its specific date.</p>
+              <p>{undertimeMonthRange.name} · Each entry records undertime minutes on its specific date.</p>
             </div>
+            <label className="other-deduction-month-filter">
+              <span>History month</span>
+              <input
+                type="month"
+                value={undertimeMonth}
+                max={currentMonthKey}
+                onChange={(event) => {
+                  if (!event.target.value) return
+                  setStatus('loading')
+                  setError('')
+                  setUndertimeMonth(event.target.value)
+                }}
+              />
+            </label>
           </div>
           <div className="other-deduction-table-wrap" role="region" aria-label="Undertime deduction history" tabIndex="0">
             <table className="other-deduction-table">
@@ -629,7 +654,11 @@ export default function BranchOtherDeduction({
                   </tr>
                 ))}
                 {status === 'ready' && undertimeDeductions.length === 0 && (
-                  <tr><td className="employee-empty-state" colSpan="5">No undertime deductions have been entered this month.</td></tr>
+                  <tr>
+                    <td className="employee-empty-state" colSpan="5">
+                      No undertime deductions have been entered in {undertimeMonthRange.name}.
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>

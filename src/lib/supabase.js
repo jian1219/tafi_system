@@ -2275,6 +2275,100 @@ export async function listAccountantTafiCDJEntries(sessionToken) {
   }
 }
 
+export async function listAccountantAPSubsidiaryLedger(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_list_ap_subsidiary_ledger', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the AP Subsidiary Ledger.')
+    }
+  }
+}
+
+export async function saveAccountantAPSubsidiaryLedgerEntry(sessionToken, entry) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_save_ap_subsidiary_ledger_entry', {
+      p_session_token: sessionToken,
+      p_ledger_id: entry.ledger_id || null,
+      p_delivery_date: entry.delivery_date || null,
+      p_po_no: entry.po_no || null,
+      p_dv_no: entry.dv_no || null,
+      p_coverage_period: entry.coverage_period || null,
+      p_billing_invoice: entry.billing_invoice || null,
+      p_description: entry.description || null,
+      p_payee_supplier_name: entry.payee_supplier_name || null,
+      p_terms: entry.terms || null,
+      p_amount: entry.amount || null,
+      p_net_amount: entry.net_amount || null,
+      p_payment_made: entry.payment_made || null,
+      p_check_no: entry.check_no || null,
+      p_check_date: entry.check_date || null,
+      p_invoice_no_ref_no: entry.invoice_no_ref_no || null,
+      p_date_payment: entry.date_payment || null,
+      p_balance_due: entry.balance_due || null,
+      p_status: entry.status,
+      p_remarks: entry.remarks || null
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the AP Subsidiary Ledger entry.')
+    }
+  }
+}
+
+export async function listTafiAdminAPSubsidiaryLedger(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_ap_subsidiary_ledger', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the AP Subsidiary Ledger.')
+    }
+  }
+}
+
+export async function saveTafiAdminAPSubsidiaryLedgerEntry(sessionToken, entry) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_save_ap_subsidiary_ledger_entry', {
+      p_session_token: sessionToken,
+      p_ledger_id: entry.ledger_id || null,
+      p_delivery_date: entry.delivery_date || null,
+      p_po_no: entry.po_no || null,
+      p_dv_no: entry.dv_no || null,
+      p_coverage_period: entry.coverage_period || null,
+      p_billing_invoice: entry.billing_invoice || null,
+      p_description: entry.description || null,
+      p_payee_supplier_name: entry.payee_supplier_name || null,
+      p_terms: entry.terms || null,
+      p_amount: entry.amount || null,
+      p_net_amount: entry.net_amount || null,
+      p_payment_made: entry.payment_made || null,
+      p_check_no: entry.check_no || null,
+      p_check_date: entry.check_date || null,
+      p_invoice_no_ref_no: entry.invoice_no_ref_no || null,
+      p_date_payment: entry.date_payment || null,
+      p_balance_due: entry.balance_due || null,
+      p_status: entry.status,
+      p_remarks: entry.remarks || null
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the AP Subsidiary Ledger entry.')
+    }
+  }
+}
+
 export async function listAccountantBranchDailySummaryCDJ(sessionToken, branchId) {
   try {
     const supabaseClient = await getSupabaseClient()

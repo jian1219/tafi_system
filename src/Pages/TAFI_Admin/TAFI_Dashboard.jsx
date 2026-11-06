@@ -21,6 +21,7 @@ const TafiRequestStockOrder = lazy(() => import('./TAFI_Request_Stock_Order'))
 const TafiInventoryLog = lazy(() => import('./TAFI_Inventory_log'))
 const TafiBranchCDJ = lazy(() => import('./TAFI_Branch_cdj'))
 const TafiTafiCDJ = lazy(() => import('./TAFI_TAFI_cdj'))
+const TafiAPSubsidiaryLedger = lazy(() => import('./TAFI_AP_Subsidiary_Ledger'))
 import logoImage from '../../images/Tafi logo transparent.png'
 
 const navigationGroups = [
@@ -61,7 +62,8 @@ const navigationGroups = [
 		label: 'Expense',
 		items: [
 			{ id: 'branch-cdj', label: 'Branch CDJ', icon: Receipt },
-			{ id: 'tafi-cdj', label: 'TAFI CDJ', icon: Receipt }
+			{ id: 'tafi-cdj', label: 'TAFI CDJ', icon: Receipt },
+			{ id: 'ap-subsidiary-ledger', label: 'AP Subsidiary Ledger', icon: Receipt }
 		]
 	}
 ]
@@ -253,6 +255,12 @@ export default function TafiDashboard() {
 									? (
 										<Suspense fallback={<p className="cash-advance-message" role="status">Loading TAFI CDJ...</p>}>
 											<TafiTafiCDJ sessionToken={tafiAdmin.session_token} />
+										</Suspense>
+									)
+								: activePage === 'ap-subsidiary-ledger'
+									? (
+										<Suspense fallback={<p className="cash-advance-message" role="status">Loading AP Subsidiary Ledger...</p>}>
+											<TafiAPSubsidiaryLedger sessionToken={tafiAdmin.session_token} />
 										</Suspense>
 									)
 								: activePage === 'other-additions'
