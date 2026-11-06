@@ -9,6 +9,7 @@ import {
 	listTafiAdminStockOutRecords,
 	listTafiAdminSummaryStockRecords,
 	updateTafiAdminStockBarcodeTotalPrice,
+	updateTafiAdminStockInScanCount,
 	updateTafiAdminStockReorderLevel
 } from '../../lib/supabase'
 import TafiBarcodeGenerator from './TAFI_Barcode_Generator'
@@ -95,6 +96,11 @@ export default function TafiStockInventory({ sessionToken }) {
 	const [isSavingBarcodePrice, setIsSavingBarcodePrice] = useState(false)
 	const [barcodePriceError, setBarcodePriceError] = useState('')
 	const [barcodePriceNotice, setBarcodePriceNotice] = useState('')
+	const [editingBarcodeCount, setEditingBarcodeCount] = useState('')
+	const [barcodeCountDraft, setBarcodeCountDraft] = useState('')
+	const [isSavingBarcodeCount, setIsSavingBarcodeCount] = useState(false)
+	const [barcodeCountError, setBarcodeCountError] = useState('')
+	const [barcodeCountNotice, setBarcodeCountNotice] = useState('')
 	const [stockSearch, setStockSearch] = useState('')
 	const [stockCategory, setStockCategory] = useState('')
 	const [editingReorderLevel, setEditingReorderLevel] = useState('')
@@ -321,6 +327,62 @@ export default function TafiStockInventory({ sessionToken }) {
 		setBarcodePriceDraft(price === null || price === undefined ? '' : String(price))
 		setBarcodePriceError('')
 		setBarcodePriceNotice('')
+	}
+
+	const editBarcodeCount = (item) => {
+		setEditingBarcodeCount(item.barcode)
+		setBarcodeCountDraft(String(item.scan_count ?? 0))
+		setBarcodeCountError('')
+		setBarcodeCountNotice('')
+	}
+
+	const saveBarcodeCount = async (event, item) => {
+		event.preventDefault()
+		setBarcodeCountError('')
+		setBarcodeCountNotice('')
+
+		const countText = barcodeCountDraft.trim()
+		const count = Number(countText)
+		if (!/^\d+$/.test(countText) || !Number.isSafeInteger(count) || count > 99999999999) {
+			setBarcodeCountError('Enter an item count from 0 to 99,999,999,999 as a whole number.')
+			return
+		}
+
+		setIsSavingBarcodeCount(true)
+		const { data, error } = await updateTafiAdminStockInScanCount(
+			sessionToken,
+			item.barcode,
+			count
+		)
+		setIsSavingBarcodeCount(false)
+		if (error) {
+			setBarcodeCountError(error.message)
+			return
+		}
+
+		const updatedCount = Number(data)
+		if (data === null || data === undefined || !Number.isSafeInteger(updatedCount)
+			|| updatedCount < 0 || updatedCount > 99999999999) {
+			setBarcodeCountError('The item count was not returned after saving. Refresh Barcode Inventory to verify it.')
+			return
+		}
+
+		const previousCount = Number(item.scan_count)
+		const totalPrice = item.price === null || item.price === undefined
+			? item.total_price
+			: formatPriceCents(parsePriceCents(String(item.price)) * BigInt(updatedCount))
+		setBarcodeScans((items) => items.map((scan) => (
+			scan.barcode === item.barcode
+				? { ...scan, scan_count: updatedCount, total_price: totalPrice }
+				: scan
+		)))
+		setStockItems((items) => items.map((stockItem) => (
+			stockItem.stock_no === item.stock_no
+				? { ...stockItem, available: Number(stockItem.available ?? 0) + updatedCount - previousCount }
+				: stockItem
+		)))
+		setEditingBarcodeCount('')
+		setBarcodeCountNotice(`Item count updated for barcode ${item.barcode}.`)
 	}
 
 	const editReorderLevel = (item) => {
@@ -632,6 +694,62 @@ export default function TafiStockInventory({ sessionToken }) {
 			</td>
 		)
 	}
+
+	const renderBarcodeCountCell = (item) => (
+		<td className="tafi-barcode-price-cell">
+			{editingBarcodeCount === item.barcode ? (
+				<form
+					className="tafi-barcode-price-editor"
+					onSubmit={(event) => saveBarcodeCount(event, item)}
+				>
+					<input
+						type="number"
+						min="0"
+						max="99999999999"
+						step="1"
+						value={barcodeCountDraft}
+						onChange={(event) => setBarcodeCountDraft(event.target.value)}
+						aria-label={`Item count for barcode ${item.barcode}`}
+						disabled={isSavingBarcodeCount}
+						autoFocus
+					/>
+					<button
+						type="submit"
+						className="tafi-barcode-price-action"
+						aria-label={`Save item count for barcode ${item.barcode}`}
+						title="Save item count"
+						disabled={isSavingBarcodeCount}
+					>
+						<Check size={16} aria-hidden="true" />
+					</button>
+					<button
+						type="button"
+						className="tafi-barcode-price-action"
+						aria-label={`Cancel item count edit for barcode ${item.barcode}`}
+						title="Cancel"
+						onClick={() => setEditingBarcodeCount('')}
+						disabled={isSavingBarcodeCount}
+					>
+						<X size={16} aria-hidden="true" />
+					</button>
+				</form>
+			) : (
+				<div className="tafi-barcode-price-display">
+					<span>{item.scan_count}</span>
+					<button
+						type="button"
+						className="tafi-barcode-price-action"
+						aria-label={`Edit item count for barcode ${item.barcode}`}
+						title="Edit item count"
+						onClick={() => editBarcodeCount(item)}
+						disabled={isSavingBarcodeCount}
+					>
+						<Pencil size={15} aria-hidden="true" />
+					</button>
+				</div>
+			)}
+		</td>
+	)
 
 	return (
 		<div className="tafi-admin-section accountant-inventory-section">
@@ -1045,6 +1163,12 @@ export default function TafiStockInventory({ sessionToken }) {
 						{barcodePriceNotice && (
 							<p className="accountant-inventory-notice" role="status">{barcodePriceNotice}</p>
 						)}
+						{barcodeCountError && (
+							<p className="accountant-inventory-error" role="alert">{barcodeCountError}</p>
+						)}
+						{barcodeCountNotice && (
+							<p className="accountant-inventory-notice" role="status">{barcodeCountNotice}</p>
+						)}
 						{filteredBarcodeScans.length ? (
 							<div className="accountant-inventory-table-wrap">
 								<table className="accountant-inventory-table">
@@ -1066,7 +1190,7 @@ export default function TafiStockInventory({ sessionToken }) {
 												<td>{item.stock_no}</td>
 												<td>{item.item_description}</td>
 												<td>{item.unit_of_measure}</td>
-												<td>{item.scan_count}</td>
+												{renderBarcodeCountCell(item)}
 												{renderBarcodePriceCell(item, 'per-item')}
 												{renderBarcodePriceCell(item, 'total')}
 											</tr>

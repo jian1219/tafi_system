@@ -6,6 +6,7 @@ import {
   ClipboardList,
   CircleDollarSign,
   ChevronDown,
+  Home,
   LogOut,
   MinusCircle,
   Package,
@@ -31,6 +32,7 @@ import BranchRequestStock from './Branch_Request_Stock'
 import BranchAdminExpenseCDJ from './Branch_admin_expense_CDJ'
 import BranchAdminExpenseMonthlySummary from './Branch_admin_expense_Monthly_summary'
 import BranchAdminExpenseDailySummary from './Branch_admin_expense_daily_summary'
+import BranchOverview from './Branch_Overview'
 import { revokeBranchAdminSession } from '../../lib/supabase'
 import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
@@ -75,13 +77,19 @@ const navigationGroups = [
     ]
   }
 ]
-const tabs = navigationGroups.flatMap((group) => group.items)
+const overviewTab = {
+  name: 'Overview',
+  label: 'Overview',
+  component: BranchOverview,
+  icon: Home
+}
+const tabs = [overviewTab, ...navigationGroups.flatMap((group) => group.items)]
 
 export default function BranchAdminDashboard() {
   const location = useLocation()
   const [activeTab, setActiveTab] = useSessionStorageState(
     'tafi-branch-admin-dashboard-page',
-    'Employee Info',
+    'Overview',
     tabs.map((tab) => tab.name)
   )
   const [expandedGroups, setExpandedGroups] = useState(() => {
@@ -139,6 +147,15 @@ export default function BranchAdminDashboard() {
 
           <p className="tafi-admin-nav-label">Workspace</p>
           <nav className="tafi-admin-nav" aria-label="Dashboard sections">
+            <button
+              type="button"
+              className={`tafi-admin-nav-item${activeTab === overviewTab.name ? ' active' : ''}`}
+              aria-current={activeTab === overviewTab.name ? 'page' : undefined}
+              onClick={() => setActiveTab(overviewTab.name)}
+            >
+              <Home size={19} aria-hidden="true" />
+              <span>{overviewTab.label}</span>
+            </button>
             {navigationGroups.map((group) => {
               const isExpanded = Boolean(expandedGroups[group.id])
               const containsActivePage = group.items.some((item) => item.name === activeTab)

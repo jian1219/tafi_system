@@ -388,6 +388,22 @@ export async function listTafiAdminStockInScans(sessionToken) {
   }
 }
 
+export async function updateTafiAdminStockInScanCount(sessionToken, barcode, scanCount) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_update_stock_in_scan_count', {
+      p_session_token: sessionToken,
+      p_barcode: barcode,
+      p_scan_count: scanCount
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the barcode item count.')
+    }
+  }
+}
+
 export async function updateTafiAdminStockBarcodeTotalPrice(sessionToken, barcode, totalPrice) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -2995,8 +3011,9 @@ export async function createBranchCashAdvanceLoan(sessionToken, cashAdvance) {
 export async function createBranchCDJEntry(sessionToken, entry) {
   try {
     const supabaseClient = await getSupabaseClient()
-    return await supabaseClient.rpc('branch_admin_create_cdj_entry', {
+    return await supabaseClient.rpc('branch_admin_create_cdj_entry_with_date', {
       p_session_token: sessionToken,
+      p_date: entry.date,
       p_ref_no: entry.refNo,
       p_disbursement_voucher_no: entry.disbursementVoucherNo,
       p_description: entry.description,
