@@ -511,6 +511,20 @@ export async function listTafiAdminStockRequests(sessionToken) {
   }
 }
 
+export async function listTafiAdminPendingStockRequestBranches(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_pending_stock_request_branches', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load pending stock requests.')
+    }
+  }
+}
+
 export async function startTafiAdminStockRequestPreparation(sessionToken, requestIds) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -2071,6 +2085,20 @@ export async function listAccountantInventoryTransformHistory(sessionToken) {
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to load Inventory Transform Form history.')
+    }
+  }
+}
+
+export async function listAccountantPendingStockRequestBranches(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_list_pending_stock_request_branches', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load pending stock requests.')
     }
   }
 }

@@ -1,7 +1,12 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { CalendarDays, ChevronDown, CircleDollarSign, ClipboardList, Home, LogOut, MinusCircle, Package, PlusCircle, Receipt, ShieldCheck, Trophy, Users, Wallet } from 'lucide-react'
-import { revokeTafiAdminSession } from '../../lib/supabase'
+import {
+	listTafiAdminStockInScans,
+	listTafiAdminStockInventory,
+	listTafiAdminPendingStockRequestBranches,
+	revokeTafiAdminSession
+} from '../../lib/supabase'
 import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
 import TafiEmployee from './TAFI_Employee'
@@ -74,6 +79,7 @@ export default function TafiDashboard() {
 	const location = useLocation()
 	const navigate = useNavigate()
 	const tafiAdmin = location.state?.tafiAdmin
+	const sessionToken = tafiAdmin?.session_token
 	const isSessionActive = useRoleSessionExpiry(tafiAdmin, '/tafi-admin-login')
 	const [activePage, setActivePage] = useSessionStorageState(
 		'tafi-admin-dashboard-page',
@@ -87,6 +93,70 @@ export default function TafiDashboard() {
 		return { [activeGroup?.id ?? 'employee-management']: true }
 	})
 	const [signOutError, setSignOutError] = useState('')
+	const [noAvailableStockCount, setNoAvailableStockCount] = useState(null)
+	const [isLoadingNoAvailableStockCount, setIsLoadingNoAvailableStockCount] = useState(true)
+	const [noAvailableStockCountError, setNoAvailableStockCountError] = useState('')
+	const [noPriceBarcodeCount, setNoPriceBarcodeCount] = useState(null)
+	const [isLoadingNoPriceBarcodeCount, setIsLoadingNoPriceBarcodeCount] = useState(true)
+	const [noPriceBarcodeCountError, setNoPriceBarcodeCountError] = useState('')
+	const [pendingStockRequestBranches, setPendingStockRequestBranches] = useState([])
+	const [isLoadingPendingStockRequests, setIsLoadingPendingStockRequests] = useState(true)
+	const [pendingStockRequestsError, setPendingStockRequestsError] = useState('')
+
+	useEffect(() => {
+		if (activePage !== 'overview' || !sessionToken) return undefined
+
+		let isCurrent = true
+		const loadOverviewData = async () => {
+			setIsLoadingNoAvailableStockCount(true)
+			setNoAvailableStockCountError('')
+			setIsLoadingNoPriceBarcodeCount(true)
+			setNoPriceBarcodeCountError('')
+			setIsLoadingPendingStockRequests(true)
+			setPendingStockRequestsError('')
+			const [stockResult, barcodeResult, requestResult] = await Promise.all([
+				listTafiAdminStockInventory(sessionToken),
+				listTafiAdminStockInScans(sessionToken),
+				listTafiAdminPendingStockRequestBranches(sessionToken)
+			])
+			if (!isCurrent) return
+
+			setIsLoadingNoAvailableStockCount(false)
+			setIsLoadingNoPriceBarcodeCount(false)
+			setIsLoadingPendingStockRequests(false)
+			if (stockResult.error) {
+				setNoAvailableStockCount(null)
+				setNoAvailableStockCountError(stockResult.error.message)
+			} else {
+				setNoAvailableStockCount(
+					(stockResult.data ?? []).filter((item) => Number(item.available) === 0).length
+				)
+			}
+
+			if (barcodeResult.error) {
+				setNoPriceBarcodeCount(null)
+				setNoPriceBarcodeCountError(barcodeResult.error.message)
+			} else {
+				setNoPriceBarcodeCount(
+					(barcodeResult.data ?? []).filter((item) => (
+						item.price === null || item.price === undefined || item.price === ''
+					)).length
+				)
+			}
+
+			if (requestResult.error) {
+				setPendingStockRequestBranches([])
+				setPendingStockRequestsError(requestResult.error.message)
+			} else {
+				setPendingStockRequestBranches(requestResult.data ?? [])
+			}
+		}
+
+		void loadOverviewData()
+		return () => {
+			isCurrent = false
+		}
+	}, [activePage, sessionToken])
 
 	const navigateToPage = (id) => {
 		setActivePage(id)
@@ -200,7 +270,19 @@ export default function TafiDashboard() {
 
 				<section className="tafi-admin-content" aria-live="polite">
 					{activePage === 'overview'
-						? <TafiOverview adminName={tafiAdmin.admin_name} />
+						? (
+							<TafiOverview
+								noAvailableStockCount={noAvailableStockCount}
+								isLoadingNoAvailableStockCount={isLoadingNoAvailableStockCount}
+								noAvailableStockCountError={noAvailableStockCountError}
+								noPriceBarcodeCount={noPriceBarcodeCount}
+								isLoadingNoPriceBarcodeCount={isLoadingNoPriceBarcodeCount}
+								noPriceBarcodeCountError={noPriceBarcodeCountError}
+								pendingStockRequestBranches={pendingStockRequestBranches}
+								isLoadingPendingStockRequests={isLoadingPendingStockRequests}
+								pendingStockRequestsError={pendingStockRequestsError}
+							/>
+						)
 						: activePage === 'employees'
 						? <TafiEmployee sessionToken={tafiAdmin.session_token} />
 						: activePage === 'attendance'

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import {
   listAccountantBranchDailySummaryCDJ,
   listAccountantBranchCDJEntries,
@@ -191,7 +191,21 @@ export default function AccountantBranchCDJ({
     })
     return [...groups.entries()]
       .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
-      .map(([date, dateEntries]) => ({ date, entries: dateEntries }))
+      .map(([date, dateEntries]) => ({
+        date,
+        entries: dateEntries,
+        totals: dateEntries.reduce((totals, entry) => ({
+          cash: totals.cash + getAmountInCents(entry.cash),
+          bankTransfer: totals.bankTransfer + getAmountInCents(entry.bank_transfer),
+          gcash: totals.gcash + getAmountInCents(entry.gcash),
+          cwt: totals.cwt + getAmountInCents(entry.cwt)
+        }), {
+          cash: 0,
+          bankTransfer: 0,
+          gcash: 0,
+          cwt: 0
+        })
+      }))
   }, [filteredEntries])
   const grandTotals = useMemo(() => filteredEntries.reduce((totals, entry) => ({
     cash: totals.cash + getAmountInCents(entry.cash),
@@ -342,26 +356,45 @@ export default function AccountantBranchCDJ({
                 </tr>
               </thead>
               <tbody>
-                {groupedEntries.map((group) => group.entries.map((entry, index) => (
-                  <tr key={entry.id}>
-                    {index === 0 && (
-                      <td className="branch-cdj-date-cell" rowSpan={group.entries.length}>
-                        {formatDate(group.date)}
+                {groupedEntries.map((group) => (
+                  <Fragment key={group.date}>
+                    {group.entries.map((entry, index) => (
+                      <tr key={entry.id}>
+                        {index === 0 && (
+                          <td className="branch-cdj-date-cell" rowSpan={group.entries.length + 1}>
+                            {formatDate(group.date)}
+                          </td>
+                        )}
+                        <td>{entry.ref_no || '—'}</td>
+                        <td>{entry.disbursement_voucher_no || '—'}</td>
+                        <td>{entry.description}</td>
+                        <td>{entry.account_titles}</td>
+                        <td>{entry.payee_supplier}</td>
+                        <td>{entry.tin || '—'}</td>
+                        <td>{formatCurrency(entry.cash)}</td>
+                        <td>{formatCurrency(entry.bank_transfer)}</td>
+                        <td>{formatCurrency(entry.gcash)}</td>
+                        <td>{formatCurrency(entry.cwt)}</td>
+                        <td><strong>{formatCurrency(entry.total)}</strong></td>
+                      </tr>
+                    ))}
+                    <tr className="branch-cdj-date-total" key={`${group.date}-total`}>
+                      <td colSpan={6}>{formatDate(group.date)} total</td>
+                      <td>{formatCurrency(group.totals.cash / 100)}</td>
+                      <td>{formatCurrency(group.totals.bankTransfer / 100)}</td>
+                      <td>{formatCurrency(group.totals.gcash / 100)}</td>
+                      <td>{formatCurrency(group.totals.cwt / 100)}</td>
+                      <td>
+                        <strong>
+                          {formatCurrency(
+                            (group.totals.cash + group.totals.bankTransfer
+                              + group.totals.gcash + group.totals.cwt) / 100
+                          )}
+                        </strong>
                       </td>
-                    )}
-                    <td>{entry.ref_no || '—'}</td>
-                    <td>{entry.disbursement_voucher_no || '—'}</td>
-                    <td>{entry.description}</td>
-                    <td>{entry.account_titles}</td>
-                    <td>{entry.payee_supplier}</td>
-                    <td>{entry.tin || '—'}</td>
-                    <td>{formatCurrency(entry.cash)}</td>
-                    <td>{formatCurrency(entry.bank_transfer)}</td>
-                    <td>{formatCurrency(entry.gcash)}</td>
-                    <td>{formatCurrency(entry.cwt)}</td>
-                    <td><strong>{formatCurrency(entry.total)}</strong></td>
-                  </tr>
-                )))}
+                    </tr>
+                  </Fragment>
+                ))}
                 {!isLoadingEntries && !entriesError && filteredEntries.length === 0 && (
                   <tr>
                     <td className="employee-empty-state" colSpan={12}>

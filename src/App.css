@@ -5460,47 +5460,422 @@ fieldset.employee-emergency-contact-box {
 
 .accountant-overview {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 360px));
-  gap: 16px;
+  grid-template-columns: minmax(285px, 0.9fr) minmax(0, 1.1fr);
+  align-items: stretch;
+  gap: 24px;
+}
+
+.accountant-overview-stock-column {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: center;
+  gap: 14px;
+}
+
+.accountant-overview-placeholder-card {
+  display: grid;
+  min-height: 120px;
+  place-items: center;
+  padding: 18px;
+  border: 1px dashed #cbd8d2;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #fff, #f7faf8);
+  color: #74877f;
+  font-size: 0.88rem;
+  font-weight: 650;
+  text-align: center;
+}
+
+.accountant-overview-live-cards {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+
+.accountant-overview-barcode-card {
+  display: grid;
+  min-height: 118px;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #ead8b2;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #fffefa, #fbf7ed);
+  box-shadow: 0 8px 22px rgba(106, 77, 24, 0.06);
+}
+
+.accountant-overview-barcode-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid #ead8b2;
+  border-radius: 14px;
+  background: #fff;
+  color: #94702e;
+}
+
+.accountant-overview-barcode-copy {
+  min-width: 0;
+}
+
+.accountant-overview-barcode-copy p {
+  margin: 0 0 3px;
+  color: #94702e;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.accountant-overview-barcode-copy h3 {
+  margin: 0;
+  color: #4c3b1a;
+  font-size: 0.96rem;
+}
+
+.accountant-overview-barcode-copy > span {
+  display: block;
+  margin-top: 3px;
+  color: #77664a;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.accountant-overview-barcode-count {
+  display: grid;
+  gap: 3px;
+  justify-items: end;
+}
+
+.accountant-overview-barcode-count > span {
+  color: #94702e;
+  font-size: 0.64rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.accountant-overview-barcode-count strong {
+  color: #8a641c;
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.accountant-overview-barcode-count strong > span {
+  font-size: 0.78rem;
+}
+
+.accountant-overview-barcode-card .accountant-inventory-error {
+  grid-column: 1 / -1;
+  margin: 0;
 }
 
 .accountant-overview-card {
+  position: relative;
   display: flex;
-  min-height: 142px;
+  width: 100%;
+  min-height: 250px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  overflow: hidden;
+  padding: clamp(20px, 2vw, 26px);
+  border: 1px solid #f1c8c3;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 88% 12%, rgba(221, 88, 75, 0.11), transparent 25%),
+    linear-gradient(145deg, #fff, #fff7f5);
+  box-shadow: 0 18px 40px rgba(127, 29, 29, 0.09);
+}
+
+.accountant-overview-card::after {
+  position: absolute;
+  right: -88px;
+  bottom: -132px;
+  width: 250px;
+  height: 250px;
+  border: 1px solid rgba(185, 28, 28, 0.08);
+  border-radius: 50%;
+  content: '';
+  pointer-events: none;
+}
+
+.accountant-overview-card-header,
+.accountant-overview-card-content,
+.accountant-overview-stock-total {
+  position: relative;
+  z-index: 1;
+}
+
+.accountant-overview-card-header {
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  padding: 22px;
-  border: 1px solid #fecaca;
+  gap: 12px;
+}
+
+.accountant-overview-card-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid #f0c4bd;
   border-radius: 14px;
-  background: #fef2f2;
+  background: #fff;
+  color: #b94137;
 }
 
-.accountant-overview-card p {
-  margin: 0 0 5px;
-  color: #991b1b;
-  font-size: 0.78rem;
-  font-weight: 700;
+.accountant-overview-card-label {
+  padding: 8px 11px;
+  border: 1px solid #f1d8d3;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #9c3a32;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
-.accountant-overview-card h2 {
-  margin: 0 0 7px;
-  color: #7f1d1d;
-  font-size: 1.05rem;
+.accountant-overview-card-content {
+  margin: auto 0;
 }
 
-.accountant-overview-card span {
-  color: #7f1d1d;
+.accountant-overview-card-content .accountant-overview-card-eyebrow {
+  margin: 0 0 8px;
+  color: #b94137;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.accountant-overview-card-content h2 {
+  margin: 0;
+  color: #572923;
+  font-size: clamp(1.3rem, 1.8vw, 1.6rem);
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+}
+
+.accountant-overview-card-content .accountant-overview-card-description {
+  margin: 10px 0 0;
+  color: #87534d;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.accountant-overview-stock-total {
+  display: flex;
+  min-height: 78px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(219, 167, 160, 0.62);
+  border-radius: 17px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.accountant-overview-stock-total > div {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.accountant-overview-stock-total span {
+  color: #81534d;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.accountant-overview-stock-total strong {
+  color: #b94137;
+  font-size: clamp(2rem, 3vw, 2.4rem);
+  letter-spacing: -0.06em;
+  line-height: 1;
+}
+
+.accountant-overview-stock-total strong > span {
+  font-size: 0.9rem;
+  letter-spacing: 0;
+}
+
+.accountant-overview-stock-total .accountant-inventory-error {
+  max-width: 55%;
+  margin: 0;
   font-size: 0.78rem;
 }
 
-.accountant-overview-count {
+.accountant-overview-verse {
+  width: 100%;
+}
+
+.accountant-overview-right-column {
+  display: grid;
+  min-width: 0;
+  min-height: 570px;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 14px;
+}
+
+.accountant-overview-right-column .accountant-overview-verse {
+  min-height: 0;
+  padding: 20px;
+}
+
+.accountant-overview-requests-card {
+  display: flex;
+  min-height: 118px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border: 1px solid #d5e5dc;
+  border-radius: 22px;
+  background: linear-gradient(145deg, #fff, #f2f8f4);
+  box-shadow: 0 8px 22px rgba(27, 74, 54, 0.06);
+}
+
+.accountant-overview-requests-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.accountant-overview-requests-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border: 1px solid #d5e5dc;
+  border-radius: 12px;
+  background: #e8f2ec;
+  color: #246448;
+}
+
+.accountant-overview-requests-heading {
+  min-width: 0;
+  flex: 1;
+}
+
+.accountant-overview-requests-heading h2 {
+  margin: 0;
+  color: #18392b;
+  font-size: 0.92rem;
+  line-height: 1.3;
+}
+
+.accountant-overview-requests-heading p,
+.accountant-overview-requests-message {
+  margin: 3px 0 0;
+  color: #718078;
+  font-size: 0.78rem;
+}
+
+.accountant-overview-requests-count {
+  display: grid;
+  min-width: 32px;
+  min-height: 30px;
+  place-items: center;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: #dceee3;
+  color: #246448;
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.accountant-overview-requests-list {
+  display: grid;
+  max-height: 86px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 10px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.accountant-overview-requests-list li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid #e0ebe4;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #244536;
+  font-size: 0.78rem;
+}
+
+.accountant-overview-requests-list li span:first-child {
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.accountant-overview-requests-list li span:last-child {
   flex: 0 0 auto;
-  color: #b91c1c;
-  font-size: 2.5rem;
-  line-height: 1;
+  color: #718078;
+  font-size: 0.72rem;
+}
+
+@media (max-width: 1100px) {
+  .accountant-overview-stock-column {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .accountant-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .accountant-overview-card {
+    min-height: 230px;
+  }
+
+  .accountant-overview-verse {
+    min-height: 430px;
+  }
+
+  .accountant-overview-right-column {
+    min-height: 0;
+    grid-template-rows: auto auto;
+  }
+
+  .accountant-overview-right-column .accountant-overview-verse {
+    min-height: 430px;
+  }
+
+  .accountant-overview-requests-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .accountant-overview-card {
+    min-height: 230px;
+    padding: 20px;
+  }
+
+  .accountant-overview-stock-total {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .accountant-overview-stock-total .accountant-inventory-error {
+    max-width: none;
+  }
 }
 
 .tafi-admin-content .payroll-period-controls {

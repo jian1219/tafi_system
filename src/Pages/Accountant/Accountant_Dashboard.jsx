@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Barcode, Calculator, ChevronDown, ClipboardList, LayoutDashboard, LogOut, Package, Receipt } from 'lucide-react'
-import { listAccountantTafiStockInventory, revokeAccountantSession } from '../../lib/supabase'
+import {
+	listAccountantPendingStockRequestBranches,
+	listAccountantTafiStockInventory,
+	revokeAccountantSession
+} from '../../lib/supabase'
 import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
 import logoImage from '../../images/Tafi logo transparent.png'
@@ -13,6 +17,7 @@ import AccountantInventoryLog from './Accountant_Inventory_log'
 import AccountantInventoryTransferForm from './Accountant_Inventory_Transfer_Form'
 import AccountantBranchCDJ from './Accountant_Branch_cdj'
 import AccountantAPSubsidiaryLedger from './Accountant_AP_Subsidiary_ledger'
+import DashboardOverview from '../Dashboard_Overview'
 
 const overviewNavigationItem = { id: 'overview', label: 'Overview', icon: LayoutDashboard }
 const inventoryNavigationGroup = {
@@ -22,7 +27,7 @@ const inventoryNavigationGroup = {
 		{ id: 'inventory', label: 'Inventory Information', icon: Package },
 		{ id: 'barcode', label: 'TAFI Inventory', icon: Barcode },
 		{ id: 'inventory-log', label: 'Branch Usage Log', icon: ClipboardList },
-		{ id: 'inventory-transform', label: 'Inventory Transform Records', icon: ClipboardList },
+		{ id: 'inventory-transform', label: 'Inventory Transfer Form Records', icon: ClipboardList },
 		{ id: 'branch-stock-records', label: 'Branch Stock Records', icon: Package }
 	]
 }
@@ -62,6 +67,9 @@ export default function AccountantDashboard() {
 	const [noAvailableStockCount, setNoAvailableStockCount] = useState(null)
 	const [isLoadingNoAvailableStockCount, setIsLoadingNoAvailableStockCount] = useState(false)
 	const [noAvailableStockCountError, setNoAvailableStockCountError] = useState('')
+	const [pendingStockRequestBranches, setPendingStockRequestBranches] = useState([])
+	const [isLoadingPendingStockRequests, setIsLoadingPendingStockRequests] = useState(false)
+	const [pendingStockRequestsError, setPendingStockRequestsError] = useState('')
 
 	const navigateToPage = (page) => {
 		setActivePage(page)
@@ -77,25 +85,37 @@ export default function AccountantDashboard() {
 		if (activePage !== 'overview' || !sessionToken) return undefined
 
 		let isCurrent = true
-		const loadNoAvailableStockCount = async () => {
+		const loadOverviewData = async () => {
 			setIsLoadingNoAvailableStockCount(true)
 			setNoAvailableStockCountError('')
-			const { data, error } = await listAccountantTafiStockInventory(sessionToken)
+			setIsLoadingPendingStockRequests(true)
+			setPendingStockRequestsError('')
+			const [stockResult, requestResult] = await Promise.all([
+				listAccountantTafiStockInventory(sessionToken),
+				listAccountantPendingStockRequestBranches(sessionToken)
+			])
 			if (!isCurrent) return
 
 			setIsLoadingNoAvailableStockCount(false)
-			if (error) {
+			setIsLoadingPendingStockRequests(false)
+			if (stockResult.error) {
 				setNoAvailableStockCount(null)
-				setNoAvailableStockCountError(error.message)
-				return
+				setNoAvailableStockCountError(stockResult.error.message)
+			} else {
+				setNoAvailableStockCount(
+					(stockResult.data ?? []).filter((item) => Number(item.available) === 0).length
+				)
 			}
 
-			setNoAvailableStockCount(
-				(data ?? []).filter((item) => Number(item.available) === 0).length
-			)
+			if (requestResult.error) {
+				setPendingStockRequestBranches([])
+				setPendingStockRequestsError(requestResult.error.message)
+			} else {
+				setPendingStockRequestBranches(requestResult.data ?? [])
+			}
 		}
 
-		loadNoAvailableStockCount()
+		loadOverviewData()
 		return () => {
 			isCurrent = false
 		}
@@ -227,7 +247,7 @@ export default function AccountantDashboard() {
 								: activePage === 'inventory-log'
 									? 'Branch Usage Log'
 								: activePage === 'inventory-transform'
-									? 'Inventory Transform Records'
+									? 'Inventory Transfer Form Records'
 								: activePage === 'barcode'
 									? 'TAFI Inventory'
 										: activePage === 'branch-stock-records'
@@ -243,26 +263,16 @@ export default function AccountantDashboard() {
 
 				<section className="tafi-admin-content" aria-live="polite">
 					{activePage === 'overview' && (
-						<div className="accountant-overview">
-							<article className="accountant-overview-card" aria-labelledby="accountant-no-stock-title">
-								<div>
-									<p>TAFI Stock</p>
-									<h2 id="accountant-no-stock-title">No available stock</h2>
-									<span>Items with Available quantity of 0</span>
-								</div>
-								{isLoadingNoAvailableStockCount ? (
-									<strong className="accountant-overview-count" role="status">…</strong>
-								) : noAvailableStockCountError ? (
-									<p className="accountant-inventory-error" role="alert">
-										{noAvailableStockCountError}
-									</p>
-								) : (
-									<strong className="accountant-overview-count">
-										{noAvailableStockCount ?? 0}
-									</strong>
-								)}
-							</article>
-						</div>
+						<DashboardOverview
+							roleName="Accountant"
+							noAvailableStockCount={noAvailableStockCount}
+							isLoadingNoAvailableStockCount={isLoadingNoAvailableStockCount}
+							noAvailableStockCountError={noAvailableStockCountError}
+							showPendingStockRequests
+							pendingStockRequestBranches={pendingStockRequestBranches}
+							isLoadingPendingStockRequests={isLoadingPendingStockRequests}
+							pendingStockRequestsError={pendingStockRequestsError}
+						/>
 					)}
 					{activePage === 'inventory' && (
 						<AccountantInventoryInformation sessionToken={accountant.session_token} />
