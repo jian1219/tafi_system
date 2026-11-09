@@ -457,7 +457,6 @@ set search_path = ''
 as $$
 declare
   v_admin_id uuid;
-  v_employee_count integer;
   v_total_amount numeric;
 begin
   select admin_session.tafi_admin_id into v_admin_id
@@ -491,6 +490,15 @@ begin
     or array_position(p_eligible_classifications, null) is not null
     or not (p_eligible_classifications <@ array['Regular', 'Probationary', 'Trainee', 'OnCall']::text[]) then
     raise exception 'Select at least one valid employee classification';
+  end if;
+  if not exists (
+    select 1
+    from public.employee as employee
+    where employee.branch_id = p_branch_id
+      and employee.employment_status = 'active'
+      and employee.employment_classification = any(p_eligible_classifications)
+  ) then
+    raise exception 'No active employees match the selected classifications';
   end if;
 
   insert into public.branch_employee_holiday_pay_rule (
@@ -537,6 +545,16 @@ begin
     and (
       employee.employment_status <> 'active'
       or not (employee.employment_classification = any(p_eligible_classifications))
+      or (
+        p_addition_type = 'special_nonworking_holiday'
+        and not exists (
+          select 1
+          from public.employee_attendance as attendance
+          where attendance.employee_id = employee.id
+            and attendance.attendance_date = p_holiday_date
+            and attendance.status in ('present', 'present_late')
+        )
+      )
     );
 
   insert into public.branch_employee_holiday_pay (
@@ -551,6 +569,16 @@ begin
   where employee.branch_id = p_branch_id
     and employee.employment_status = 'active'
     and employee.employment_classification = any(p_eligible_classifications)
+    and (
+      p_addition_type <> 'special_nonworking_holiday'
+      or exists (
+        select 1
+        from public.employee_attendance as attendance
+        where attendance.employee_id = employee.id
+          and attendance.attendance_date = p_holiday_date
+          and attendance.status in ('present', 'present_late')
+      )
+    )
   on conflict (branch_id, employee_code, holiday_date, addition_type) do update
   set period_start = excluded.period_start,
     period_end = excluded.period_end,
@@ -560,11 +588,6 @@ begin
     created_by_branch_admin_id = null,
     created_by_tafi_admin_id = excluded.created_by_tafi_admin_id,
     updated_at = now();
-
-  get diagnostics v_employee_count = row_count;
-  if v_employee_count = 0 then
-    raise exception 'No active employees match the selected classifications';
-  end if;
 
   insert into public.branch_employee_payroll_addition (
     branch_id, employee_code, period_start, period_end, addition_type,

@@ -3091,6 +3091,322 @@ export async function listBranchCDJEntries(sessionToken) {
   }
 }
 
+export async function createBranchCashReceiptsJournalEntry(sessionToken, entry) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_create_cash_receipts_journal_entry', {
+      p_session_token: sessionToken,
+      p_total_sales: entry.totalSales,
+      p_consigment_sales: entry.consigmentSales,
+      p_discount: entry.discount,
+      p_returns: entry.returns,
+      p_food_panda: entry.foodPanda,
+      p_gcash: entry.gcash,
+      p_creditable_withholding_tax: entry.creditableWithholdingTax,
+      p_cash_float: entry.cashFloat,
+      p_expense: entry.expense,
+      p_cash_count: entry.cashCount
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the Cash Receipts Journal entry.')
+    }
+  }
+}
+
+export async function updateBranchCashReceiptsJournalEntry(sessionToken, entryId, entry) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_update_cash_receipts_journal_entry', {
+      p_session_token: sessionToken,
+      p_entry_id: entryId,
+      p_total_sales: entry.totalSales,
+      p_consigment_sales: entry.consigmentSales,
+      p_discount: entry.discount,
+      p_returns: entry.returns,
+      p_food_panda: entry.foodPanda,
+      p_gcash: entry.gcash,
+      p_creditable_withholding_tax: entry.creditableWithholdingTax,
+      p_cash_float: entry.cashFloat,
+      p_expense: entry.expense,
+      p_cash_count: entry.cashCount
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the Cash Receipts Journal entry.')
+    }
+  }
+}
+
+export async function listBranchCashReceiptsJournalEntries(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const entries = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc(
+        'branch_admin_list_cash_receipts_journal_entries',
+        {
+          p_session_token: sessionToken,
+          p_offset: offset,
+          p_limit: pageSize
+        }
+      )
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      entries.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: entries, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error
+        ? error
+        : new Error('Unable to load Cash Receipts Journal entries.')
+    }
+  }
+}
+
+export async function createBranchSalesTarget(sessionToken, date, targetSales) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_create_sales_target', {
+      p_session_token: sessionToken,
+      p_date: date,
+      p_target_sales: targetSales
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the sales target.')
+    }
+  }
+}
+
+export async function updateBranchSalesTarget(sessionToken, targetId, date, targetSales) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_update_sales_target', {
+      p_session_token: sessionToken,
+      p_target_id: targetId,
+      p_date: date,
+      p_target_sales: targetSales
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the sales target.')
+    }
+  }
+}
+
+export async function listBranchSalesTargets(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const targets = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('branch_admin_list_sales_targets', {
+        p_session_token: sessionToken,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      targets.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: targets, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load sales targets.')
+    }
+  }
+}
+
+export async function createBranchGcashTransaction(sessionToken, transaction) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_create_gcash_transaction', {
+      p_session_token: sessionToken,
+      p_date: transaction.date,
+      p_gcash_time: transaction.gcashTime.trim() || null,
+      p_reference_no: transaction.referenceNo.trim() || null,
+      p_sales_invoice: transaction.salesInvoice.trim() || null,
+      p_amount: transaction.amount,
+      p_reference: transaction.reference.trim() || null
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the GCash transaction.')
+    }
+  }
+}
+
+export async function listBranchGcashTransactions(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const transactions = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('branch_admin_list_gcash_transactions', {
+        p_session_token: sessionToken,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      transactions.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: transactions, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load GCash transactions.')
+    }
+  }
+}
+
+export async function createBranchFoodPandaTransaction(sessionToken, transaction) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_create_food_panda_transaction', {
+      p_session_token: sessionToken,
+      p_date: transaction.date,
+      p_food_panda: transaction.foodPanda.trim() || null,
+      p_reference_no: transaction.referenceNo.trim() || null,
+      p_sales_invoice_order_slip_no: transaction.salesInvoiceOrderSlipNo.trim() || null,
+      p_invoice: transaction.invoice.trim() || null,
+      p_amount: transaction.amount,
+      p_reference: transaction.reference.trim() || null
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the Food Panda transaction.')
+    }
+  }
+}
+
+export async function listBranchFoodPandaTransactions(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const transactions = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc(
+        'branch_admin_list_food_panda_transactions',
+        {
+          p_session_token: sessionToken,
+          p_offset: offset,
+          p_limit: pageSize
+        }
+      )
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      transactions.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: transactions, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load Food Panda transactions.')
+    }
+  }
+}
+
+export async function createBranchDeposit(sessionToken, deposit) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_create_deposit', {
+      p_session_token: sessionToken,
+      p_date_deposit: deposit.dateDeposit,
+      p_deposit_am: deposit.depositAm,
+      p_deposit_pm: deposit.depositPm
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the deposit.')
+    }
+  }
+}
+
+export async function updateBranchDeposit(sessionToken, depositId, deposit) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_update_deposit', {
+      p_session_token: sessionToken,
+      p_deposit_id: depositId,
+      p_date_deposit: deposit.dateDeposit,
+      p_deposit_am: deposit.depositAm,
+      p_deposit_pm: deposit.depositPm
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the deposit.')
+    }
+  }
+}
+
+export async function listBranchDeposits(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const deposits = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('branch_admin_list_deposits', {
+        p_session_token: sessionToken,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      deposits.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: deposits, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load deposits.')
+    }
+  }
+}
+
 export async function listBranchDailySummaryCDJ(sessionToken) {
   try {
     const supabaseClient = await getSupabaseClient()

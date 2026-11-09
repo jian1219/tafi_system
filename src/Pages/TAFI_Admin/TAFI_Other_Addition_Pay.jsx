@@ -391,7 +391,7 @@ export default function TafiOtherAdditionPay({ sessionToken }) {
 			delete next[holidayDraftKey]
 			return next
 		})
-		setMessage(`${selectedType.label} saved for ${eligibleHolidayEmployees.length} employees. Payroll will include approximately ${formatCurrency(estimatedHolidayTotal)} for this date.`)
+		setMessage(`${selectedType.label} saved. Only employees marked Present or Present (Late) on the holiday date receive this pay.`)
 		setReloadVersion((version) => version + 1)
 	}
 
@@ -469,7 +469,7 @@ export default function TafiOtherAdditionPay({ sessionToken }) {
 					{activeType === 'overtime_pay'
 						? 'Enter hours worked each day. Overtime pay is calculated as daily rate ÷ 8 × total overtime hours.'
 						: isHolidayPayType
-							? 'Choose the holiday date, percentage of daily rate, and eligible employee classifications.'
+							? `Choose the holiday date, percentage of daily rate, and eligible employee classifications.${activeType === 'special_nonworking_holiday' ? ' Only employees marked Present or Present (Late) on the holiday date receive pay.' : ''}`
 							: 'Enter an amount to add to the selected employee’s payroll for this week.'}
 				</p>
 				<form
@@ -579,9 +579,11 @@ export default function TafiOtherAdditionPay({ sessionToken }) {
 								</button>
 								<div className="holiday-pay-summary">
 									<strong>{eligibleHolidayEmployees.length}</strong>
-									<span>active employees in selected classifications</span>
+									<span>{activeType === 'special_nonworking_holiday'
+										? 'active employees in selected classifications; only those marked Present or Present (Late) qualify'
+										: 'active employees in selected classifications'}</span>
 									<strong>{formatCurrency(estimatedHolidayTotal)}</strong>
-									<span>estimated total at {holidayPercentage || 0}% of daily rate</span>
+									<span>estimated total at {holidayPercentage || 0}% of daily rate before attendance is applied</span>
 								</div>
 							</div>
 						</>

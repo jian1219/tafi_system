@@ -33,6 +33,9 @@ import BranchAdminExpenseCDJ from './Branch_admin_expense_CDJ'
 import BranchAdminExpenseMonthlySummary from './Branch_admin_expense_Monthly_summary'
 import BranchAdminExpenseDailySummary from './Branch_admin_expense_daily_summary'
 import BranchOverview from './Branch_Overview'
+import BranchCashReceiptsJournal from './Branch_cash_receipts_journal'
+import BranchDeposit from './Branch_Deposit'
+import BranchTransactions from './Branch_transactions'
 import { revokeBranchAdminSession } from '../../lib/supabase'
 import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
@@ -55,6 +58,15 @@ const navigationGroups = [
       { name: 'Others Deduction Pay', label: 'Other Deduction Pay', component: BranchOtherDeduction, icon: MinusCircle },
       { name: 'Cash Advance Pay', label: 'Cash Advance', component: BranchCashAdvance, icon: CircleDollarSign },
       { name: 'Branch payroll', label: 'Branch Payroll', component: BranchPayroll, icon: Wallet }
+    ]
+  },
+   {
+    id: 'sales',
+    label: 'Sales',
+    items: [
+      { name: 'Cash Receipts Journal', label: 'Cash Receipts Journal', component: BranchCashReceiptsJournal, icon: Receipt },
+      { name: 'Deposit', label: 'Deposit', component: BranchDeposit, icon: Wallet },
+      { name: 'Branch Transactions', label: 'Transactions', component: BranchTransactions, icon: ClipboardList }
     ]
   },
   {

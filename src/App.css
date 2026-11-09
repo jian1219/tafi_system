@@ -3955,6 +3955,331 @@ fieldset.employee-emergency-contact-box {
   display: none;
 }
 
+.crj-entry-form > .crj-form-section {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+}
+
+.crj-page-tabs {
+  margin-top: 16px;
+}
+
+.deposit-entry-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  align-items: end;
+  gap: 14px;
+  padding: 18px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.deposit-entry-form label {
+  display: grid;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.deposit-entry-form input {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.deposit-calculated-field {
+  display: grid;
+  gap: 6px;
+  min-height: 62px;
+  align-content: center;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.deposit-calculated-field strong {
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.deposit-form-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.deposit-form-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.deposit-form-actions button {
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  background: #1d4ed8;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.deposit-form-actions button:hover:not(:disabled) {
+  background: #1e40af;
+}
+
+.deposit-form-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.deposit-form-actions .deposit-cancel-button {
+  color: #334155;
+  background: #e2e8f0;
+}
+
+.deposit-form-actions .deposit-cancel-button:hover:not(:disabled) {
+  background: #cbd5e1;
+}
+
+.branch-deposit-table {
+  min-width: 860px;
+}
+
+.crj-target-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  align-items: end;
+  gap: 14px;
+  padding: 18px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.crj-target-calculations {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 12px 18px;
+}
+
+.crj-target-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.crj-target-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.crj-target-actions > button {
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  background: #1d4ed8;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.crj-target-actions > button:hover:not(:disabled) {
+  background: #1e40af;
+}
+
+.crj-target-actions > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.crj-target-actions > .crj-cancel-button {
+  color: #334155;
+  background: #e2e8f0;
+}
+
+.crj-target-actions > .crj-cancel-button:hover:not(:disabled) {
+  background: #cbd5e1;
+}
+
+.crj-target-table {
+  min-width: 1420px;
+}
+
+.branch-transaction-form-toggle {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.branch-transaction-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  align-items: end;
+  gap: 14px;
+  padding: 18px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.branch-transaction-form[hidden] {
+  display: none;
+}
+
+.branch-transaction-form label {
+  display: grid;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.branch-transaction-form input {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.branch-transaction-actions {
+  display: flex;
+  grid-column: 1 / -1;
+}
+
+.branch-transaction-actions button {
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  background: #1d4ed8;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.branch-transaction-actions button:hover:not(:disabled) {
+  background: #1e40af;
+}
+
+.branch-transaction-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.branch-transaction-table {
+  min-width: 1100px;
+}
+
+.crj-section-tabs {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.crj-section-tab {
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.crj-section-tab[aria-pressed="true"] {
+  border-color: #1d4ed8;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.crj-form-section legend {
+  padding: 0 7px;
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
+.crj-sales-summary {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  padding: 6px 0 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.crj-sales-summary > div {
+  display: grid;
+  gap: 4px;
+}
+
+.crj-sales-summary span {
+  color: #64748b;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.crj-sales-summary strong {
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.crj-form-section-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.crj-form-section-grid-sales {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.crj-calculated-field {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.crj-calculated-field strong {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
 .branch-cdj-field {
   display: grid;
   min-width: 0;
@@ -3995,6 +4320,29 @@ fieldset.employee-emergency-contact-box {
   cursor: not-allowed;
 }
 
+.branch-cdj-form > .crj-cancel-button {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #334155;
+}
+
+.crj-edit-button {
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #1d4ed8;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.crj-edit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .branch-cdj-total {
   display: grid;
   min-height: 42px;
@@ -4011,6 +4359,10 @@ fieldset.employee-emergency-contact-box {
 
 .branch-cdj-table {
   min-width: 1500px;
+}
+
+.branch-crj-table {
+  min-width: 2600px;
 }
 
 .branch-cdj-table:not(.branch-daily-summary-cdj-table) td:nth-child(4) {
@@ -5168,6 +5520,14 @@ fieldset.employee-emergency-contact-box {
   }
 
   .branch-cdj-form {
+    grid-template-columns: 1fr;
+  }
+
+  .crj-form-section-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .crj-sales-summary {
     grid-template-columns: 1fr;
   }
 
