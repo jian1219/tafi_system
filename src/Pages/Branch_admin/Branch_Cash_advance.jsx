@@ -33,6 +33,7 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
   const [advanceDate, setAdvanceDate] = useState(() => getLocalDateKey(today))
   const [advanceAmount, setAdvanceAmount] = useState('')
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
+  const [advanceStatusFilter, setAdvanceStatusFilter] = useState('all')
   const [todayDateKey, setTodayDateKey] = useState(() => getLocalDateKey(today))
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
@@ -42,6 +43,14 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
   const sessionToken = branchAdmin?.session_token
   const payrollWeeks = useMemo(() => getPayrollPeriods(selectedMonth), [selectedMonth])
   const openPayrollWeeks = payrollWeeks.filter((week) => week.endDate >= todayDateKey)
+  const filteredAdvances = useMemo(
+    () => advances.filter((advance) => {
+      if (advanceStatusFilter === 'all') return true
+      const isPaid = Number(advance.balance) <= 0
+      return advanceStatusFilter === 'paid' ? isPaid : !isPaid
+    }),
+    [advanceStatusFilter, advances]
+  )
 
   useEffect(() => {
     const now = new Date()
@@ -262,22 +271,35 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
           <h4>Cash advance repayment monitoring</h4>
           <p>Enter each week’s amount, then save that employee’s weekly deduction schedule.</p>
         </div>
-        <label className="cash-advance-month-control">
-          <span>Monitoring month</span>
-          <input
-            type="month"
-            value={selectedMonth}
-            required
-            disabled={isSaving || Boolean(savingAdvanceId)}
-            onChange={(event) => {
-              if (!event.target.value) return
-              setSelectedMonth(event.target.value)
-              setMessage('')
-              setError('')
-              setStatus('loading')
-            }}
-          />
-        </label>
+        <div className="cash-advance-monitor-filters">
+          <label className="cash-advance-month-control">
+            <span>Monitoring month</span>
+            <input
+              type="month"
+              value={selectedMonth}
+              required
+              disabled={isSaving || Boolean(savingAdvanceId)}
+              onChange={(event) => {
+                if (!event.target.value) return
+                setSelectedMonth(event.target.value)
+                setMessage('')
+                setError('')
+                setStatus('loading')
+              }}
+            />
+          </label>
+          <label className="cash-advance-month-control">
+            <span>Payment status</span>
+            <select
+              value={advanceStatusFilter}
+              onChange={(event) => setAdvanceStatusFilter(event.target.value)}
+            >
+              <option value="all">All</option>
+              <option value="paid">Paid</option>
+              <option value="unpaid">Unpaid</option>
+            </select>
+          </label>
+        </div>
       </div>
       <div className="cash-advance-table-wrap" role="region" aria-label="Cash advance repayment monitoring" tabIndex="0">
         <table className="cash-advance-table cash-advance-monitor-table">
@@ -296,7 +318,7 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
             </tr>
           </thead>
           <tbody>
-            {advances.map((advance) => (
+            {filteredAdvances.map((advance) => (
               <tr key={advance.id}>
                 <td>
                   <strong>{advance.employee_name}</strong>
@@ -343,8 +365,14 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
                 </td>
               </tr>
             ))}
-            {status === 'ready' && advances.length === 0 && (
-              <tr><td className="employee-empty-state" colSpan={7 + payrollWeeks.length}>No cash advances have been recorded.</td></tr>
+            {status === 'ready' && filteredAdvances.length === 0 && (
+              <tr>
+                <td className="employee-empty-state" colSpan={7 + payrollWeeks.length}>
+                  {advances.length === 0
+                    ? 'No cash advances have been recorded.'
+                    : `No ${advanceStatusFilter} cash advances found.`}
+                </td>
+              </tr>
             )}
           </tbody>
         </table>

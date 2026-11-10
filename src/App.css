@@ -4571,6 +4571,13 @@ fieldset.employee-emergency-contact-box {
   align-items: end;
 }
 
+.cash-advance-monitor-filters {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .branch-cdj-journal-filters {
   display: flex;
   align-items: end;

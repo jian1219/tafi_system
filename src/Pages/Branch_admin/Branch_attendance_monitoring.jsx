@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   listBranchAttendance,
+  listBranchEmployeeLeaveRequests,
   getBranchAttendancePeriodControl,
   listBranchOvertimeHours,
   listBranchUndertimeDeductions,
@@ -118,17 +119,19 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
       const [employeeResult, ...remainingResults] = await Promise.all([
         getBranchEmployees(sessionToken),
         ...attendanceRequests,
+        listBranchEmployeeLeaveRequests(sessionToken),
         listBranchOvertimeHours(sessionToken, monthStart, monthEnd),
         listBranchUndertimeDeductions(sessionToken, monthStart, monthEnd)
       ])
       if (!isCurrent) return
 
       const attendanceResults = remainingResults.slice(0, attendanceRequests.length)
-      const overtimeResult = remainingResults[attendanceRequests.length]
-      const undertimeResult = remainingResults[attendanceRequests.length + 1]
+      const leaveRequestsResult = remainingResults[attendanceRequests.length]
+      const overtimeResult = remainingResults[attendanceRequests.length + 1]
+      const undertimeResult = remainingResults[attendanceRequests.length + 2]
       const { employees: loadedEmployees, error: employeeError } = employeeResult
       const attendanceError = attendanceResults.find((result) => result.error)?.error
-      const error = employeeError ?? attendanceError
+      const error = employeeError ?? attendanceError ?? leaveRequestsResult.error
 
       if (error) {
         setSaveError(error.message)
@@ -150,13 +153,24 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
           .filter((record) => record.attendance_date === dailyAttendanceDateKey)
           .map((record) => [record.employee_code, record])
       )
+      const filedLeavesForToday = Object.fromEntries(
+        (leaveRequestsResult.data ?? [])
+          .filter((request) => request.status === 'approved'
+            && request.start_date <= dailyAttendanceDateKey
+            && request.end_date >= dailyAttendanceDateKey)
+          .map((request) => [request.employee_code, request])
+      )
       setEmployees(loadedEmployees.map((employee) => {
         const record = recordsForToday[employee.id]
+        const filedLeave = filedLeavesForToday[employee.id]
+        const leaveStatus = statusFromDatabase[filedLeave?.leave_type]
+        const status = leaveStatus ?? statusFromDatabase[record?.status] ?? 'Not marked'
         return {
           ...employee,
-          shift: shiftEligibleStatuses.includes(statusFromDatabase[record?.status]) ? record?.shift ?? '' : '',
-          status: statusFromDatabase[record?.status] ?? 'Not marked',
-          lateMinutes: record?.late_minutes ?? 0
+          shift: !leaveStatus && shiftEligibleStatuses.includes(status) ? record?.shift ?? '' : '',
+          status,
+          isFiledLeave: Boolean(filedLeave),
+          lateMinutes: leaveStatus ? 0 : record?.late_minutes ?? 0
         }
       }))
       setAttendanceRecords(loadedRecords)
@@ -610,7 +624,8 @@ export default function BranchAttendanceMonitoring({ branchName = 'Bansasi Branc
                       }}
                       className="status-select"
                       disabled={
-                        isAttendancePeriodLocked
+                        employee.isFiledLeave
+                        || isAttendancePeriodLocked
                         || isLoadingPeriodControl
                         || Boolean(periodControlError)
                       }

@@ -253,17 +253,23 @@ export default function TafiStockInventory({ sessionToken }) {
 
 	const filteredBarcodeScans = useMemo(() => {
 		const query = barcodeSearch.trim().toLocaleLowerCase()
-		if (!query) return barcodeScans
+		const matchingItems = query
+			? barcodeScans.filter((item) => [
+				item.barcode,
+				item.stock_no,
+				item.item_description,
+				item.unit_of_measure,
+				item.scan_count,
+				item.price,
+				item.total_price
+			].some((value) => String(value ?? '').toLocaleLowerCase().includes(query)))
+			: barcodeScans
 
-		return barcodeScans.filter((item) => [
-			item.barcode,
-			item.stock_no,
-			item.item_description,
-			item.unit_of_measure,
-			item.scan_count,
-			item.price,
-			item.total_price
-		].some((value) => String(value ?? '').toLocaleLowerCase().includes(query)))
+		return [...matchingItems].sort((left, right) => {
+			const leftIsZero = Number(left.scan_count) === 0
+			const rightIsZero = Number(right.scan_count) === 0
+			return Number(leftIsZero) - Number(rightIsZero)
+		})
 	}, [barcodeScans, barcodeSearch])
 
 	const stockOutBranches = useMemo(
@@ -1185,7 +1191,10 @@ export default function TafiStockInventory({ sessionToken }) {
 									</thead>
 									<tbody>
 										{filteredBarcodeScans.map((item) => (
-											<tr key={item.barcode}>
+											<tr
+												key={item.barcode}
+												className={Number(item.scan_count) === 0 ? 'accountant-inventory-row-zero-stock' : undefined}
+											>
 												<td>{item.barcode}</td>
 												<td>{item.stock_no}</td>
 												<td>{item.item_description}</td>

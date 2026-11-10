@@ -118,9 +118,10 @@ export default function BranchInventory({ branchName = 'Branch', branchAdmin }) 
 									{filteredItems.map((item) => (
 										<tr
 											key={item.branch_inventory_id}
-											className={selectedInventoryItemId === item.branch_inventory_id
-												? 'branch-inventory-row-selected'
-												: undefined}
+											className={[
+												selectedInventoryItemId === item.branch_inventory_id && 'branch-inventory-row-selected',
+												Number(item.available) === 0 && 'accountant-inventory-row-zero-stock',
+											].filter(Boolean).join(' ') || undefined}
 											aria-label={`Select inventory row for stock ${item.stock_no}`}
 											aria-selected={selectedInventoryItemId === item.branch_inventory_id}
 											tabIndex={0}
