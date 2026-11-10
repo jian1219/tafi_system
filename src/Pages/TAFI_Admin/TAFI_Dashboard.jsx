@@ -27,6 +27,7 @@ const TafiInventoryLog = lazy(() => import('./TAFI_Inventory_log'))
 const TafiBranchCDJ = lazy(() => import('./TAFI_Branch_cdj'))
 const TafiTafiCDJ = lazy(() => import('./TAFI_TAFI_cdj'))
 const TafiAPSubsidiaryLedger = lazy(() => import('./TAFI_AP_Subsidiary_Ledger'))
+const TafiSales = lazy(() => import('./TAFI_Sales'))
 import logoImage from '../../images/Tafi logo transparent.png'
 
 const navigationGroups = [
@@ -52,14 +53,12 @@ const navigationGroups = [
 		]
 	},
 	{
-		id: 'inventory',
-		label: 'Inventory',
+		id: 'sales',
+		label: 'Sales',
 		items: [
-			{ id: 'inventory', label: 'Inventory Information', icon: Package },
-			{ id: 'stock-inventory', label: 'TAFI Stock Inventory', icon: Package },
-			{ id: 'branch-inventory-stock', label: 'Branch Inventory Stock', icon: Package },
-			{ id: 'stock-requests', label: 'Branch Stock Requests', icon: ClipboardList },
-			{ id: 'inventory-log', label: 'Branch Usage Log', icon: ClipboardList }
+			{ id: 'sales-crj', label: 'Cash Receipts Journal', icon: Receipt },
+			{ id: 'sales-deposit', label: 'Deposit', icon: Wallet },
+			{ id: 'sales-transactions', label: 'Transactions', icon: ClipboardList }
 		]
 	},
 	{
@@ -70,7 +69,18 @@ const navigationGroups = [
 			{ id: 'tafi-cdj', label: 'TAFI CDJ', icon: Receipt },
 			{ id: 'ap-subsidiary-ledger', label: 'AP Subsidiary Ledger', icon: Receipt }
 		]
-	}
+	},
+	{
+		id: 'inventory',
+		label: 'Inventory',
+		items: [
+			{ id: 'inventory', label: 'Inventory Information', icon: Package },
+			{ id: 'stock-inventory', label: 'TAFI Stock Inventory', icon: Package },
+			{ id: 'branch-inventory-stock', label: 'Branch Inventory Stock', icon: Package },
+			{ id: 'stock-requests', label: 'Branch Stock Requests', icon: ClipboardList },
+			{ id: 'inventory-log', label: 'Branch Usage Log', icon: ClipboardList }
+		]
+	},
 ]
 const overviewNavigationItem = { id: 'overview', label: 'Overview', icon: Home }
 const navigationItems = [overviewNavigationItem, ...navigationGroups.flatMap((group) => group.items)]
@@ -86,6 +96,7 @@ export default function TafiDashboard() {
 		'overview',
 		navigationItems.map((item) => item.id)
 	)
+	const [selectedSalesBranchId, setSelectedSalesBranchId] = useState('')
 	const [expandedGroups, setExpandedGroups] = useState(() => {
 		const activeGroup = navigationGroups.find((group) =>
 			group.items.some((item) => item.id === activePage)
@@ -343,6 +354,17 @@ export default function TafiDashboard() {
 									? (
 										<Suspense fallback={<p className="cash-advance-message" role="status">Loading AP Subsidiary Ledger...</p>}>
 											<TafiAPSubsidiaryLedger sessionToken={tafiAdmin.session_token} />
+										</Suspense>
+									)
+								: ['sales-crj', 'sales-deposit', 'sales-transactions'].includes(activePage)
+									? (
+										<Suspense fallback={<p className="cash-advance-message" role="status">Loading Sales tools...</p>}>
+											<TafiSales
+												sessionToken={tafiAdmin.session_token}
+												section={activePage}
+												selectedBranchId={selectedSalesBranchId}
+												onSelectedBranchChange={setSelectedSalesBranchId}
+											/>
 										</Suspense>
 									)
 								: activePage === 'other-additions'

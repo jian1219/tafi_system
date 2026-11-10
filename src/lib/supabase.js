@@ -68,6 +68,224 @@ export async function listTafiAdminBranches(sessionToken) {
   }
 }
 
+async function callTafiAdminBranchSalesRpc(rpcName, sessionToken, branchId, parameters, fallbackMessage) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc(rpcName, {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      ...parameters
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error(fallbackMessage)
+    }
+  }
+}
+
+async function listTafiAdminBranchSalesRows(rpcName, sessionToken, branchId, fallbackMessage) {
+  const rows = []
+  const pageSize = 500
+  let offset = 0
+
+  while (true) {
+    const { data, error } = await callTafiAdminBranchSalesRpc(
+      rpcName,
+      sessionToken,
+      branchId,
+      { p_offset: offset, p_limit: pageSize },
+      fallbackMessage
+    )
+    if (error) return { data: null, error }
+
+    const page = data ?? []
+    rows.push(...page)
+    if (page.length < pageSize) break
+    offset += pageSize
+  }
+
+  return { data: rows, error: null }
+}
+
+export async function createTafiAdminBranchCashReceiptsJournalEntry(sessionToken, branchId, entry) {
+  return callTafiAdminBranchSalesRpc(
+    'tafi_admin_create_branch_cash_receipts_journal_entry',
+    sessionToken,
+    branchId,
+    {
+      p_total_sales: entry.totalSales,
+      p_consigment_sales: entry.consigmentSales,
+      p_discount: entry.discount,
+      p_returns: entry.returns,
+      p_food_panda: entry.foodPanda,
+      p_gcash: entry.gcash,
+      p_creditable_withholding_tax: entry.creditableWithholdingTax,
+      p_cash_float: entry.cashFloat,
+      p_expense: entry.expense,
+      p_cash_count: entry.cashCount
+    },
+    'Unable to save the Cash Receipts Journal entry.'
+  )
+}
+
+export async function updateTafiAdminBranchCashReceiptsJournalEntry(sessionToken, branchId, entryId, entry) {
+  return callTafiAdminBranchSalesRpc(
+    'tafi_admin_update_branch_cash_receipts_journal_entry',
+    sessionToken,
+    branchId,
+    {
+      p_entry_id: entryId,
+      p_total_sales: entry.totalSales,
+      p_consigment_sales: entry.consigmentSales,
+      p_discount: entry.discount,
+      p_returns: entry.returns,
+      p_food_panda: entry.foodPanda,
+      p_gcash: entry.gcash,
+      p_creditable_withholding_tax: entry.creditableWithholdingTax,
+      p_cash_float: entry.cashFloat,
+      p_expense: entry.expense,
+      p_cash_count: entry.cashCount
+    },
+    'Unable to update the Cash Receipts Journal entry.'
+  )
+}
+
+export async function listTafiAdminBranchCashReceiptsJournalEntries(sessionToken, branchId) {
+  return listTafiAdminBranchSalesRows(
+    'tafi_admin_list_branch_cash_receipts_journal_entries',
+    sessionToken,
+    branchId,
+    'Unable to load Cash Receipts Journal entries.'
+  )
+}
+
+export async function listTafiAdminBranchSalesTargets(sessionToken, branchId) {
+  return listTafiAdminBranchSalesRows(
+    'tafi_admin_list_branch_sales_targets',
+    sessionToken,
+    branchId,
+    'Unable to load sales targets.'
+  )
+}
+
+export async function getTafiAdminBranchRecurringSalesTarget(sessionToken, branchId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const { data, error } = await supabaseClient.rpc('tafi_admin_get_branch_recurring_sales_target', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId
+    })
+    return { data: data?.[0] ?? null, error }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the branch daily sales target.')
+    }
+  }
+}
+
+export async function setTafiAdminBranchRecurringSalesTarget(sessionToken, branchId, targetSales) {
+  return callTafiAdminBranchSalesRpc(
+    'tafi_admin_set_branch_recurring_sales_target',
+    sessionToken,
+    branchId,
+    { p_target_sales: targetSales },
+    'Unable to save the branch daily sales target.'
+  )
+}
+
+export async function createTafiAdminBranchDeposit(sessionToken, branchId, deposit) {
+  return callTafiAdminBranchSalesRpc(
+    'tafi_admin_create_branch_deposit',
+    sessionToken,
+    branchId,
+    {
+      p_date_deposit: deposit.dateDeposit,
+      p_deposit_am: deposit.depositAm,
+      p_deposit_pm: deposit.depositPm
+    },
+    'Unable to save the deposit.'
+  )
+}
+
+export async function updateTafiAdminBranchDeposit(sessionToken, branchId, depositId, deposit) {
+  return callTafiAdminBranchSalesRpc(
+    'tafi_admin_update_branch_deposit',
+    sessionToken,
+    branchId,
+    {
+      p_deposit_id: depositId,
+      p_date_deposit: deposit.dateDeposit,
+      p_deposit_am: deposit.depositAm,
+      p_deposit_pm: deposit.depositPm
+    },
+    'Unable to update the deposit.'
+  )
+}
+
+export async function listTafiAdminBranchDeposits(sessionToken, branchId) {
+  return listTafiAdminBranchSalesRows(
+    'tafi_admin_list_branch_deposits',
+    sessionToken,
+    branchId,
+    'Unable to load deposits.'
+  )
+}
+
+export async function createTafiAdminBranchGcashTransaction(sessionToken, branchId, transaction) {
+  return callTafiAdminBranchSalesRpc(
+    'tafi_admin_create_branch_gcash_transaction',
+    sessionToken,
+    branchId,
+    {
+      p_date: transaction.date,
+      p_gcash_time: transaction.gcashTime.trim() || null,
+      p_reference_no: transaction.referenceNo.trim() || null,
+      p_sales_invoice: transaction.salesInvoice.trim() || null,
+      p_amount: transaction.amount,
+      p_reference: transaction.reference.trim() || null
+    },
+    'Unable to save the GCash transaction.'
+  )
+}
+
+export async function listTafiAdminBranchGcashTransactions(sessionToken, branchId) {
+  return listTafiAdminBranchSalesRows(
+    'tafi_admin_list_branch_gcash_transactions',
+    sessionToken,
+    branchId,
+    'Unable to load GCash transactions.'
+  )
+}
+
+export async function createTafiAdminBranchFoodPandaTransaction(sessionToken, branchId, transaction) {
+  return callTafiAdminBranchSalesRpc(
+    'tafi_admin_create_branch_food_panda_transaction',
+    sessionToken,
+    branchId,
+    {
+      p_date: transaction.date,
+      p_food_panda: transaction.foodPanda.trim() || null,
+      p_reference_no: transaction.referenceNo.trim() || null,
+      p_sales_invoice_order_slip_no: transaction.salesInvoiceOrderSlipNo.trim() || null,
+      p_invoice: transaction.invoice.trim() || null,
+      p_amount: transaction.amount,
+      p_reference: transaction.reference.trim() || null
+    },
+    'Unable to save the Food Panda transaction.'
+  )
+}
+
+export async function listTafiAdminBranchFoodPandaTransactions(sessionToken, branchId) {
+  return listTafiAdminBranchSalesRows(
+    'tafi_admin_list_branch_food_panda_transactions',
+    sessionToken,
+    branchId,
+    'Unable to load Food Panda transactions.'
+  )
+}
+
 export async function listTafiAdminBranchCDJEntries(sessionToken, branchId) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -3171,39 +3389,6 @@ export async function listBranchCashReceiptsJournalEntries(sessionToken) {
       error: error instanceof Error
         ? error
         : new Error('Unable to load Cash Receipts Journal entries.')
-    }
-  }
-}
-
-export async function createBranchSalesTarget(sessionToken, date, targetSales) {
-  try {
-    const supabaseClient = await getSupabaseClient()
-    return await supabaseClient.rpc('branch_admin_create_sales_target', {
-      p_session_token: sessionToken,
-      p_date: date,
-      p_target_sales: targetSales
-    })
-  } catch (error) {
-    return {
-      data: null,
-      error: error instanceof Error ? error : new Error('Unable to save the sales target.')
-    }
-  }
-}
-
-export async function updateBranchSalesTarget(sessionToken, targetId, date, targetSales) {
-  try {
-    const supabaseClient = await getSupabaseClient()
-    return await supabaseClient.rpc('branch_admin_update_sales_target', {
-      p_session_token: sessionToken,
-      p_target_id: targetId,
-      p_date: date,
-      p_target_sales: targetSales
-    })
-  } catch (error) {
-    return {
-      data: null,
-      error: error instanceof Error ? error : new Error('Unable to update the sales target.')
     }
   }
 }

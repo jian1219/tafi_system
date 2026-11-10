@@ -67,6 +67,16 @@ const formatDate = (dateKey) => new Date(`${dateKey}T12:00:00`).toLocaleDateStri
   year: 'numeric'
 })
 
+const getManilaMonthKey = () => {
+  const dateParts = new Intl.DateTimeFormat('en', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit'
+  }).formatToParts(new Date())
+  const dateValues = Object.fromEntries(dateParts.map(({ type, value }) => [type, value]))
+  return `${dateValues.year}-${dateValues.month}`
+}
+
 export default function BranchAdminExpenseDailySummary({ branchName = 'Branch', branchAdmin }) {
   const sessionToken = branchAdmin?.session_token
   const [summaries, setSummaries] = useState([])
@@ -75,7 +85,9 @@ export default function BranchAdminExpenseDailySummary({ branchName = 'Branch', 
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [savingDate, setSavingDate] = useState('')
+  const [selectedMonth, setSelectedMonth] = useState(getManilaMonthKey)
   const [selectedSummaryDate, setSelectedSummaryDate] = useState('')
+  const filteredSummaries = summaries.filter((summary) => summary.date.startsWith(selectedMonth))
 
   const setLoadedSummaries = (rows) => {
     setSummaries(rows)
@@ -179,6 +191,17 @@ export default function BranchAdminExpenseDailySummary({ branchName = 'Branch', 
       {error && <p className="cash-advance-message error" role="alert">{error}</p>}
       {message && <p className="cash-advance-message" role="status">{message}</p>}
 
+      <div className="branch-cdj-journal-filters branch-daily-summary-filters">
+        <label className="cash-advance-month-control">
+          <span>Summary month</span>
+          <input
+            type="month"
+            value={selectedMonth}
+            onChange={(event) => setSelectedMonth(event.target.value)}
+          />
+        </label>
+      </div>
+
       <div
         className="cash-advance-table-wrap"
         role="region"
@@ -201,7 +224,7 @@ export default function BranchAdminExpenseDailySummary({ branchName = 'Branch', 
             </tr>
           </thead>
           <tbody>
-            {summaries.map((summary) => {
+            {filteredSummaries.map((summary) => {
               const references = referenceDrafts[summary.date] ?? {
                 checkRefNo: summary.check_ref_no ?? '',
                 disbursementVoucherNo: summary.disbursement_voucher_no ?? ''
@@ -276,7 +299,7 @@ export default function BranchAdminExpenseDailySummary({ branchName = 'Branch', 
                 </tr>
               )
             })}
-            {status === 'ready' && summaries.length === 0 && (
+            {status === 'ready' && filteredSummaries.length === 0 && (
               <tr>
                 <td className="employee-empty-state" colSpan={accountTitleColumns.length + 9}>
                   No daily summaries yet. Save a Cash Disbursement Journal entry to create a daily summary.

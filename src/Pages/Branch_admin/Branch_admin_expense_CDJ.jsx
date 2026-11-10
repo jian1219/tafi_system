@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import { createBranchCDJEntry, listBranchCDJEntries } from '../../lib/supabase'
+import BranchAdminExpenseDailySummary from './Branch_admin_expense_daily_summary'
 
 const accountTitles = [
   'Accounts Receivable',
@@ -110,6 +111,7 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [selectedMonth, setSelectedMonth] = useState(() => getManilaDateKey().slice(0, 7))
   const [selectedAccountTitle, setSelectedAccountTitle] = useState('')
+  const [activeSection, setActiveSection] = useState('journal')
   const total = amountFields.reduce((sum, { name }) => sum + (Number(form[name]) || 0), 0)
   const monthEntries = useMemo(
     () => entries.filter((entry) => entry.date.startsWith(selectedMonth)),
@@ -369,120 +371,162 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
       {error && <p className="cash-advance-message error" role="alert">{error}</p>}
       {message && <p className="cash-advance-message" role="status">{message}</p>}
 
-      <div className="cash-advance-history-heading">
-        <div>
-          <h4>Journal entries</h4>
-          <p>{filteredEntries.length} {filteredEntries.length === 1 ? 'entry' : 'entries'} shown</p>
-        </div>
-        <div className="branch-cdj-journal-filters">
-          <label className="cash-advance-month-control">
-            <span>Account title</span>
-            <select
-              value={selectedAccountTitle}
-              onChange={(event) => setSelectedAccountTitle(event.target.value)}
-            >
-              <option value="">All account titles</option>
-              {accountTitles.map((accountTitle) => (
-                <option key={accountTitle} value={accountTitle}>{accountTitle}</option>
-              ))}
-            </select>
-          </label>
-          <label className="cash-advance-month-control">
-            <span>Journal month</span>
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(event) => setSelectedMonth(event.target.value)}
-            />
-          </label>
-        </div>
+      <div className="branch-cdj-section-tabs" role="tablist" aria-label="Cash Disbursement Journal sections">
+        <button
+          id="branch-cdj-journal-tab"
+          className={`branch-cdj-section-tab${activeSection === 'journal' ? ' active' : ''}`}
+          type="button"
+          role="tab"
+          aria-selected={activeSection === 'journal'}
+          aria-controls="branch-cdj-journal-panel"
+          onClick={() => setActiveSection('journal')}
+        >
+          Journal entries
+        </button>
+        <button
+          id="branch-cdj-summary-tab"
+          className={`branch-cdj-section-tab${activeSection === 'summary' ? ' active' : ''}`}
+          type="button"
+          role="tab"
+          aria-selected={activeSection === 'summary'}
+          aria-controls="branch-cdj-summary-panel"
+          onClick={() => setActiveSection('summary')}
+        >
+          Daily Summary
+        </button>
       </div>
-      <div className="cash-advance-table-wrap" role="region" aria-label="Cash Disbursement Journal entries" tabIndex="0">
-        <table className="cash-advance-table branch-cdj-table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Check / Ref No.</th>
-              <th>Disbursement Voucher No.</th>
-              <th>Description</th>
-              <th>Account Title</th>
-              <th>Payee / Supplier</th>
-              <th>TIN</th>
-              <th>Cash</th>
-              <th>Bank Transfer</th>
-              <th>GCash</th>
-              <th>CWT</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {groupedEntries.map((group) => (
-              <Fragment key={group.date}>
-                {group.entries.map((entry, index) => (
-                  <tr key={entry.id}>
-                    {index === 0 && (
-                      <td className="branch-cdj-date-cell" rowSpan={group.entries.length + 1}>
-                        {formatDate(group.date)}
-                      </td>
-                    )}
-                    <td>{entry.ref_no || '—'}</td>
-                    <td>{entry.disbursement_voucher_no || '—'}</td>
-                    <td>{entry.description}</td>
-                    <td>{entry.account_titles}</td>
-                    <td>{entry.payee_supplier}</td>
-                    <td>{entry.tin || '—'}</td>
-                    <td>{formatCurrency(entry.cash)}</td>
-                    <td>{formatCurrency(entry.bank_transfer)}</td>
-                    <td>{formatCurrency(entry.gcash)}</td>
-                    <td>{formatCurrency(entry.cwt)}</td>
-                    <td><strong>{formatCurrency(entry.total)}</strong></td>
-                  </tr>
+
+      <section
+        id="branch-cdj-journal-panel"
+        role="tabpanel"
+        aria-labelledby="branch-cdj-journal-tab"
+        hidden={activeSection !== 'journal'}
+      >
+        <div className="cash-advance-history-heading">
+          <div>
+            <h4>Journal entries</h4>
+            <p>{filteredEntries.length} {filteredEntries.length === 1 ? 'entry' : 'entries'} shown</p>
+          </div>
+          <div className="branch-cdj-journal-filters">
+            <label className="cash-advance-month-control">
+              <span>Account title</span>
+              <select
+                value={selectedAccountTitle}
+                onChange={(event) => setSelectedAccountTitle(event.target.value)}
+              >
+                <option value="">All account titles</option>
+                {accountTitles.map((accountTitle) => (
+                  <option key={accountTitle} value={accountTitle}>{accountTitle}</option>
                 ))}
-                <tr className="branch-cdj-date-total" key={`${group.date}-total`}>
-                  <td colSpan={6}>{formatDate(group.date)} total</td>
-                  <td>{formatCurrency(group.totals.cash / 100)}</td>
-                  <td>{formatCurrency(group.totals.bankTransfer / 100)}</td>
-                  <td>{formatCurrency(group.totals.gcash / 100)}</td>
-                  <td>{formatCurrency(group.totals.cwt / 100)}</td>
+              </select>
+            </label>
+            <label className="cash-advance-month-control">
+              <span>Journal month</span>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(event) => setSelectedMonth(event.target.value)}
+              />
+            </label>
+          </div>
+        </div>
+        <div className="cash-advance-table-wrap" role="region" aria-label="Cash Disbursement Journal entries" tabIndex="0">
+          <table className="cash-advance-table branch-cdj-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Check / Ref No.</th>
+                <th>Disbursement Voucher No.</th>
+                <th>Description</th>
+                <th>Account Title</th>
+                <th>Payee / Supplier</th>
+                <th>TIN</th>
+                <th>Cash</th>
+                <th>Bank Transfer</th>
+                <th>GCash</th>
+                <th>CWT</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {groupedEntries.map((group) => (
+                <Fragment key={group.date}>
+                  {group.entries.map((entry, index) => (
+                    <tr key={entry.id}>
+                      {index === 0 && (
+                        <td className="branch-cdj-date-cell" rowSpan={group.entries.length + 1}>
+                          {formatDate(group.date)}
+                        </td>
+                      )}
+                      <td>{entry.ref_no || '—'}</td>
+                      <td>{entry.disbursement_voucher_no || '—'}</td>
+                      <td>{entry.description}</td>
+                      <td>{entry.account_titles}</td>
+                      <td>{entry.payee_supplier}</td>
+                      <td>{entry.tin || '—'}</td>
+                      <td>{formatCurrency(entry.cash)}</td>
+                      <td>{formatCurrency(entry.bank_transfer)}</td>
+                      <td>{formatCurrency(entry.gcash)}</td>
+                      <td>{formatCurrency(entry.cwt)}</td>
+                      <td><strong>{formatCurrency(entry.total)}</strong></td>
+                    </tr>
+                  ))}
+                  <tr className="branch-cdj-date-total" key={`${group.date}-total`}>
+                    <td colSpan={6}>{formatDate(group.date)} total</td>
+                    <td>{formatCurrency(group.totals.cash / 100)}</td>
+                    <td>{formatCurrency(group.totals.bankTransfer / 100)}</td>
+                    <td>{formatCurrency(group.totals.gcash / 100)}</td>
+                    <td>{formatCurrency(group.totals.cwt / 100)}</td>
+                    <td>
+                      <strong>
+                        {formatCurrency(
+                          (group.totals.cash + group.totals.bankTransfer
+                            + group.totals.gcash + group.totals.cwt) / 100
+                        )}
+                      </strong>
+                    </td>
+                  </tr>
+                </Fragment>
+              ))}
+              {status === 'ready' && filteredEntries.length === 0 && (
+                <tr>
+                  <td className="employee-empty-state" colSpan={12}>
+                    {selectedAccountTitle
+                      ? `No ${selectedAccountTitle} entries for the selected month.`
+                      : 'No cash disbursement entries for the selected month.'}
+                  </td>
+                </tr>
+              )}
+              {filteredEntries.length > 0 && (
+                <tr className="branch-cdj-grand-total">
+                  <td colSpan={7}>Total</td>
+                  <td>{formatCurrency(grandTotals.cash / 100)}</td>
+                  <td>{formatCurrency(grandTotals.bankTransfer / 100)}</td>
+                  <td>{formatCurrency(grandTotals.gcash / 100)}</td>
+                  <td>{formatCurrency(grandTotals.cwt / 100)}</td>
                   <td>
                     <strong>
                       {formatCurrency(
-                        (group.totals.cash + group.totals.bankTransfer
-                          + group.totals.gcash + group.totals.cwt) / 100
+                        (grandTotals.cash + grandTotals.bankTransfer + grandTotals.gcash + grandTotals.cwt) / 100
                       )}
                     </strong>
                   </td>
                 </tr>
-              </Fragment>
-            ))}
-            {status === 'ready' && filteredEntries.length === 0 && (
-              <tr>
-                <td className="employee-empty-state" colSpan={12}>
-                  {selectedAccountTitle
-                    ? `No ${selectedAccountTitle} entries for the selected month.`
-                    : 'No cash disbursement entries for the selected month.'}
-                </td>
-              </tr>
-            )}
-            {filteredEntries.length > 0 && (
-              <tr className="branch-cdj-grand-total">
-                <td colSpan={7}>Total</td>
-                <td>{formatCurrency(grandTotals.cash / 100)}</td>
-                <td>{formatCurrency(grandTotals.bankTransfer / 100)}</td>
-                <td>{formatCurrency(grandTotals.gcash / 100)}</td>
-                <td>{formatCurrency(grandTotals.cwt / 100)}</td>
-                <td>
-                  <strong>
-                    {formatCurrency(
-                      (grandTotals.cash + grandTotals.bankTransfer + grandTotals.gcash + grandTotals.cwt) / 100
-                    )}
-                  </strong>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section
+        id="branch-cdj-summary-panel"
+        role="tabpanel"
+        aria-labelledby="branch-cdj-summary-tab"
+        hidden={activeSection !== 'summary'}
+      >
+        {activeSection === 'summary' && (
+          <BranchAdminExpenseDailySummary branchName={branchName} branchAdmin={branchAdmin} />
+        )}
+      </section>
     </section>
   )
 }

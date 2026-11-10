@@ -7,6 +7,13 @@ import {
   listBranchGcashTransactions
 } from '../../lib/supabase'
 
+const branchTransactionsApi = {
+  createBranchFoodPandaTransaction,
+  createBranchGcashTransaction,
+  listBranchFoodPandaTransactions,
+  listBranchGcashTransactions
+}
+
 const getManilaDateKey = () => {
   const dateParts = new Intl.DateTimeFormat('en', {
     timeZone: 'Asia/Manila',
@@ -89,7 +96,11 @@ const transactionColumns = {
   ]
 }
 
-export default function BranchTransactions({ branchName = 'Branch', branchAdmin }) {
+export default function BranchTransactions({
+  branchName = 'Branch',
+  branchAdmin,
+  api = branchTransactionsApi
+}) {
   const sessionToken = branchAdmin?.session_token
   const [activeSection, setActiveSection] = useState('gcash')
   const [transactions, setTransactions] = useState({ gcash: [], foodPanda: [] })
@@ -124,8 +135,8 @@ export default function BranchTransactions({ branchName = 'Branch', branchAdmin 
       }
 
       const [gcashResult, foodPandaResult] = await Promise.all([
-        listBranchGcashTransactions(sessionToken),
-        listBranchFoodPandaTransactions(sessionToken)
+        api.listBranchGcashTransactions(sessionToken),
+        api.listBranchFoodPandaTransactions(sessionToken)
       ])
       if (!isCurrent) return
       if (gcashResult.error || foodPandaResult.error) {
@@ -146,7 +157,7 @@ export default function BranchTransactions({ branchName = 'Branch', branchAdmin 
     return () => {
       isCurrent = false
     }
-  }, [sessionToken])
+  }, [api, sessionToken])
 
   const updateForm = (section, key, value) => {
     setForms((current) => ({
@@ -186,8 +197,8 @@ export default function BranchTransactions({ branchName = 'Branch', branchAdmin 
 
     setSavingSection(section)
     const saveResult = section === 'gcash'
-      ? await createBranchGcashTransaction(sessionToken, { ...form, amount })
-      : await createBranchFoodPandaTransaction(sessionToken, { ...form, amount })
+      ? await api.createBranchGcashTransaction(sessionToken, { ...form, amount })
+      : await api.createBranchFoodPandaTransaction(sessionToken, { ...form, amount })
     if (saveResult.error) {
       setError(saveResult.error.message)
       setSavingSection('')
@@ -201,8 +212,8 @@ export default function BranchTransactions({ branchName = 'Branch', branchAdmin 
     setFormOpen((current) => ({ ...current, [section]: false }))
 
     const listResult = section === 'gcash'
-      ? await listBranchGcashTransactions(sessionToken)
-      : await listBranchFoodPandaTransactions(sessionToken)
+      ? await api.listBranchGcashTransactions(sessionToken)
+      : await api.listBranchFoodPandaTransactions(sessionToken)
     setSavingSection('')
     if (listResult.error) {
       setError(`Transaction saved, but the list could not refresh: ${listResult.error.message}`)

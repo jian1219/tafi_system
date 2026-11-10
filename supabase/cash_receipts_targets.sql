@@ -100,86 +100,8 @@ create trigger targets_sync_cash_receipts_fields
 after insert or update or delete on public.cash_receipts_journal
 for each row execute function public.targets_sync_cash_receipts_fields();
 
-create or replace function public.branch_admin_create_sales_target(
-  p_session_token uuid,
-  p_date date,
-  p_target_sales numeric
-)
-returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_branch_id uuid;
-  v_target_id uuid;
-begin
-  select branch_admin.branch_id into v_branch_id
-  from public.branch_admin_session as admin_session
-  join public.branch_admin as branch_admin
-    on branch_admin.id = admin_session.branch_admin_id
-  where admin_session.session_token = p_session_token
-    and admin_session.expires_at > now();
-
-  if not found then
-    raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
-  end if;
-  if p_date is null or p_target_sales is null or p_target_sales <= 0
-    or p_target_sales <> round(p_target_sales, 2) then
-    raise exception 'Enter a target date and target sales greater than zero with up to two decimal places';
-  end if;
-
-  insert into public.targets (branch_id, "date", target_sales)
-  values (v_branch_id, p_date, p_target_sales)
-  returning id into v_target_id;
-  return v_target_id;
-end;
-$$;
-
-create or replace function public.branch_admin_update_sales_target(
-  p_session_token uuid,
-  p_target_id uuid,
-  p_date date,
-  p_target_sales numeric
-)
-returns uuid
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_branch_id uuid;
-  v_target_id uuid;
-begin
-  select branch_admin.branch_id into v_branch_id
-  from public.branch_admin_session as admin_session
-  join public.branch_admin as branch_admin
-    on branch_admin.id = admin_session.branch_admin_id
-  where admin_session.session_token = p_session_token
-    and admin_session.expires_at > now();
-
-  if not found then
-    raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
-  end if;
-  if p_target_id is null or p_date is null
-    or p_target_sales is null or p_target_sales <= 0
-    or p_target_sales <> round(p_target_sales, 2) then
-    raise exception 'Select a target and enter a date and target sales greater than zero with up to two decimal places';
-  end if;
-
-  update public.targets as saved_target
-  set "date" = p_date,
-    target_sales = p_target_sales
-  where saved_target.id = p_target_id
-    and saved_target.branch_id = v_branch_id
-  returning saved_target.id into v_target_id;
-
-  if not found then
-    raise exception 'Sales target was not found in your branch';
-  end if;
-  return v_target_id;
-end;
-$$;
+drop function if exists public.branch_admin_create_sales_target(uuid, date, numeric);
+drop function if exists public.branch_admin_update_sales_target(uuid, uuid, date, numeric);
 
 create or replace function public.branch_admin_list_sales_targets(
   p_session_token uuid,
@@ -222,16 +144,8 @@ revoke all on function public.targets_calculate_fields()
   from public, anon, authenticated;
 revoke all on function public.targets_sync_cash_receipts_fields()
   from public, anon, authenticated;
-revoke all on function public.branch_admin_create_sales_target(uuid, date, numeric)
-  from public, anon, authenticated;
-revoke all on function public.branch_admin_update_sales_target(uuid, uuid, date, numeric)
-  from public, anon, authenticated;
 revoke all on function public.branch_admin_list_sales_targets(uuid, integer, integer)
   from public, anon, authenticated;
-grant execute on function public.branch_admin_create_sales_target(uuid, date, numeric)
-  to anon, authenticated;
-grant execute on function public.branch_admin_update_sales_target(uuid, uuid, date, numeric)
-  to anon, authenticated;
 grant execute on function public.branch_admin_list_sales_targets(uuid, integer, integer)
   to anon, authenticated;
 

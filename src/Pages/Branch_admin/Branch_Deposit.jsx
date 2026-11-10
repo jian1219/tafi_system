@@ -6,6 +6,13 @@ import {
   updateBranchDeposit
 } from '../../lib/supabase'
 
+const branchDepositApi = {
+  createBranchDeposit,
+  listBranchCashReceiptsJournalEntries,
+  listBranchDeposits,
+  updateBranchDeposit
+}
+
 const getManilaDateKey = () => {
   const dateParts = new Intl.DateTimeFormat('en', {
     timeZone: 'Asia/Manila',
@@ -37,10 +44,10 @@ const createEmptyDeposit = () => ({
   depositPm: '0.00'
 })
 
-const loadDepositData = async (sessionToken) => {
+const loadDepositData = async (sessionToken, api) => {
   const [depositResult, receiptResult] = await Promise.all([
-    listBranchDeposits(sessionToken),
-    listBranchCashReceiptsJournalEntries(sessionToken)
+    api.listBranchDeposits(sessionToken),
+    api.listBranchCashReceiptsJournalEntries(sessionToken)
   ])
   return {
     deposits: depositResult.data ?? [],
@@ -49,7 +56,11 @@ const loadDepositData = async (sessionToken) => {
   }
 }
 
-export default function BranchDeposit({ branchName = 'Branch', branchAdmin }) {
+export default function BranchDeposit({
+  branchName = 'Branch',
+  branchAdmin,
+  api = branchDepositApi
+}) {
   const sessionToken = branchAdmin?.session_token
   const [deposits, setDeposits] = useState([])
   const [receiptEntries, setReceiptEntries] = useState([])
@@ -83,7 +94,7 @@ export default function BranchDeposit({ branchName = 'Branch', branchAdmin }) {
         return
       }
 
-      const result = await loadDepositData(sessionToken)
+      const result = await loadDepositData(sessionToken, api)
       if (!isCurrent) return
       if (result.error) {
         setError(result.error.message)
@@ -101,7 +112,7 @@ export default function BranchDeposit({ branchName = 'Branch', branchAdmin }) {
     return () => {
       isCurrent = false
     }
-  }, [sessionToken])
+  }, [api, sessionToken])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -140,15 +151,15 @@ export default function BranchDeposit({ branchName = 'Branch', branchAdmin }) {
     setIsSaving(true)
     const depositInput = { ...amounts, dateDeposit: form.dateDeposit }
     const saveResult = editingDepositId
-      ? await updateBranchDeposit(sessionToken, editingDepositId, depositInput)
-      : await createBranchDeposit(sessionToken, depositInput)
+      ? await api.updateBranchDeposit(sessionToken, editingDepositId, depositInput)
+      : await api.createBranchDeposit(sessionToken, depositInput)
     if (saveResult.error) {
       setError(saveResult.error.message)
       setIsSaving(false)
       return
     }
 
-    const result = await loadDepositData(sessionToken)
+    const result = await loadDepositData(sessionToken, api)
     setIsSaving(false)
     if (result.error) {
       setError(`Deposit ${editingDepositId ? 'updated' : 'saved'}, but the list could not refresh: ${result.error.message}`)

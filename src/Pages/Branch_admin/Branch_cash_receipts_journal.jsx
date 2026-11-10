@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  createBranchSalesTarget,
+  createBranchCashReceiptsJournalEntry,
+  listBranchCashReceiptsJournalEntries,
+  listBranchSalesTargets,
+  updateBranchCashReceiptsJournalEntry
+} from '../../lib/supabase'
+
+const branchCashReceiptsJournalApi = {
   createBranchCashReceiptsJournalEntry,
   listBranchSalesTargets,
   listBranchCashReceiptsJournalEntries,
-  updateBranchSalesTarget,
   updateBranchCashReceiptsJournalEntry
-} from '../../lib/supabase'
+}
 
 const editableAmountFields = [
   { key: 'totalSales', label: 'Total sales' },
@@ -132,11 +137,6 @@ const createEmptyEntry = () => ({
   cashCount: '0.00'
 })
 
-const createEmptyTarget = () => ({
-  date: getManilaDateKey(),
-  targetSales: '0.00'
-})
-
 const createFormFromEntry = (entry) => ({
   date: entry.date,
   totalSales: Number(entry.total_sales).toFixed(2),
@@ -191,14 +191,19 @@ const calculateAmounts = (form) => {
   }
 }
 
-export default function BranchCashReceiptsJournal({ branchName = 'Branch', branchAdmin }) {
+export default function BranchCashReceiptsJournal({
+  branchName = 'Branch',
+  branchAdmin,
+  api = branchCashReceiptsJournalApi,
+  canManageTargets = false
+}) {
   const sessionToken = branchAdmin?.session_token
   const [entries, setEntries] = useState([])
   const [targets, setTargets] = useState([])
   const [form, setForm] = useState(createEmptyEntry)
-  const [targetForm, setTargetForm] = useState(createEmptyTarget)
+  const [dailyTarget, setDailyTarget] = useState(null)
+  const [dailyTargetValue, setDailyTargetValue] = useState('')
   const [editingEntryId, setEditingEntryId] = useState('')
-  const [editingTargetId, setEditingTargetId] = useState('')
   const [activePageSection, setActivePageSection] = useState('entry')
   const [activeSection, setActiveSection] = useState(entryFormSections[0].id)
   const [status, setStatus] = useState('loading')
@@ -225,18 +230,6 @@ export default function BranchCashReceiptsJournal({ branchName = 'Branch', branc
   const visibleTargets = useMemo(() => targets.filter(
     (target) => target.date?.slice(0, 7) === selectedMonth
   ), [targets, selectedMonth])
-  const targetCashEntry = entries.find((entry) => entry.date === targetForm.date)
-  const targetSalesCents = toCents(targetForm.targetSales)
-  const targetGrossSalesCents = targetCashEntry ? toCents(targetCashEntry.gross_sales) : null
-  const targetVsAchievedCents = targetGrossSalesCents === null
-    ? null
-    : targetGrossSalesCents - targetSalesCents
-  const targetAchievementRate = targetGrossSalesCents === null || targetSalesCents <= 0
-    ? null
-    : targetGrossSalesCents / targetSalesCents
-  const salesVariancePercentage = targetVsAchievedCents === null || targetSalesCents <= 0
-    ? null
-    : targetVsAchievedCents / targetSalesCents
 
   useEffect(() => {
     let isCurrent = true
@@ -248,19 +241,26 @@ export default function BranchCashReceiptsJournal({ branchName = 'Branch', branc
         return
       }
 
-      const [entriesResult, targetsResult] = await Promise.all([
-        listBranchCashReceiptsJournalEntries(sessionToken),
-        listBranchSalesTargets(sessionToken)
+      const [entriesResult, targetsResult, dailyTargetResult] = await Promise.all([
+        api.listBranchCashReceiptsJournalEntries(sessionToken),
+        api.listBranchSalesTargets(sessionToken),
+        canManageTargets
+          ? api.getBranchRecurringSalesTarget(sessionToken)
+          : Promise.resolve({ data: null, error: null })
       ])
       if (!isCurrent) return
-      if (entriesResult.error || targetsResult.error) {
-        setError(entriesResult.error?.message ?? targetsResult.error.message)
+      if (entriesResult.error || targetsResult.error || dailyTargetResult.error) {
+        setError(entriesResult.error?.message ?? targetsResult.error?.message ?? dailyTargetResult.error.message)
         setStatus('error')
         return
       }
 
       setEntries(entriesResult.data ?? [])
       setTargets(targetsResult.data ?? [])
+      setDailyTarget(dailyTargetResult.data)
+      setDailyTargetValue(
+        dailyTargetResult.data ? Number(dailyTargetResult.data.target_sales).toFixed(2) : ''
+      )
       setError('')
       setStatus('ready')
     }
@@ -269,7 +269,7 @@ export default function BranchCashReceiptsJournal({ branchName = 'Branch', branc
     return () => {
       isCurrent = false
     }
-  }, [sessionToken])
+  }, [api, canManageTargets, sessionToken])
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -292,8 +292,8 @@ export default function BranchCashReceiptsJournal({ branchName = 'Branch', branc
 
     setIsSaving(true)
     const saveResult = editingEntryId
-      ? await updateBranchCashReceiptsJournalEntry(sessionToken, editingEntryId, amounts)
-      : await createBranchCashReceiptsJournalEntry(sessionToken, amounts)
+      ? await api.updateBranchCashReceiptsJournalEntry(sessionToken, editingEntryId, amounts)
+      : await api.createBranchCashReceiptsJournalEntry(sessionToken, amounts)
     const { data: savedSiNo, error: saveError } = saveResult
     if (saveError) {
       setError(saveError.message)
@@ -302,8 +302,8 @@ export default function BranchCashReceiptsJournal({ branchName = 'Branch', branc
     }
 
     const [entriesResult, targetsResult] = await Promise.all([
-      listBranchCashReceiptsJournalEntries(sessionToken),
-      listBranchSalesTargets(sessionToken)
+      api.listBranchCashReceiptsJournalEntries(sessionToken),
+      api.listBranchSalesTargets(sessionToken)
     ])
     setIsSaving(false)
     if (entriesResult.error || targetsResult.error) {
@@ -338,69 +338,48 @@ export default function BranchCashReceiptsJournal({ branchName = 'Branch', branc
     setMessage('')
   }
 
-  const handleTargetSubmit = async (event) => {
+  const handleDailyTargetSubmit = async (event) => {
     event.preventDefault()
     setError('')
     setMessage('')
 
-    const targetSales = Number(targetForm.targetSales)
-    if (!targetForm.date || !Number.isFinite(targetSales) || targetSales <= 0) {
-      setError('Select a date and enter a target sales amount greater than zero.')
+    const targetSales = Number(dailyTargetValue)
+    if (!Number.isFinite(targetSales) || targetSales <= 0) {
+      setError('Enter a daily target sales amount greater than zero.')
       return
     }
     if (Math.abs(targetSales * 100 - Math.round(targetSales * 100)) > 0.000001) {
       setError('Target sales can have up to two decimal places.')
       return
     }
-    if (targets.some((target) =>
-      target.date === targetForm.date && target.id !== editingTargetId
-    )) {
-      setError('A sales target is already recorded for this date.')
-      return
-    }
 
     setIsSaving(true)
-    const saveResult = editingTargetId
-      ? await updateBranchSalesTarget(sessionToken, editingTargetId, targetForm.date, targetSales)
-      : await createBranchSalesTarget(sessionToken, targetForm.date, targetSales)
+    const saveResult = await api.setBranchRecurringSalesTarget(sessionToken, targetSales)
     if (saveResult.error) {
       setError(saveResult.error.message)
       setIsSaving(false)
       return
     }
 
-    const { data, error: loadError } = await listBranchSalesTargets(sessionToken)
+    const [targetsResult, dailyTargetResult] = await Promise.all([
+      api.listBranchSalesTargets(sessionToken),
+      api.getBranchRecurringSalesTarget(sessionToken)
+    ])
     setIsSaving(false)
-    if (loadError) {
-      setError(`Target ${editingTargetId ? 'updated' : 'saved'}, but the targets could not refresh: ${loadError.message}`)
+    if (targetsResult.error || dailyTargetResult.error) {
+      const refreshError = targetsResult.error ?? dailyTargetResult.error
+      setError(`Daily target saved, but target data could not refresh: ${refreshError.message}`)
       setStatus('error')
       return
     }
 
-    setTargets(data ?? [])
-    setEditingTargetId('')
-    setTargetForm(createEmptyTarget())
+    setTargets(targetsResult.data ?? [])
+    setDailyTarget(dailyTargetResult.data)
+    setDailyTargetValue(
+      dailyTargetResult.data ? Number(dailyTargetResult.data.target_sales).toFixed(2) : ''
+    )
     setStatus('ready')
-    setMessage(`Sales target for ${formatDate(targetForm.date)} ${editingTargetId ? 'updated' : 'saved'}.`)
-  }
-
-  const handleTargetEdit = (target) => {
-    setEditingTargetId(target.id)
-    setTargetForm({
-      date: target.date,
-      targetSales: Number(target.target_sales).toFixed(2)
-    })
-    setSelectedMonth(target.date.slice(0, 7))
-    setActivePageSection('targets')
-    setError('')
-    setMessage(`Editing sales target for ${formatDate(target.date)}.`)
-  }
-
-  const cancelTargetEdit = () => {
-    setEditingTargetId('')
-    setTargetForm(createEmptyTarget())
-    setError('')
-    setMessage('')
+    setMessage(`Daily sales target ${dailyTarget ? 'updated' : 'saved'} for ${branchName}.`)
   }
 
   return (
@@ -624,87 +603,31 @@ export default function BranchCashReceiptsJournal({ branchName = 'Branch', branc
         aria-labelledby="cash-receipts-targets-tab"
         hidden={activePageSection !== 'targets'}
       >
-        <form className="crj-target-form" onSubmit={handleTargetSubmit}>
-          <label className="branch-cdj-field">
-            <span>Target date</span>
-            <input
-              type="date"
-              value={targetForm.date}
-              onChange={(event) => setTargetForm((current) => ({
-                ...current,
-                date: event.target.value
-              }))}
-              required
-            />
-          </label>
-          <label className="branch-cdj-field">
-            <span>Target sales</span>
-            <input
-              type="number"
-              min="0.01"
-              step="0.01"
-              inputMode="decimal"
-              value={targetForm.targetSales}
-              onChange={(event) => setTargetForm((current) => ({
-                ...current,
-                targetSales: event.target.value
-              }))}
-              required
-            />
-          </label>
-          <div className="crj-target-calculations">
-            <div className="crj-calculated-field">
-              <span>Total gross sales</span>
-              <strong>
-                {targetGrossSalesCents === null
-                  ? 'Waiting for journal entry'
-                  : formatCurrency(targetGrossSalesCents / 100)}
-              </strong>
-            </div>
-            <div className="crj-calculated-field">
-              <span>Target vs achieved</span>
-              <strong>
-                {targetVsAchievedCents === null
-                  ? 'Waiting for journal entry'
-                  : formatCurrency(targetVsAchievedCents / 100)}
-              </strong>
-            </div>
-            <div className="crj-calculated-field">
-              <span>Target vs achievement rate</span>
-              <strong>
-                {targetAchievementRate === null
-                  ? 'Waiting for journal entry'
-                  : formatPercent(targetAchievementRate)}
-              </strong>
-            </div>
-            <div className="crj-calculated-field">
-              <span>Sales variance percentage</span>
-              <strong>
-                {salesVariancePercentage === null
-                  ? 'Waiting for journal entry'
-                  : formatPercent(salesVariancePercentage)}
-              </strong>
-            </div>
-          </div>
-          <p className="crj-target-note">
-            Targets are unique per branch and date. The percentage values are rounded to whole percents for display.
-          </p>
-          <div className="crj-target-actions">
-            <button type="submit" disabled={isSaving || status !== 'ready'}>
-              {isSaving ? 'Saving…' : editingTargetId ? 'Save Changes' : 'Save Target'}
-            </button>
-            {editingTargetId && (
-              <button
-                type="button"
-                className="crj-cancel-button"
-                onClick={cancelTargetEdit}
-                disabled={isSaving}
-              >
-                Cancel
+        {canManageTargets && (
+          <form className="crj-target-form" onSubmit={handleDailyTargetSubmit}>
+            <label className="branch-cdj-field">
+              <span>Daily target sales</span>
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                inputMode="decimal"
+                value={dailyTargetValue}
+                onChange={(event) => setDailyTargetValue(event.target.value)}
+                required
+              />
+            </label>
+            <p className="crj-target-note">
+              This target applies from today onward and is added to each day&apos;s targets when a Cash Receipts Journal entry is saved.
+              {dailyTarget?.effective_from && ` Current target effective since ${formatDate(dailyTarget.effective_from)}.`}
+            </p>
+            <div className="crj-target-actions">
+              <button type="submit" disabled={isSaving || status !== 'ready'}>
+                {isSaving ? 'Saving…' : 'Save Daily Target'}
               </button>
-            )}
-          </div>
-        </form>
+            </div>
+          </form>
+        )}
 
         <div className="cash-advance-history-heading">
           <div>
@@ -735,7 +658,6 @@ export default function BranchCashReceiptsJournal({ branchName = 'Branch', branc
                 <th scope="col">Target vs achieved</th>
                 <th scope="col">Target vs achievement rate</th>
                 <th scope="col">Sales variance percentage</th>
-                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -763,21 +685,11 @@ export default function BranchCashReceiptsJournal({ branchName = 'Branch', branc
                       ? 'Waiting for journal entry'
                       : formatPercent(target.sales_variance_percentage)}
                   </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="crj-edit-button"
-                      onClick={() => handleTargetEdit(target)}
-                      disabled={isSaving}
-                    >
-                      Edit
-                    </button>
-                  </td>
                 </tr>
               ))}
               {status === 'ready' && visibleTargets.length === 0 && (
                 <tr>
-                  <td className="employee-empty-state" colSpan="7">
+                  <td className="employee-empty-state" colSpan="6">
                     No sales targets for the selected month.
                   </td>
                 </tr>
