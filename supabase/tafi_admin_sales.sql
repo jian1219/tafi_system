@@ -1,8 +1,42 @@
 -- Run after branch_management.sql, cash_receipts_journal.sql, cash_receipts_targets.sql,
--- deposit.sql, branch_transactions.sql, and tafi_admin_management.sql.
+-- deposit.sql, branch_transactions.sql, tafi_admin_management.sql, and accountant_management.sql.
 begin;
 
 create or replace function public.tafi_admin_assert_sales_branch(
+  p_session_token uuid,
+  p_branch_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1
+    from public.tafi_admin_session as admin_session
+    where admin_session.session_token = p_session_token
+      and admin_session.expires_at > now()
+  ) and not exists (
+    select 1
+    from public.accountant_session as accountant_session
+    where accountant_session.session_token = p_session_token
+      and accountant_session.expires_at > now()
+  ) then
+    raise exception 'TAFI Admin or Accountant session is invalid or expired' using errcode = '28000';
+  end if;
+
+  if p_branch_id is null or not exists (
+    select 1
+    from public.branch as branch
+    where branch.id = p_branch_id
+  ) then
+    raise exception 'Selected branch was not found';
+  end if;
+end;
+$$;
+
+create or replace function public.tafi_admin_assert_sales_admin_branch(
   p_session_token uuid,
   p_branch_id uuid
 )
@@ -21,13 +55,7 @@ begin
     raise exception 'TAFI Admin session is invalid or expired' using errcode = '28000';
   end if;
 
-  if p_branch_id is null or not exists (
-    select 1
-    from public.branch as branch
-    where branch.id = p_branch_id
-  ) then
-    raise exception 'Selected branch was not found';
-  end if;
+  perform public.tafi_admin_assert_sales_branch(p_session_token, p_branch_id);
 end;
 $$;
 
@@ -100,7 +128,7 @@ declare
   v_next_si_no numeric;
   v_si_no text;
 begin
-  perform public.tafi_admin_assert_sales_branch(p_session_token, p_branch_id);
+  perform public.tafi_admin_assert_sales_admin_branch(p_session_token, p_branch_id);
 
   if p_total_sales is null or p_total_sales < 0 or p_total_sales <> round(p_total_sales, 2)
     or p_consigment_sales is null or p_consigment_sales < 0
@@ -192,7 +220,7 @@ as $$
 declare
   v_si_no text;
 begin
-  perform public.tafi_admin_assert_sales_branch(p_session_token, p_branch_id);
+  perform public.tafi_admin_assert_sales_admin_branch(p_session_token, p_branch_id);
 
   if p_entry_id is null then
     raise exception 'Select a Cash Receipts Journal entry to update';
@@ -297,7 +325,7 @@ as $$
 declare
   v_effective_from date := (now() at time zone 'Asia/Manila')::date;
 begin
-  perform public.tafi_admin_assert_sales_branch(p_session_token, p_branch_id);
+  perform public.tafi_admin_assert_sales_admin_branch(p_session_token, p_branch_id);
   if p_target_sales is null or p_target_sales <= 0 or p_target_sales <> round(p_target_sales, 2) then
     raise exception 'Enter a daily target greater than zero with up to two decimal places';
   end if;
@@ -372,7 +400,7 @@ as $$
 declare
   v_deposit_id uuid;
 begin
-  perform public.tafi_admin_assert_sales_branch(p_session_token, p_branch_id);
+  perform public.tafi_admin_assert_sales_admin_branch(p_session_token, p_branch_id);
   if p_date_deposit is null
     or p_deposit_am is null or p_deposit_am < 0 or p_deposit_am <> round(p_deposit_am, 2)
     or p_deposit_pm is null or p_deposit_pm < 0 or p_deposit_pm <> round(p_deposit_pm, 2) then
@@ -410,7 +438,7 @@ as $$
 declare
   v_deposit_id uuid;
 begin
-  perform public.tafi_admin_assert_sales_branch(p_session_token, p_branch_id);
+  perform public.tafi_admin_assert_sales_admin_branch(p_session_token, p_branch_id);
   if p_deposit_id is null or p_date_deposit is null
     or p_deposit_am is null or p_deposit_am < 0 or p_deposit_am <> round(p_deposit_am, 2)
     or p_deposit_pm is null or p_deposit_pm < 0 or p_deposit_pm <> round(p_deposit_pm, 2) then
@@ -485,7 +513,7 @@ as $$
 declare
   v_transaction_id uuid;
 begin
-  perform public.tafi_admin_assert_sales_branch(p_session_token, p_branch_id);
+  perform public.tafi_admin_assert_sales_admin_branch(p_session_token, p_branch_id);
   if p_date is null or p_amount is null or p_amount < 0 or p_amount <> round(p_amount, 2) then
     raise exception 'Enter a transaction date and an amount of zero or greater with up to two decimal places';
   end if;
@@ -547,7 +575,7 @@ as $$
 declare
   v_transaction_id uuid;
 begin
-  perform public.tafi_admin_assert_sales_branch(p_session_token, p_branch_id);
+  perform public.tafi_admin_assert_sales_admin_branch(p_session_token, p_branch_id);
   if p_date is null or p_amount is null or p_amount < 0 or p_amount <> round(p_amount, 2) then
     raise exception 'Enter a transaction date and an amount of zero or greater with up to two decimal places';
   end if;
@@ -598,6 +626,8 @@ end;
 $$;
 
 revoke all on function public.tafi_admin_assert_sales_branch(uuid, uuid)
+  from public, anon, authenticated;
+revoke all on function public.tafi_admin_assert_sales_admin_branch(uuid, uuid)
   from public, anon, authenticated;
 revoke all on function public.cash_receipts_journal_apply_recurring_target()
   from public, anon, authenticated;

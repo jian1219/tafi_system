@@ -34,6 +34,8 @@ import BranchOverview from './Branch_Overview'
 import BranchCashReceiptsJournal from './Branch_cash_receipts_journal'
 import BranchDeposit from './Branch_Deposit'
 import BranchTransactions from './Branch_transactions'
+import BranchAdminDiscounts from './Branch_admin_discounts'
+import BranchAdminSummaryCRJ from './Branch_admin_summary_crj'
 import { revokeBranchAdminSession } from '../../lib/supabase'
 import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
@@ -64,7 +66,9 @@ const navigationGroups = [
     items: [
       { name: 'Cash Receipts Journal', label: 'Cash Receipts Journal', component: BranchCashReceiptsJournal, icon: Receipt },
       { name: 'Deposit', label: 'Deposit', component: BranchDeposit, icon: Wallet },
-      { name: 'Branch Transactions', label: 'Transactions', component: BranchTransactions, icon: ClipboardList }
+      { name: 'Branch Transactions', label: 'Transactions', component: BranchTransactions, icon: ClipboardList },
+      { name: 'Discounts', label: 'Discounts', component: BranchAdminDiscounts, icon: Receipt },
+      { name: 'Summary', label: 'Summary', component: BranchAdminSummaryCRJ, icon: ClipboardList }
     ]
   },
   {
@@ -123,6 +127,16 @@ export default function BranchAdminDashboard() {
   const branchName = branchAdmin?.branch_name || 'Bansasi Branch'
 
   const ActiveComponent = tabs.find((tab) => tab.name === activeTab)?.component || BranchAdminEmployee
+
+  const handleSelectTab = (name) => {
+    setActiveTab(name)
+    const activeGroup = navigationGroups.find((group) =>
+      group.items.some((item) => item.name === name)
+    )
+    if (activeGroup) {
+      setExpandedGroups((current) => ({ ...current, [activeGroup.id]: true }))
+    }
+  }
 
   const handleLogout = () => {
     try {
@@ -196,10 +210,7 @@ export default function BranchAdminDashboard() {
                         type="button"
                         className={`tafi-admin-nav-item${activeTab === name ? ' active' : ''}`}
                         aria-current={activeTab === name ? 'page' : undefined}
-                        onClick={() => {
-                          setActiveTab(name)
-                          setExpandedGroups((current) => ({ ...current, [group.id]: true }))
-                        }}
+                        onClick={() => handleSelectTab(name)}
                       >
                         <Icon size={19} aria-hidden="true" />
                         <span>{label}</span>

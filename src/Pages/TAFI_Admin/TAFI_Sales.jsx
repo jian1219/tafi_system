@@ -23,7 +23,13 @@ export default function TafiSales({
   sessionToken,
   section,
   selectedBranchId,
-  onSelectedBranchChange
+  onSelectedBranchChange,
+  listBranches = listTafiAdminBranches,
+  sessionRole = 'TAFI Admin',
+  canManageEntries = true,
+  canManageTargets = true,
+  canManageDeposits = true,
+  canManageTransactions = true
 }) {
   const [branches, setBranches] = useState([])
   const [isLoadingBranches, setIsLoadingBranches] = useState(true)
@@ -73,12 +79,12 @@ export default function TafiSales({
 
     const loadBranches = async () => {
       if (!sessionToken) {
-        setBranchError('TAFI Admin session is unavailable. Please sign in again.')
+        setBranchError(`${sessionRole} session is unavailable. Please sign in again.`)
         setIsLoadingBranches(false)
         return
       }
 
-      const { data, error } = await listTafiAdminBranches(sessionToken)
+      const { data, error } = await listBranches(sessionToken)
       if (!isCurrent) return
       setIsLoadingBranches(false)
       if (error) {
@@ -100,7 +106,7 @@ export default function TafiSales({
     return () => {
       isCurrent = false
     }
-  }, [onSelectedBranchChange, sessionToken])
+  }, [listBranches, onSelectedBranchChange, sessionRole, sessionToken])
 
   const page = section === 'sales-crj'
     ? <BranchCashReceiptsJournal
@@ -108,7 +114,8 @@ export default function TafiSales({
         branchName={selectedBranch?.branch_name}
         branchAdmin={{ session_token: sessionToken }}
         api={api}
-        canManageTargets
+        canManageEntries={canManageEntries}
+        canManageTargets={canManageTargets}
       />
     : section === 'sales-deposit'
       ? <BranchDeposit
@@ -116,19 +123,21 @@ export default function TafiSales({
           branchName={selectedBranch?.branch_name}
           branchAdmin={{ session_token: sessionToken }}
           api={api}
+          canManageDeposits={canManageDeposits}
         />
       : <BranchTransactions
           key={selectedBranchId}
           branchName={selectedBranch?.branch_name}
           branchAdmin={{ session_token: sessionToken }}
           api={api}
+          canManageTransactions={canManageTransactions}
         />
 
   return (
     <section>
       <header className="branch-cash-advance-header">
         <div>
-          <p className="employee-info-eyebrow">TAFI Admin Sales</p>
+          <p className="employee-info-eyebrow">{sessionRole} Sales</p>
           <p className="employee-info-description">Select a branch to view and manage its sales records.</p>
         </div>
         <label className="cash-advance-month-control tafi-cash-advance-branch-select">

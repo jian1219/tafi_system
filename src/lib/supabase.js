@@ -606,6 +606,21 @@ export async function listTafiAdminStockInScans(sessionToken) {
   }
 }
 
+export async function deleteTafiAdminStockInScan(sessionToken, barcode) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_delete_stock_in_scan', {
+      p_session_token: sessionToken,
+      p_barcode: barcode
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to delete the zero-count barcode.')
+    }
+  }
+}
+
 export async function updateTafiAdminStockInScanCount(sessionToken, barcode, scanCount) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -3419,6 +3434,89 @@ export async function listBranchSalesTargets(sessionToken) {
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to load sales targets.')
+    }
+  }
+}
+
+export async function createBranchSalesDiscount(sessionToken, discount) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_create_sales_discount', {
+      p_session_token: sessionToken,
+      p_date: discount.date,
+      p_type: discount.type,
+      p_name: discount.name.trim() || null,
+      p_sales_invoice: discount.salesInvoice.trim() || null,
+      p_billing: discount.billing.trim() || null,
+      p_consigment: discount.consigment.trim() || null,
+      p_gross: discount.gross,
+      p_customer_count_per_order: discount.customerCountPerOrder,
+      p_no_person_granted_discount: discount.noPersonGrantedDiscount
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the sales discount.')
+    }
+  }
+}
+
+export async function listBranchSalesDiscounts(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const discounts = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('branch_admin_list_sales_discounts', {
+        p_session_token: sessionToken,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      discounts.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: discounts, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load sales discounts.')
+    }
+  }
+}
+
+export async function listBranchDailySummaryCRJ(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const summaries = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('branch_admin_list_daily_summary_crj', {
+        p_session_token: sessionToken,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      summaries.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: summaries, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the Cash Receipts Journal summary.')
     }
   }
 }

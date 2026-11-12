@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { Barcode, Calculator, ChevronDown, ClipboardList, LayoutDashboard, LogOut, Package, Receipt } from 'lucide-react'
+import { Barcode, Calculator, ChevronDown, ClipboardList, LayoutDashboard, LogOut, Package, Receipt, Wallet } from 'lucide-react'
 import {
+	listAccountantInventoryBranches,
 	listAccountantPendingStockRequestBranches,
 	listAccountantTafiStockInventory,
 	revokeAccountantSession
@@ -18,6 +19,7 @@ import AccountantInventoryTransferForm from './Accountant_Inventory_Transfer_For
 import AccountantBranchCDJ from './Accountant_Branch_cdj'
 import AccountantAPSubsidiaryLedger from './Accountant_AP_Subsidiary_ledger'
 import DashboardOverview from '../Dashboard_Overview'
+const TafiSales = lazy(() => import('../TAFI_Admin/TAFI_Sales'))
 
 const overviewNavigationItem = { id: 'overview', label: 'Overview', icon: LayoutDashboard }
 const inventoryNavigationGroup = {
@@ -29,6 +31,15 @@ const inventoryNavigationGroup = {
 		{ id: 'inventory-log', label: 'Branch Usage Log', icon: ClipboardList },
 		{ id: 'inventory-transform', label: 'Inventory Transfer Form Records', icon: ClipboardList },
 		{ id: 'branch-stock-records', label: 'Branch Stock Records', icon: Package }
+	]
+}
+const salesNavigationGroup = {
+	id: 'sales',
+	label: 'Sales',
+	items: [
+		{ id: 'sales-crj', label: 'Cash Receipts Journal', icon: Receipt },
+		{ id: 'sales-deposit', label: 'Deposit', icon: Wallet },
+		{ id: 'sales-transactions', label: 'Transactions', icon: ClipboardList }
 	]
 }
 const expenseNavigationGroup = {
@@ -43,6 +54,7 @@ const expenseNavigationGroup = {
 const dashboardPages = [
 	overviewNavigationItem.id,
 	...inventoryNavigationGroup.items.map((item) => item.id),
+	...salesNavigationGroup.items.map((item) => item.id),
 	...expenseNavigationGroup.items.map((item) => item.id)
 ]
 
@@ -64,6 +76,10 @@ export default function AccountantDashboard() {
 	const [isExpenseExpanded, setIsExpenseExpanded] = useState(() => (
 		expenseNavigationGroup.items.some((item) => item.id === activePage)
 	))
+	const [isSalesExpanded, setIsSalesExpanded] = useState(() => (
+		salesNavigationGroup.items.some((item) => item.id === activePage)
+	))
+	const [selectedSalesBranchId, setSelectedSalesBranchId] = useState('')
 	const [noAvailableStockCount, setNoAvailableStockCount] = useState(null)
 	const [isLoadingNoAvailableStockCount, setIsLoadingNoAvailableStockCount] = useState(false)
 	const [noAvailableStockCountError, setNoAvailableStockCountError] = useState('')
@@ -78,6 +94,9 @@ export default function AccountantDashboard() {
 		}
 		if (expenseNavigationGroup.items.some((item) => item.id === page)) {
 			setIsExpenseExpanded(true)
+		}
+		if (salesNavigationGroup.items.some((item) => item.id === page)) {
+			setIsSalesExpanded(true)
 		}
 	}
 
@@ -190,6 +209,38 @@ export default function AccountantDashboard() {
 					<div className="tafi-admin-nav-group">
 						<button
 							type="button"
+							className={`tafi-admin-nav-group-toggle${salesNavigationGroup.items.some((item) => item.id === activePage) ? ' has-active' : ''}`}
+							aria-expanded={isSalesExpanded}
+							aria-controls="accountant-sales-nav-items"
+							onClick={() => setIsSalesExpanded((expanded) => !expanded)}
+						>
+							<span>{salesNavigationGroup.label}</span>
+							<ChevronDown size={16} aria-hidden="true" />
+						</button>
+						<div
+							className="tafi-admin-nav-group-items"
+							id="accountant-sales-nav-items"
+							role="group"
+							aria-label={salesNavigationGroup.label}
+							hidden={!isSalesExpanded}
+						>
+							{salesNavigationGroup.items.map(({ id, label, icon: Icon }) => (
+								<button
+									key={id}
+									type="button"
+									className={`tafi-admin-nav-item${activePage === id ? ' active' : ''}`}
+									aria-current={activePage === id ? 'page' : undefined}
+									onClick={() => navigateToPage(id)}
+								>
+									<Icon size={19} aria-hidden="true" />
+									<span>{label}</span>
+								</button>
+							))}
+						</div>
+					</div>
+					<div className="tafi-admin-nav-group">
+						<button
+							type="button"
 							className={`tafi-admin-nav-group-toggle${expenseNavigationGroup.items.some((item) => item.id === activePage) ? ' has-active' : ''}`}
 							aria-expanded={isExpenseExpanded}
 							aria-controls="accountant-expense-nav-items"
@@ -252,7 +303,13 @@ export default function AccountantDashboard() {
 									? 'TAFI Inventory'
 										: activePage === 'branch-stock-records'
 											? 'Branch Stock Records'
-											: 'Accountant Dashboard'}
+											: activePage === 'sales-crj'
+												? 'Cash Receipts Journal'
+												: activePage === 'sales-deposit'
+													? 'Deposit'
+													: activePage === 'sales-transactions'
+														? 'Transactions'
+													: 'Accountant Dashboard'}
 						</h1>
 					</div>
 					<div className="tafi-admin-account">
@@ -297,6 +354,22 @@ export default function AccountantDashboard() {
 					)}
 					{activePage === 'ap-subsidiary-ledger' && (
 						<AccountantAPSubsidiaryLedger sessionToken={accountant.session_token} />
+					)}
+					{salesNavigationGroup.items.some((item) => item.id === activePage) && (
+						<Suspense fallback={<p className="cash-advance-message" role="status">Loading Sales tools...</p>}>
+							<TafiSales
+								sessionToken={sessionToken}
+								section={activePage}
+								selectedBranchId={selectedSalesBranchId}
+								onSelectedBranchChange={setSelectedSalesBranchId}
+								listBranches={listAccountantInventoryBranches}
+								sessionRole="Accountant"
+								canManageEntries={false}
+								canManageTargets={false}
+								canManageDeposits={false}
+								canManageTransactions={false}
+							/>
+						</Suspense>
 					)}
 				</section>
 			</main>

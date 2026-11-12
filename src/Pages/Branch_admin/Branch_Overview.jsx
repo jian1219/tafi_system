@@ -18,6 +18,14 @@ const overviewCards = [
     accent: 'payroll'
   },
   {
+    id: 'sales',
+    title: 'Sales',
+    category: 'Sales',
+    icon: Receipt,
+    summary: 'Open sales journals, deposits, transactions, discounts, and summaries.',
+    accent: 'sales'
+  },
+  {
     id: 'expenses',
     title: 'Expenses',
     category: 'Expense',
@@ -66,7 +74,7 @@ export default function BranchOverview({ branchName, branchAdmin }) {
             <p className="branch-overview-heading-label">Your dashboard</p>
             <h2 id="branch-overview-heading">Branch workspace</h2>
           </div>
-          <span className="branch-overview-count">04 sections</span>
+          <span className="branch-overview-count">05 sections</span>
         </header>
         <div className="branch-overview-cards">
           {overviewCards.map(({ id, title, category, icon: Icon, summary, accent }, index) => (

@@ -4162,6 +4162,32 @@ fieldset.employee-emergency-contact-box {
   font-size: 0.88rem;
 }
 
+.branch-discounts-form select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.branch-discounts-calculations {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  color: #475569;
+  font-size: 0.88rem;
+}
+
+.branch-discounts-calculations strong {
+  margin-left: 4px;
+  color: #0f172a;
+}
+
 .branch-transaction-actions {
   display: flex;
   grid-column: 1 / -1;
@@ -4190,6 +4216,10 @@ fieldset.employee-emergency-contact-box {
 
 .branch-transaction-table {
   min-width: 1100px;
+}
+
+.branch-discounts-table {
+  min-width: 1400px;
 }
 
 .crj-section-tabs {
@@ -9596,6 +9626,11 @@ fieldset.employee-emergency-contact-box {
 .branch-overview-card-inventory .branch-overview-card-icon {
   background: #f0edfa;
   color: #7862a8;
+}
+
+.branch-overview-card-sales .branch-overview-card-icon {
+  background: #e8f3f5;
+  color: #347d89;
 }
 
 .branch-overview-card-copy {

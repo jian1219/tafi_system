@@ -81,10 +81,60 @@ begin
 end;
 $$;
 
+create or replace function public.tafi_admin_delete_stock_in_scan(
+  p_session_token uuid,
+  p_barcode text
+)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_barcode text := nullif(btrim(p_barcode), '');
+  v_scan_count bigint;
+begin
+  if not exists (
+    select 1
+    from public.tafi_admin_session as admin_session
+    where admin_session.session_token = p_session_token
+      and admin_session.expires_at > now()
+  ) then
+    raise exception 'TAFI Admin session is invalid or expired' using errcode = '28000';
+  end if;
+
+  if v_barcode is null then
+    raise exception 'A barcode is required.';
+  end if;
+
+  select saved.scan_count
+  into v_scan_count
+  from public.tafi_admin_stock_in_scans as saved
+  where saved.barcode = v_barcode
+  for update;
+
+  if not found then
+    raise exception 'The barcode was not found in Barcode Inventory.';
+  end if;
+  if v_scan_count <> 0 then
+    raise exception 'Only barcode items with a count of zero can be deleted.';
+  end if;
+
+  delete from public.tafi_admin_stock_in_scans as saved
+  where saved.barcode = v_barcode;
+
+  return v_barcode;
+end;
+$$;
+
 revoke all on function public.tafi_admin_update_stock_in_scan_count(uuid, text, bigint)
+  from public, anon, authenticated;
+revoke all on function public.tafi_admin_delete_stock_in_scan(uuid, text)
   from public, anon, authenticated;
 
 grant execute on function public.tafi_admin_update_stock_in_scan_count(uuid, text, bigint)
+  to anon, authenticated;
+grant execute on function public.tafi_admin_delete_stock_in_scan(uuid, text)
   to anon, authenticated;
 
 notify pgrst, 'reload schema';

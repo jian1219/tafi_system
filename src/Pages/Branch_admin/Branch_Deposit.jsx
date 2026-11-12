@@ -59,14 +59,17 @@ const loadDepositData = async (sessionToken, api) => {
 export default function BranchDeposit({
   branchName = 'Branch',
   branchAdmin,
-  api = branchDepositApi
+  api = branchDepositApi,
+  canManageDeposits = true
 }) {
   const sessionToken = branchAdmin?.session_token
   const [deposits, setDeposits] = useState([])
   const [receiptEntries, setReceiptEntries] = useState([])
   const [form, setForm] = useState(createEmptyDeposit)
   const [editingDepositId, setEditingDepositId] = useState('')
-  const [activeSection, setActiveSection] = useState('entry')
+  const [activeSection, setActiveSection] = useState(
+    canManageDeposits ? 'entry' : 'records'
+  )
   const [selectedMonth, setSelectedMonth] = useState(() => getManilaDateKey().slice(0, 7))
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
@@ -202,23 +205,27 @@ export default function BranchDeposit({
           <p className="employee-info-eyebrow">{branchName}</p>
           <h3>Deposit</h3>
           <p className="employee-info-description">
-            Record AM and PM deposits and compare them with the day&apos;s cash receipts.
+            {canManageDeposits
+              ? 'Record AM and PM deposits and compare them with the day&apos;s cash receipts.'
+              : 'Review deposit records and compare them with the day&apos;s cash receipts.'}
           </p>
         </div>
       </header>
 
       <div className="accountant-inventory-tabs crj-page-tabs" role="tablist" aria-label="Deposit sections">
-        <button
-          type="button"
-          id="deposit-entry-tab"
-          className={`accountant-inventory-tab${activeSection === 'entry' ? ' active' : ''}`}
-          role="tab"
-          aria-selected={activeSection === 'entry'}
-          aria-controls="deposit-entry-panel"
-          onClick={() => setActiveSection('entry')}
-        >
-          Deposit Entry
-        </button>
+        {canManageDeposits && (
+          <button
+            type="button"
+            id="deposit-entry-tab"
+            className={`accountant-inventory-tab${activeSection === 'entry' ? ' active' : ''}`}
+            role="tab"
+            aria-selected={activeSection === 'entry'}
+            aria-controls="deposit-entry-panel"
+            onClick={() => setActiveSection('entry')}
+          >
+            Deposit Entry
+          </button>
+        )}
         <button
           type="button"
           id="deposit-records-tab"
@@ -238,14 +245,15 @@ export default function BranchDeposit({
       {error && <p className="accountant-inventory-error" role="alert">{error}</p>}
       {message && <p className="accountant-inventory-notice" role="status">{message}</p>}
 
-      <div
-        id="deposit-entry-panel"
-        className="accountant-inventory-panel"
-        role="tabpanel"
-        aria-labelledby="deposit-entry-tab"
-        hidden={activeSection !== 'entry'}
-      >
-        <form className="deposit-entry-form" onSubmit={handleSubmit}>
+      {canManageDeposits && (
+        <div
+          id="deposit-entry-panel"
+          className="accountant-inventory-panel"
+          role="tabpanel"
+          aria-labelledby="deposit-entry-tab"
+          hidden={activeSection !== 'entry'}
+        >
+          <form className="deposit-entry-form" onSubmit={handleSubmit}>
           <label>
             <span>Deposit date</span>
             <input
@@ -318,8 +326,9 @@ export default function BranchDeposit({
               </button>
             )}
           </div>
-        </form>
-      </div>
+          </form>
+        </div>
+      )}
 
       <div
         id="deposit-records-panel"
@@ -351,7 +360,7 @@ export default function BranchDeposit({
                 <th scope="col">PM deposit</th>
                 <th scope="col">Total deposit</th>
                 <th scope="col">Deposit vs cash sales</th>
-                <th scope="col">Actions</th>
+                {canManageDeposits && <th scope="col">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -366,21 +375,23 @@ export default function BranchDeposit({
                       ? 'No matching cash journal'
                       : formatCurrency(deposit.deposit_vs_cash_sales)}
                   </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="crj-edit-button"
-                      onClick={() => handleEdit(deposit)}
-                      disabled={isSaving}
-                    >
-                      Edit
-                    </button>
-                  </td>
+                  {canManageDeposits && (
+                    <td>
+                      <button
+                        type="button"
+                        className="crj-edit-button"
+                        onClick={() => handleEdit(deposit)}
+                        disabled={isSaving}
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
               {status === 'ready' && visibleDeposits.length === 0 && (
                 <tr>
-                  <td className="employee-empty-state" colSpan="6">
+                  <td className="employee-empty-state" colSpan={5 + Number(canManageDeposits)}>
                     No deposits for the selected month.
                   </td>
                 </tr>

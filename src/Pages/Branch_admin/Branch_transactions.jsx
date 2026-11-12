@@ -99,7 +99,8 @@ const transactionColumns = {
 export default function BranchTransactions({
   branchName = 'Branch',
   branchAdmin,
-  api = branchTransactionsApi
+  api = branchTransactionsApi,
+  canManageTransactions = true
 }) {
   const sessionToken = branchAdmin?.session_token
   const [activeSection, setActiveSection] = useState('gcash')
@@ -277,47 +278,51 @@ export default function BranchTransactions({
         aria-labelledby="branch-transactions-gcash-tab"
         hidden={activeSection !== 'gcash'}
       >
-        <div className="branch-transaction-form-toggle">
-          <button
-            type="button"
-            className="branch-cdj-add-entry"
-            aria-expanded={formOpen.gcash}
-            aria-controls="branch-transactions-gcash-form"
-            disabled={savingSection !== ''}
-            onClick={() => toggleForm('gcash')}
-          >
-            {formOpen.gcash
-              ? <X size={17} aria-hidden="true" />
-              : <Plus size={17} aria-hidden="true" />}
-            {formOpen.gcash ? 'Close form' : 'Add GCash Transaction'}
-          </button>
-        </div>
-        <form
-          id="branch-transactions-gcash-form"
-          className="branch-transaction-form"
-          hidden={!formOpen.gcash}
-          onSubmit={(event) => handleSubmit(event, 'gcash')}
-        >
-          {formFields.gcash.map(({ key, label, type, required }) => (
-            <label key={key}>
-              <span>{label}</span>
-              <input
-                type={type}
-                min={type === 'number' ? '0' : undefined}
-                step={type === 'number' ? '0.01' : undefined}
-                inputMode={type === 'number' ? 'decimal' : undefined}
-                value={forms.gcash[key]}
-                onChange={(event) => updateForm('gcash', key, event.target.value)}
-                required={required}
-              />
-            </label>
-          ))}
-          <div className="branch-transaction-actions">
-            <button type="submit" disabled={savingSection !== '' || status !== 'ready'}>
-              {savingSection === 'gcash' ? 'Saving…' : 'Save GCash Transaction'}
-            </button>
-          </div>
-        </form>
+        {canManageTransactions && (
+          <>
+            <div className="branch-transaction-form-toggle">
+              <button
+                type="button"
+                className="branch-cdj-add-entry"
+                aria-expanded={formOpen.gcash}
+                aria-controls="branch-transactions-gcash-form"
+                disabled={savingSection !== ''}
+                onClick={() => toggleForm('gcash')}
+              >
+                {formOpen.gcash
+                  ? <X size={17} aria-hidden="true" />
+                  : <Plus size={17} aria-hidden="true" />}
+                {formOpen.gcash ? 'Close form' : 'Add GCash Transaction'}
+              </button>
+            </div>
+            <form
+              id="branch-transactions-gcash-form"
+              className="branch-transaction-form"
+              hidden={!formOpen.gcash}
+              onSubmit={(event) => handleSubmit(event, 'gcash')}
+            >
+              {formFields.gcash.map(({ key, label, type, required }) => (
+                <label key={key}>
+                  <span>{label}</span>
+                  <input
+                    type={type}
+                    min={type === 'number' ? '0' : undefined}
+                    step={type === 'number' ? '0.01' : undefined}
+                    inputMode={type === 'number' ? 'decimal' : undefined}
+                    value={forms.gcash[key]}
+                    onChange={(event) => updateForm('gcash', key, event.target.value)}
+                    required={required}
+                  />
+                </label>
+              ))}
+              <div className="branch-transaction-actions">
+                <button type="submit" disabled={savingSection !== '' || status !== 'ready'}>
+                  {savingSection === 'gcash' ? 'Saving…' : 'Save GCash Transaction'}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
 
         <div className="cash-advance-history-heading">
           <div>
@@ -371,47 +376,51 @@ export default function BranchTransactions({
         aria-labelledby="branch-transactions-food-panda-tab"
         hidden={activeSection !== 'foodPanda'}
       >
-        <div className="branch-transaction-form-toggle">
-          <button
-            type="button"
-            className="branch-cdj-add-entry"
-            aria-expanded={formOpen.foodPanda}
-            aria-controls="branch-transactions-food-panda-form"
-            disabled={savingSection !== ''}
-            onClick={() => toggleForm('foodPanda')}
-          >
-            {formOpen.foodPanda
-              ? <X size={17} aria-hidden="true" />
-              : <Plus size={17} aria-hidden="true" />}
-            {formOpen.foodPanda ? 'Close form' : 'Add Food Panda Transaction'}
-          </button>
-        </div>
-        <form
-          id="branch-transactions-food-panda-form"
-          className="branch-transaction-form"
-          hidden={!formOpen.foodPanda}
-          onSubmit={(event) => handleSubmit(event, 'foodPanda')}
-        >
-          {formFields.foodPanda.map(({ key, label, type, required }) => (
-            <label key={key}>
-              <span>{label}</span>
-              <input
-                type={type}
-                min={type === 'number' ? '0' : undefined}
-                step={type === 'number' ? '0.01' : undefined}
-                inputMode={type === 'number' ? 'decimal' : undefined}
-                value={forms.foodPanda[key]}
-                onChange={(event) => updateForm('foodPanda', key, event.target.value)}
-                required={required}
-              />
-            </label>
-          ))}
-          <div className="branch-transaction-actions">
-            <button type="submit" disabled={savingSection !== '' || status !== 'ready'}>
-              {savingSection === 'foodPanda' ? 'Saving…' : 'Save Food Panda Transaction'}
-            </button>
-          </div>
-        </form>
+        {canManageTransactions && (
+          <>
+            <div className="branch-transaction-form-toggle">
+              <button
+                type="button"
+                className="branch-cdj-add-entry"
+                aria-expanded={formOpen.foodPanda}
+                aria-controls="branch-transactions-food-panda-form"
+                disabled={savingSection !== ''}
+                onClick={() => toggleForm('foodPanda')}
+              >
+                {formOpen.foodPanda
+                  ? <X size={17} aria-hidden="true" />
+                  : <Plus size={17} aria-hidden="true" />}
+                {formOpen.foodPanda ? 'Close form' : 'Add Food Panda Transaction'}
+              </button>
+            </div>
+            <form
+              id="branch-transactions-food-panda-form"
+              className="branch-transaction-form"
+              hidden={!formOpen.foodPanda}
+              onSubmit={(event) => handleSubmit(event, 'foodPanda')}
+            >
+              {formFields.foodPanda.map(({ key, label, type, required }) => (
+                <label key={key}>
+                  <span>{label}</span>
+                  <input
+                    type={type}
+                    min={type === 'number' ? '0' : undefined}
+                    step={type === 'number' ? '0.01' : undefined}
+                    inputMode={type === 'number' ? 'decimal' : undefined}
+                    value={forms.foodPanda[key]}
+                    onChange={(event) => updateForm('foodPanda', key, event.target.value)}
+                    required={required}
+                  />
+                </label>
+              ))}
+              <div className="branch-transaction-actions">
+                <button type="submit" disabled={savingSection !== '' || status !== 'ready'}>
+                  {savingSection === 'foodPanda' ? 'Saving…' : 'Save Food Panda Transaction'}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
 
         <div className="cash-advance-history-heading">
           <div>

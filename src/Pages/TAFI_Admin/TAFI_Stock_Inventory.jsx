@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Download, History, Pencil, X } from 'lucide-react'
+import { Check, Download, History, Pencil, Trash2, X } from 'lucide-react'
 import {
 	addTafiAdminManualStockInventory,
 	listTafiAdminManualStockInventoryHistory,
@@ -8,6 +8,7 @@ import {
 	listTafiAdminStockInRecords,
 	listTafiAdminStockOutRecords,
 	listTafiAdminSummaryStockRecords,
+	deleteTafiAdminStockInScan,
 	updateTafiAdminStockBarcodeTotalPrice,
 	updateTafiAdminStockInScanCount,
 	updateTafiAdminStockReorderLevel
@@ -101,6 +102,9 @@ export default function TafiStockInventory({ sessionToken }) {
 	const [isSavingBarcodeCount, setIsSavingBarcodeCount] = useState(false)
 	const [barcodeCountError, setBarcodeCountError] = useState('')
 	const [barcodeCountNotice, setBarcodeCountNotice] = useState('')
+	const [barcodeDeleteError, setBarcodeDeleteError] = useState('')
+	const [barcodeDeleteNotice, setBarcodeDeleteNotice] = useState('')
+	const [deletingBarcode, setDeletingBarcode] = useState('')
 	const [stockSearch, setStockSearch] = useState('')
 	const [stockCategory, setStockCategory] = useState('')
 	const [editingReorderLevel, setEditingReorderLevel] = useState('')
@@ -389,6 +393,33 @@ export default function TafiStockInventory({ sessionToken }) {
 		)))
 		setEditingBarcodeCount('')
 		setBarcodeCountNotice(`Item count updated for barcode ${item.barcode}.`)
+	}
+
+	const deleteBarcode = async (item) => {
+		if (Number(item.scan_count) !== 0) {
+			setBarcodeDeleteError('Only barcode items with a count of zero can be deleted.')
+			return
+		}
+		if (!window.confirm(`Delete barcode ${item.barcode}? This removes it from Barcode Inventory; stock-in history will be kept.`)) {
+			return
+		}
+
+		setBarcodeDeleteError('')
+		setBarcodeDeleteNotice('')
+		setDeletingBarcode(item.barcode)
+		const { data, error } = await deleteTafiAdminStockInScan(sessionToken, item.barcode)
+		setDeletingBarcode('')
+		if (error) {
+			setBarcodeDeleteError(error.message)
+			return
+		}
+		if (data !== item.barcode) {
+			setBarcodeDeleteError('The barcode deletion was not confirmed. Refresh Barcode Inventory to verify it.')
+			return
+		}
+
+		setBarcodeScans((items) => items.filter((scan) => scan.barcode !== item.barcode))
+		setBarcodeDeleteNotice(`Barcode ${item.barcode} deleted. Stock-in history was kept.`)
 	}
 
 	const editReorderLevel = (item) => {
@@ -1175,6 +1206,12 @@ export default function TafiStockInventory({ sessionToken }) {
 						{barcodeCountNotice && (
 							<p className="accountant-inventory-notice" role="status">{barcodeCountNotice}</p>
 						)}
+						{barcodeDeleteError && (
+							<p className="accountant-inventory-error" role="alert">{barcodeDeleteError}</p>
+						)}
+						{barcodeDeleteNotice && (
+							<p className="accountant-inventory-notice" role="status">{barcodeDeleteNotice}</p>
+						)}
 						{filteredBarcodeScans.length ? (
 							<div className="accountant-inventory-table-wrap">
 								<table className="accountant-inventory-table">
@@ -1187,6 +1224,7 @@ export default function TafiStockInventory({ sessionToken }) {
 											<th scope="col">Item count</th>
 											<th scope="col">Per item price</th>
 											<th scope="col">Total Price</th>
+											<th scope="col">Actions</th>
 										</tr>
 									</thead>
 									<tbody>
@@ -1202,6 +1240,20 @@ export default function TafiStockInventory({ sessionToken }) {
 												{renderBarcodeCountCell(item)}
 												{renderBarcodePriceCell(item, 'per-item')}
 												{renderBarcodePriceCell(item, 'total')}
+												<td>
+													{Number(item.scan_count) === 0 && (
+														<button
+															type="button"
+															className="tafi-barcode-price-action"
+															aria-label={`Delete barcode ${item.barcode}`}
+															title="Delete zero-count barcode"
+															onClick={() => deleteBarcode(item)}
+															disabled={deletingBarcode !== ''}
+														>
+															<Trash2 size={16} aria-hidden="true" />
+														</button>
+													)}
+												</td>
 											</tr>
 										))}
 									</tbody>

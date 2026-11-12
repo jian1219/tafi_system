@@ -195,7 +195,8 @@ export default function BranchCashReceiptsJournal({
   branchName = 'Branch',
   branchAdmin,
   api = branchCashReceiptsJournalApi,
-  canManageTargets = false
+  canManageTargets = false,
+  canManageEntries = true
 }) {
   const sessionToken = branchAdmin?.session_token
   const [entries, setEntries] = useState([])
@@ -204,7 +205,9 @@ export default function BranchCashReceiptsJournal({
   const [dailyTarget, setDailyTarget] = useState(null)
   const [dailyTargetValue, setDailyTargetValue] = useState('')
   const [editingEntryId, setEditingEntryId] = useState('')
-  const [activePageSection, setActivePageSection] = useState('entry')
+  const [activePageSection, setActivePageSection] = useState(
+    canManageEntries ? 'entry' : 'journal'
+  )
   const [activeSection, setActiveSection] = useState(entryFormSections[0].id)
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
@@ -389,7 +392,9 @@ export default function BranchCashReceiptsJournal({
           <p className="employee-info-eyebrow">{branchName}</p>
           <h3>Cash Receipts Journal</h3>
           <p className="employee-info-description">
-            Record daily sales, cash availability, and cash count for this branch.
+            {canManageEntries
+              ? 'Record daily sales, cash availability, and cash count for this branch.'
+              : 'Review journal entries and sales targets for this branch.'}
           </p>
         </div>
       </header>
@@ -399,17 +404,19 @@ export default function BranchCashReceiptsJournal({
         role="tablist"
         aria-label="Cash Receipts Journal sections"
       >
-        <button
-          type="button"
-          id="cash-receipt-entry-tab"
-          className={`accountant-inventory-tab${activePageSection === 'entry' ? ' active' : ''}`}
-          role="tab"
-          aria-selected={activePageSection === 'entry'}
-          aria-controls="cash-receipt-entry-panel"
-          onClick={() => setActivePageSection('entry')}
-        >
-          Cash Receipt entry
-        </button>
+        {canManageEntries && (
+          <button
+            type="button"
+            id="cash-receipt-entry-tab"
+            className={`accountant-inventory-tab${activePageSection === 'entry' ? ' active' : ''}`}
+            role="tab"
+            aria-selected={activePageSection === 'entry'}
+            aria-controls="cash-receipt-entry-panel"
+            onClick={() => setActivePageSection('entry')}
+          >
+            Cash Receipt entry
+          </button>
+        )}
         <button
           type="button"
           id="cash-receipts-journal-entries-tab"
@@ -440,14 +447,15 @@ export default function BranchCashReceiptsJournal({
       {error && <p className="cash-advance-message error" role="alert">{error}</p>}
       {message && <p className="cash-advance-message" role="status">{message}</p>}
 
-      <div
-        id="cash-receipt-entry-panel"
-        className="accountant-inventory-panel"
-        role="tabpanel"
-        aria-labelledby="cash-receipt-entry-tab"
-        hidden={activePageSection !== 'entry'}
-      >
-        <form className="branch-cdj-form crj-entry-form" onSubmit={handleSubmit}>
+      {canManageEntries && (
+        <div
+          id="cash-receipt-entry-panel"
+          className="accountant-inventory-panel"
+          role="tabpanel"
+          aria-labelledby="cash-receipt-entry-tab"
+          hidden={activePageSection !== 'entry'}
+        >
+          <form className="branch-cdj-form crj-entry-form" onSubmit={handleSubmit}>
         <div className="crj-section-tabs" role="group" aria-label="Cash receipts entry sections">
           {entryFormSections.map((section) => (
             <button
@@ -527,8 +535,9 @@ export default function BranchCashReceiptsJournal({
             Cancel
           </button>
         )}
-        </form>
-      </div>
+          </form>
+        </div>
+      )}
 
       <div
         id="cash-receipts-journal-entries-panel"
@@ -561,7 +570,7 @@ export default function BranchCashReceiptsJournal({
             <thead>
               <tr>
                 {journalColumns.map(({ key, label }) => <th key={key}>{label}</th>)}
-                <th>Actions</th>
+                {canManageEntries && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -572,21 +581,23 @@ export default function BranchCashReceiptsJournal({
                       {isText ? entry[key] : formatCurrency(entry[key])}
                     </td>
                   ))}
-                  <td>
-                    <button
-                      type="button"
-                      className="crj-edit-button"
-                      onClick={() => handleEdit(entry)}
-                      disabled={isSaving}
-                    >
-                      Edit
-                    </button>
-                  </td>
+                  {canManageEntries && (
+                    <td>
+                      <button
+                        type="button"
+                        className="crj-edit-button"
+                        onClick={() => handleEdit(entry)}
+                        disabled={isSaving}
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
               {status === 'ready' && visibleEntries.length === 0 && (
                 <tr>
-                  <td className="employee-empty-state" colSpan={journalColumns.length + 1}>
+                  <td className="employee-empty-state" colSpan={journalColumns.length + Number(canManageEntries)}>
                     No cash receipts entries for the selected month.
                   </td>
                 </tr>
