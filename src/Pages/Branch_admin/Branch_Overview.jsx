@@ -9,6 +9,7 @@ import {
   Users,
   Wallet
 } from 'lucide-react'
+import BranchOverviewAnnouncement from './Branch_Overview_Announcement'
 import BranchOverviewAnalytics from './Branch_Overview_Analytics'
 
 const overviewCards = [
@@ -100,6 +101,8 @@ export default function BranchOverview({ branchAdmin }) {
               ))}
             </div>
           </section>
+        ) : activeSection === 'announcements' ? (
+          <BranchOverviewAnnouncement />
         ) : activeSection === 'branch-analytics' ? (
           <BranchOverviewAnalytics
             sessionToken={branchAdmin?.session_token}

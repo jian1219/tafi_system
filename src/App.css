@@ -10082,6 +10082,230 @@ fieldset.employee-emergency-contact-box {
   text-align: right;
 }
 
+.branch-overview-announcements {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 18px;
+  padding: 8px 0;
+}
+
+.branch-overview-announcements-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.branch-overview-announcements-header h2 {
+  margin: 0;
+  color: #17363a;
+  font-size: clamp(1.35rem, 2vw, 1.7rem);
+  letter-spacing: -0.035em;
+}
+
+.branch-overview-announcements-header > div > p:last-child {
+  margin: 7px 0 0;
+  color: #62766f;
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+
+.branch-overview-announcements-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border: 1px solid #dce9e1;
+  border-radius: 999px;
+  background: #fff;
+  color: #438274;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.branch-overview-announcements-highlight {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 17px 19px;
+  border: 1px solid #dce9e1;
+  border-radius: 17px;
+  background: linear-gradient(120deg, #eef7f1 0%, #fff 80%);
+  box-shadow: 0 7px 20px rgba(24, 58, 51, 0.04);
+}
+
+.branch-overview-announcements-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 14px;
+  background: #dceee2;
+  color: #267e69;
+}
+
+.branch-overview-announcements-highlight > div {
+  min-width: 0;
+}
+
+.branch-overview-announcements-highlight > div > p {
+  margin: 0 0 3px;
+  color: #658479;
+  font-size: 0.61rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.branch-overview-announcements-highlight h3 {
+  margin: 0;
+  color: #17363a;
+  font-size: 0.97rem;
+}
+
+.branch-overview-announcements-highlight > div > span {
+  display: block;
+  margin-top: 4px;
+  color: #71847c;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.branch-overview-announcements-count {
+  margin-left: auto;
+  padding: 7px 10px;
+  border: 1px solid #dce8e1;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #658479;
+  font-size: 0.67rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.branch-overview-announcements-feed {
+  overflow: hidden;
+  border: 1px solid #e4ece8;
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 7px 20px rgba(24, 58, 51, 0.045);
+}
+
+.branch-overview-announcements-feed > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #e8efeb;
+}
+
+.branch-overview-announcements-feed > header h3 {
+  margin: 0;
+  color: #234a40;
+  font-size: 0.9rem;
+}
+
+.branch-overview-announcements-feed > header p {
+  margin: 4px 0 0;
+  color: #82948d;
+  font-size: 0.7rem;
+}
+
+.branch-overview-announcements-feed > header > span {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #f0f6f2;
+  color: #658479;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.branch-overview-announcement-list {
+  display: grid;
+  gap: 10px;
+  padding: 15px 17px;
+}
+
+.branch-overview-announcement-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid #e6eee9;
+  border-radius: 12px;
+  background: #fbfcfb;
+}
+
+.branch-overview-announcement-item-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 11px;
+  background: #eaf5ee;
+  color: #438274;
+}
+
+.branch-overview-announcement-item p {
+  margin: 0 0 4px;
+  color: #82948d;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.branch-overview-announcement-item h4 {
+  margin: 0;
+  color: #234a40;
+  font-size: 0.9rem;
+}
+
+.branch-overview-announcements-empty {
+  display: grid;
+  min-height: 260px;
+  justify-items: center;
+  align-content: center;
+  padding: 28px 20px;
+  text-align: center;
+}
+
+.branch-overview-announcements-empty-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 1px solid #e2ece6;
+  border-radius: 15px;
+  background: #f3f8f5;
+  color: #438274;
+}
+
+.branch-overview-announcements-empty > p {
+  margin: 15px 0 5px;
+  color: #82948d;
+  font-size: 0.61rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.branch-overview-announcements-empty h4 {
+  margin: 0;
+  color: #234a40;
+  font-size: 0.95rem;
+}
+
+.branch-overview-announcements-empty > span:last-child {
+  max-width: 380px;
+  margin-top: 6px;
+  color: #71847c;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
 .branch-overview-empty {
   display: flex;
   min-height: calc(100vh - 202px);
@@ -10244,6 +10468,19 @@ fieldset.employee-emergency-contact-box {
 }
 
 @media (max-width: 620px) {
+  .branch-overview-announcements-header {
+    flex-direction: column;
+  }
+
+  .branch-overview-announcements-highlight {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .branch-overview-announcements-count {
+    margin-left: 58px;
+  }
+
   .branch-analytics-page-header {
     flex-direction: column;
   }
