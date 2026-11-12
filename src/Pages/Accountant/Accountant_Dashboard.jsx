@@ -2,7 +2,6 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Barcode, Calculator, ChevronDown, ClipboardList, LayoutDashboard, LogOut, Package, Receipt, Wallet } from 'lucide-react'
 import {
-	listAccountantInventoryBranches,
 	listAccountantPendingStockRequestBranches,
 	listAccountantTafiStockInventory,
 	revokeAccountantSession
@@ -19,7 +18,7 @@ import AccountantInventoryTransferForm from './Accountant_Inventory_Transfer_For
 import AccountantBranchCDJ from './Accountant_Branch_cdj'
 import AccountantAPSubsidiaryLedger from './Accountant_AP_Subsidiary_ledger'
 import DashboardOverview from '../Dashboard_Overview'
-const TafiSales = lazy(() => import('../TAFI_Admin/TAFI_Sales'))
+const AccountantSales = lazy(() => import('./Accountant_Sales'))
 
 const overviewNavigationItem = { id: 'overview', label: 'Overview', icon: LayoutDashboard }
 const inventoryNavigationGroup = {
@@ -357,17 +356,11 @@ export default function AccountantDashboard() {
 					)}
 					{salesNavigationGroup.items.some((item) => item.id === activePage) && (
 						<Suspense fallback={<p className="cash-advance-message" role="status">Loading Sales tools...</p>}>
-							<TafiSales
+							<AccountantSales
 								sessionToken={sessionToken}
 								section={activePage}
 								selectedBranchId={selectedSalesBranchId}
 								onSelectedBranchChange={setSelectedSalesBranchId}
-								listBranches={listAccountantInventoryBranches}
-								sessionRole="Accountant"
-								canManageEntries={false}
-								canManageTargets={false}
-								canManageDeposits={false}
-								canManageTransactions={false}
 							/>
 						</Suspense>
 					)}

@@ -6287,6 +6287,8 @@ fieldset.employee-emergency-contact-box {
   }
 }
 
+
+
 @media (max-width: 520px) {
   .accountant-overview-card {
     min-height: 230px;
@@ -9383,151 +9385,25 @@ fieldset.employee-emergency-contact-box {
 
 .branch-overview-layout {
   display: grid;
-  grid-template-columns: minmax(285px, 0.86fr) minmax(0, 1.24fr);
+  grid-template-columns: minmax(0, 1fr) 223.125px;
   align-items: stretch;
-  gap: 24px;
+  gap: 20px;
 }
 
-.branch-overview-verse-panel {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-height: 570px;
-  overflow: hidden;
-  padding: clamp(26px, 3vw, 42px);
-  border: 1px solid rgba(232, 201, 116, 0.22);
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at 88% 12%, rgba(232, 201, 116, 0.16), transparent 25%),
-    linear-gradient(145deg, #173f3b, #102d31 72%);
-  box-shadow: 0 20px 45px rgba(16, 45, 49, 0.2);
-  color: #fff;
-}
-
-.branch-overview-verse-panel::before,
-.branch-overview-verse-panel::after {
-  position: absolute;
-  content: '';
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 50%;
-  pointer-events: none;
-}
-
-.branch-overview-verse-panel::before {
-  top: 20%;
-  right: -145px;
-  width: 290px;
-  height: 290px;
-}
-
-.branch-overview-verse-panel::after {
-  right: -95px;
-  bottom: -155px;
-  width: 310px;
-  height: 310px;
-}
-
-.branch-overview-brand,
-.branch-overview-verse-content,
-.branch-overview-verse-footer {
-  position: relative;
-  z-index: 1;
-}
-
-.branch-overview-brand {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  color: #dcebe5;
-  font-size: 0.83rem;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-}
-
-.branch-overview-brand-icon {
+.branch-overview-content {
   display: grid;
-  width: 40px;
-  height: 40px;
-  place-items: center;
-  border: 1px solid rgba(232, 201, 116, 0.36);
-  border-radius: 13px;
-  background: rgba(232, 201, 116, 0.12);
-  color: #e8c974;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  height: calc(100vh - 202px);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-.branch-overview-verse-content {
-  margin: auto 0;
-  text-align: center;
-}
-
-.branch-overview-welcome {
-  margin: 0 0 8px;
-  color: #d3b968;
-  font-size: 0.78rem;
-  font-weight: 750;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.branch-overview-verse-panel h2 {
-  margin: 0;
-  color: #fff;
-  font-size: clamp(1.7rem, 2.8vw, 2.25rem);
-  line-height: 1.16;
-}
-
-.branch-overview-scripture {
-  margin: 34px 0 0;
-  padding: 28px 4px 0;
-  border: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 0;
-  background: transparent;
-  text-align: center;
-}
-
-.branch-overview-quote-icon {
-  margin: 0 auto 13px;
-  color: #e8c974;
-  fill: rgba(232, 201, 116, 0.16);
-}
-
-.branch-overview-scripture p {
-  color: #f5f4ed;
-  font-size: clamp(1.08rem, 1.7vw, 1.35rem);
-  line-height: 1.75;
-}
-
-.branch-overview-scripture cite {
-  color: #e8c974;
-  font-size: 0.84rem;
-  letter-spacing: 0.04em;
-}
-
-.branch-overview-scripture cite span {
-  padding: 0 4px;
-  color: rgba(255, 255, 255, 0.56);
-}
-
-.branch-overview-verse-footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-  padding-top: 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-  color: #b7cbc4;
-  font-size: 0.77rem;
-}
-
-.branch-overview-status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #d3b968;
-  box-shadow: 0 0 0 4px rgba(211, 185, 104, 0.12);
-  flex: 0 0 auto;
+.branch-overview-content::-webkit-scrollbar {
+  display: none;
 }
 
 .branch-overview-workspace {
@@ -9541,9 +9417,16 @@ fieldset.employee-emergency-contact-box {
 
 .branch-overview-heading {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
+}
+
+.branch-overview-heading-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
 }
 
 .branch-overview-heading-label {
@@ -9573,6 +9456,638 @@ fieldset.employee-emergency-contact-box {
   white-space: nowrap;
 }
 
+.branch-overview-section-button:focus-visible {
+  outline: 2px solid #e8c974;
+  outline-offset: 3px;
+}
+
+.branch-overview-navigation-panel {
+  min-width: 0;
+  width: 100%;
+  min-height: calc(100vh - 202px);
+  overflow-y: auto;
+  padding: 22px 16px;
+  border: 1px solid #e0eae4;
+  border-radius: 22px;
+  background: linear-gradient(160deg, #fff 0%, #f6faf8 100%);
+  box-shadow: 0 18px 42px rgba(23, 54, 58, 0.1);
+  scrollbar-width: thin;
+}
+
+.branch-overview-navigation-panel[hidden] {
+  display: none;
+}
+
+.branch-overview-nav-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px 18px;
+  border-bottom: 1px solid #e7eeea;
+}
+
+.branch-overview-nav-header p {
+  margin: 0 0 5px;
+  color: #658479;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.branch-overview-nav-header h2 {
+  margin: 0;
+  color: #17363a;
+  font-size: 1.04rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.branch-overview-section-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.branch-overview-section-button {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 15px;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 9px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: #506961;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 650;
+  text-align: left;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.branch-overview-section-button:hover {
+  border-color: #dce8e1;
+  background: #f0f6f2;
+  color: #17363a;
+}
+
+.branch-overview-section-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid #e2ece6;
+  border-radius: 10px;
+  background: #edf5f1;
+  color: #438274;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.branch-overview-section-arrow {
+  color: #839a90;
+  opacity: 0;
+  transform: translateX(-3px);
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+
+.branch-overview-section-button:hover .branch-overview-section-arrow,
+.branch-overview-section-button.active .branch-overview-section-arrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.branch-overview-section-button.active {
+  border-color: #c6ddce;
+  background: linear-gradient(100deg, #edf6ef, #f8fbf8);
+  color: #194f44;
+}
+
+.branch-overview-section-button.active .branch-overview-section-icon {
+  border-color: #cde2d4;
+  background: #dceee2;
+  color: #237461;
+}
+
+.branch-overview-section-label {
+  min-width: 0;
+}
+
+.branch-overview-analytics {
+  min-width: 0;
+}
+
+.branch-analytics-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.branch-analytics-page-header h2 {
+  margin: 0;
+  color: #17363a;
+  font-size: clamp(1.35rem, 2vw, 1.7rem);
+  letter-spacing: -0.035em;
+}
+
+.branch-analytics-page-description {
+  margin: 7px 0 0;
+  color: #62766f;
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+
+.branch-analytics-loading {
+  margin: 0 0 14px;
+  color: #658479;
+  font-size: 0.82rem;
+}
+
+.branch-analytics-target-card {
+  margin-bottom: 16px;
+  padding: 18px 20px;
+  border: 1px solid #dce9e1;
+  border-radius: 17px;
+  background: linear-gradient(125deg, #f1f8f3 0%, #fff 78%);
+  box-shadow: 0 7px 20px rgba(24, 58, 51, 0.04);
+}
+
+.branch-analytics-target-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.branch-analytics-target-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 13px;
+  background: #e0efe5;
+  color: #267e69;
+}
+
+.branch-analytics-target-copy {
+  min-width: 0;
+}
+
+.branch-analytics-target-copy p {
+  margin: 0 0 3px;
+  color: #658479;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.branch-analytics-target-copy h3 {
+  margin: 0;
+  color: #17363a;
+  font-size: 1rem;
+}
+
+.branch-analytics-target-copy > span {
+  display: block;
+  margin-top: 3px;
+  color: #71847c;
+  font-size: 0.74rem;
+}
+
+.branch-analytics-target-status {
+  margin-left: auto;
+  padding: 6px 9px;
+  border: 1px solid #dce8e1;
+  border-radius: 999px;
+  background: #fff;
+  color: #658479;
+  font-size: 0.67rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.branch-analytics-target-status.achieved {
+  border-color: #c8dfd0;
+  background: #eaf5ee;
+  color: #267e69;
+}
+
+.branch-analytics-target-progress {
+  display: grid;
+  grid-template-columns: 66px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  margin-top: 19px;
+}
+
+.branch-analytics-target-progress > strong {
+  color: #17363a;
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.branch-analytics-target-track {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e5eee8;
+}
+
+.branch-analytics-target-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #328b72, #83b991);
+  transition: width 250ms ease;
+}
+
+.branch-analytics-target-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.branch-analytics-target-metrics > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid #e6eee9;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.branch-analytics-target-metrics span {
+  color: #71847c;
+  font-size: 0.67rem;
+}
+
+.branch-analytics-target-metrics strong {
+  overflow-wrap: anywhere;
+  color: #234a40;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.branch-analytics-target-note {
+  margin: 10px 0 0;
+  color: #71847c;
+  font-size: 0.71rem;
+}
+
+.branch-analytics-target-note.error {
+  color: #a33b37;
+}
+
+.branch-analytics-target-daily {
+  margin-top: 16px;
+  padding-top: 15px;
+  border-top: 1px solid #e3ede7;
+}
+
+.branch-analytics-target-daily-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.branch-analytics-target-daily-header h4 {
+  margin: 0;
+  color: #274c45;
+  font-size: 0.84rem;
+}
+
+.branch-analytics-target-daily-header p {
+  margin: 4px 0 0;
+  color: #71847c;
+  font-size: 0.7rem;
+}
+
+.branch-analytics-target-daily-header label {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 4px;
+  color: #71847c;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.branch-analytics-target-daily-header select {
+  min-width: 132px;
+  padding: 7px 28px 7px 9px;
+  border: 1px solid #dce8e1;
+  border-radius: 9px;
+  background: #fff;
+  color: #274c45;
+  font: inherit;
+  font-size: 0.72rem;
+}
+
+.branch-analytics-daily-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 14px 0 6px;
+  padding: 0;
+  color: #60766d;
+  font-size: 0.67rem;
+  list-style: none;
+}
+
+.branch-analytics-daily-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.branch-analytics-daily-legend li > span {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+.branch-analytics-daily-legend-target {
+  background: #a6c8b3;
+}
+
+.branch-analytics-daily-legend-achieved {
+  background: #267e69;
+}
+
+.branch-analytics-daily-chart-scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.branch-analytics-daily-chart-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.branch-analytics-daily-chart {
+  display: block;
+  width: 100%;
+  min-width: 600px;
+}
+
+.branch-analytics-daily-axis-label {
+  fill: #82948d;
+  font-size: 9px;
+}
+
+.branch-analytics-daily-target-bar {
+  fill: #a6c8b3;
+}
+
+.branch-analytics-daily-achieved-bar {
+  fill: #267e69;
+}
+
+.branch-analytics-target-daily-note {
+  margin: 3px 0 0;
+  color: #82948d;
+  font-size: 0.66rem;
+  text-align: right;
+}
+
+.branch-analytics-groups {
+  display: grid;
+  gap: 16px;
+}
+
+.branch-analytics-group {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid #e4ece8;
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 7px 20px rgba(24, 58, 51, 0.045);
+}
+
+.branch-analytics-group-header {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 14px;
+}
+
+.branch-analytics-group-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 12px;
+  background: #eaf5ee;
+  color: #267e69;
+}
+
+.branch-analytics-group-expense .branch-analytics-group-icon {
+  background: #f8f2e5;
+  color: #a77a26;
+}
+
+.branch-analytics-group-header > div:nth-child(2) {
+  min-width: 0;
+}
+
+.branch-analytics-group-header p {
+  margin: 0 0 3px;
+  color: #789087;
+  font-size: 0.63rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.branch-analytics-group-header h3 {
+  margin: 0;
+  color: #17363a;
+  font-size: 1rem;
+}
+
+.branch-analytics-group-total {
+  display: grid;
+  gap: 3px;
+  margin-left: auto;
+  text-align: right;
+}
+
+.branch-analytics-group-total span {
+  color: #82948d;
+  font-size: 0.67rem;
+  font-weight: 650;
+}
+
+.branch-analytics-group-total strong {
+  color: #17363a;
+  font-size: 0.96rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.branch-analytics-error {
+  margin: -2px 0 12px;
+  color: #a33b37;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.branch-analytics-charts {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 12px;
+}
+
+.branch-analytics-chart-card {
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid #e8efeb;
+  border-radius: 13px;
+  background: #fbfcfb;
+}
+
+.branch-analytics-chart-card > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.branch-analytics-chart-card h4 {
+  margin: 0;
+  color: #274c45;
+  font-size: 0.78rem;
+}
+
+.branch-analytics-chart-card > header > span {
+  color: #82948d;
+  font-size: 0.65rem;
+  white-space: nowrap;
+}
+
+.branch-analytics-donut-layout {
+  display: grid;
+  min-height: 150px;
+  grid-template-columns: 132px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.branch-analytics-donut {
+  display: block;
+  width: 132px;
+  max-width: 100%;
+}
+
+.branch-analytics-donut-caption {
+  fill: #83948d;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.branch-analytics-donut-total {
+  fill: #17363a;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.branch-analytics-legend {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.branch-analytics-legend li,
+.branch-analytics-legend-label {
+  display: flex;
+  align-items: center;
+}
+
+.branch-analytics-legend li {
+  justify-content: space-between;
+  gap: 8px;
+  color: #506961;
+  font-size: 0.67rem;
+}
+
+.branch-analytics-legend-label {
+  min-width: 0;
+  gap: 6px;
+}
+
+.branch-analytics-legend-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.branch-analytics-legend li strong {
+  color: #34554d;
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.branch-analytics-chart-empty {
+  margin: 0;
+  color: #82948d;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.branch-analytics-bar-chart {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+
+.branch-analytics-grid-line {
+  stroke: #e7eeea;
+  stroke-width: 1;
+}
+
+.branch-analytics-bar {
+  fill: #3a9079;
+}
+
+.branch-analytics-group-expense .branch-analytics-bar {
+  fill: #d3a644;
+}
+
+.branch-analytics-axis-label {
+  fill: #82948d;
+  font-size: 10px;
+}
+
+.branch-analytics-empty-label {
+  fill: #82948d;
+  font-size: 12px;
+}
+
+.branch-analytics-record-count {
+  margin: 10px 0 0;
+  color: #82948d;
+  font-size: 0.68rem;
+  text-align: right;
+}
+
+.branch-overview-empty {
+  display: flex;
+  min-height: calc(100vh - 202px);
+  grid-column: 1;
+}
+
 .branch-overview-cards {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -9585,8 +10100,8 @@ fieldset.employee-emergency-contact-box {
   grid-template-columns: 52px minmax(0, 1fr) 34px;
   align-items: center;
   gap: 16px;
-  min-height: 112px;
-  padding: 17px 19px;
+  min-height: 100px;
+  padding: 15px 17px;
   border: 1px solid #e5ece8;
   border-radius: 17px;
   background: #fff;
@@ -9602,8 +10117,8 @@ fieldset.employee-emergency-contact-box {
 
 .branch-overview-card-icon {
   display: grid;
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
   place-items: center;
   border-radius: 16px;
 }
@@ -9674,8 +10189,19 @@ fieldset.employee-emergency-contact-box {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .branch-overview-verse-panel {
-    min-height: 430px;
+  .branch-overview-content {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+    overflow: visible;
+  }
+
+  .branch-overview-navigation-panel {
+    min-height: 420px;
+  }
+
+  .branch-overview-empty {
+    min-height: 420px;
+    grid-column: 1;
   }
 
   .branch-overview-workspace {
@@ -9684,9 +10210,14 @@ fieldset.employee-emergency-contact-box {
 }
 
 @media (max-width: 520px) {
-  .branch-overview-verse-panel {
-    min-height: 390px;
-    padding: 24px;
+  .branch-overview-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .branch-overview-heading-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .branch-overview-card {
@@ -9703,6 +10234,60 @@ fieldset.employee-emergency-contact-box {
 
   .branch-overview-card-index {
     display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .branch-analytics-charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .branch-analytics-page-header {
+    flex-direction: column;
+  }
+
+  .branch-analytics-page-header .branch-overview-heading-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .branch-analytics-donut-layout {
+    grid-template-columns: 120px minmax(0, 1fr);
+  }
+
+  .branch-analytics-target-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .branch-analytics-target-status {
+    margin-left: 54px;
+  }
+
+  .branch-analytics-target-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .branch-analytics-target-daily-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 380px) {
+  .branch-analytics-group {
+    padding: 13px;
+  }
+
+  .branch-analytics-donut-layout {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .branch-analytics-legend {
+    width: 100%;
   }
 }
 

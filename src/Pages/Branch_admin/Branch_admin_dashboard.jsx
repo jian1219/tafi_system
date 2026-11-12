@@ -246,7 +246,10 @@ export default function BranchAdminDashboard() {
           </div>
 
           <div className="tab-content">
-            <ActiveComponent branchName={branchName} branchAdmin={branchAdmin} />
+            <ActiveComponent
+              branchName={branchName}
+              branchAdmin={branchAdmin}
+            />
           </div>
         </main>
       </div>
