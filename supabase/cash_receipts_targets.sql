@@ -5,15 +5,43 @@ create table if not exists public.targets (
   id uuid primary key default gen_random_uuid(),
   branch_id uuid not null references public.branch(id) on delete cascade,
   "date" date not null,
-  target_sales numeric(14, 2) not null,
+  target_sales numeric(14, 2),
   total_gross_sales numeric(14, 2),
   target_vs_achieved numeric(14, 2),
   target_vs_achievement_rate numeric(16, 8),
   sales_variance_percentage numeric(16, 8),
   created_at timestamptz not null default now(),
   unique (branch_id, "date"),
-  check (target_sales > 0)
+  check (target_sales is null or target_sales >= 0)
 );
+
+alter table public.targets alter column target_sales drop not null;
+
+do $$
+declare
+  target_constraint record;
+begin
+  for target_constraint in
+    select constraint_row.conname
+    from pg_catalog.pg_constraint as constraint_row
+    where constraint_row.conrelid = 'public.targets'::regclass
+      and constraint_row.contype = 'c'
+      and pg_catalog.strpos(
+        pg_catalog.pg_get_constraintdef(constraint_row.oid),
+        'target_sales'
+      ) > 0
+  loop
+    execute pg_catalog.format(
+      'alter table public.targets drop constraint %I',
+      target_constraint.conname
+    );
+  end loop;
+
+  alter table public.targets
+    add constraint targets_target_sales_nonnegative_check
+    check (target_sales is null or target_sales >= 0);
+end;
+$$;
 
 alter table public.targets enable row level security;
 revoke all on table public.targets from public, anon, authenticated;
@@ -24,27 +52,41 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  v_entry_count bigint;
+  v_total_gross_sales numeric;
 begin
-  if new."date" is null or new.target_sales is null or new.target_sales <= 0
-    or new.target_sales <> round(new.target_sales, 2) then
-    raise exception 'Enter a target date and target sales greater than zero with up to two decimal places';
+  if new.branch_id is null or new."date" is null then
+    raise exception 'A branch and target date are required';
   end if;
 
-  select entry.gross_sales
-  into new.total_gross_sales
+  select count(*), coalesce(sum(entry.gross_sales), 0)
+  into v_entry_count, v_total_gross_sales
   from public.cash_receipts_journal as entry
   where entry.branch_id = new.branch_id
-    and entry."date" = new."date"
-  order by entry.created_at desc, entry.id desc
-  limit 1;
+    and entry."date" = new."date";
 
-  if not found then
+  if v_entry_count = 0 then
     new.total_gross_sales := null;
     new.target_vs_achieved := null;
     new.target_vs_achievement_rate := null;
     new.sales_variance_percentage := null;
+    return new;
+  end if;
+
+  new.total_gross_sales := v_total_gross_sales;
+  if new.target_sales is null then
+    new.target_vs_achieved := null;
+    new.target_vs_achievement_rate := null;
+    new.sales_variance_percentage := null;
+    return new;
+  end if;
+
+  new.target_vs_achieved := new.total_gross_sales - new.target_sales;
+  if new.target_sales = 0 then
+    new.target_vs_achievement_rate := null;
+    new.sales_variance_percentage := null;
   else
-    new.target_vs_achieved := new.total_gross_sales - new.target_sales;
     new.target_vs_achievement_rate := new.total_gross_sales / new.target_sales;
     new.sales_variance_percentage := new.target_vs_achieved / new.target_sales;
   end if;
@@ -57,7 +99,60 @@ create trigger targets_calculate_fields
 before insert or update on public.targets
 for each row execute function public.targets_calculate_fields();
 
-create or replace function public.targets_sync_cash_receipts_fields()
+create or replace function public.targets_refresh_from_cash_receipts(
+  p_branch_id uuid,
+  p_date date
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_entry_count bigint;
+  v_target_sales numeric;
+begin
+  if p_branch_id is null or p_date is null then
+    raise exception 'A branch and target date are required';
+  end if;
+
+  select count(*)
+  into v_entry_count
+  from public.cash_receipts_journal as entry
+  where entry.branch_id = p_branch_id
+    and entry."date" = p_date;
+
+  select saved_target.target_sales
+  into v_target_sales
+  from public.targets as saved_target
+  where saved_target.branch_id = p_branch_id
+    and saved_target."date" <= p_date
+    and saved_target.target_sales is not null
+  order by saved_target."date" desc
+  limit 1;
+
+  if v_entry_count = 0 then
+    delete from public.targets as saved_target
+    where saved_target.branch_id = p_branch_id
+      and saved_target."date" = p_date
+      and saved_target.target_sales is null;
+    update public.targets as saved_target
+    set target_sales = saved_target.target_sales
+    where saved_target.branch_id = p_branch_id
+      and saved_target."date" = p_date
+      and saved_target.target_sales is not null;
+    return;
+  end if;
+
+  insert into public.targets as saved_target (branch_id, "date", target_sales)
+  values (p_branch_id, p_date, v_target_sales)
+  on conflict (branch_id, "date")
+  do update set target_sales = coalesce(saved_target.target_sales, excluded.target_sales);
+  return;
+end;
+$$;
+
+create or replace function public.cash_receipts_journal_sync_targets()
 returns trigger
 language plpgsql
 security definer
@@ -65,40 +160,59 @@ set search_path = ''
 as $$
 begin
   if tg_op = 'DELETE' then
-    update public.targets as saved_target
-    set total_gross_sales = null
-    where saved_target.branch_id = old.branch_id
-      and saved_target."date" = old."date";
+    perform public.targets_refresh_from_cash_receipts(old.branch_id, old."date");
     return old;
   end if;
 
   if tg_op = 'UPDATE'
     and (old.branch_id, old."date") is distinct from (new.branch_id, new."date") then
-    update public.targets as saved_target
-    set total_gross_sales = null
-    where saved_target.branch_id = old.branch_id
-      and saved_target."date" = old."date";
+    perform public.targets_refresh_from_cash_receipts(old.branch_id, old."date");
   end if;
 
-  update public.targets as saved_target
-  set total_gross_sales = (
-    select entry.gross_sales
-    from public.cash_receipts_journal as entry
-    where entry.branch_id = saved_target.branch_id
-      and entry."date" = saved_target."date"
-    order by entry.created_at desc, entry.id desc
-    limit 1
-  )
-  where saved_target.branch_id = new.branch_id
-    and saved_target."date" = new."date";
+  perform public.targets_refresh_from_cash_receipts(new.branch_id, new."date");
   return new;
 end;
 $$;
 
+drop trigger if exists cash_receipts_journal_apply_recurring_target
+  on public.cash_receipts_journal;
 drop trigger if exists targets_sync_cash_receipts_fields on public.cash_receipts_journal;
-create trigger targets_sync_cash_receipts_fields
+drop function if exists public.targets_sync_cash_receipts_fields();
+drop trigger if exists cash_receipts_journal_sync_targets on public.cash_receipts_journal;
+create trigger cash_receipts_journal_sync_targets
 after insert or update or delete on public.cash_receipts_journal
-for each row execute function public.targets_sync_cash_receipts_fields();
+for each row execute function public.cash_receipts_journal_sync_targets();
+
+update public.targets as saved_target
+set target_sales = coalesce(
+  saved_target.target_sales,
+  (
+    select earlier_target.target_sales
+    from public.targets as earlier_target
+    where earlier_target.branch_id = saved_target.branch_id
+      and earlier_target."date" < saved_target."date"
+      and earlier_target.target_sales is not null
+    order by earlier_target."date" desc
+    limit 1
+  )
+);
+
+insert into public.targets as saved_target (branch_id, "date", target_sales)
+select entry.branch_id,
+  entry."date",
+  (
+    select earlier_target.target_sales
+    from public.targets as earlier_target
+    where earlier_target.branch_id = entry.branch_id
+      and earlier_target."date" <= entry."date"
+      and earlier_target.target_sales is not null
+    order by earlier_target."date" desc
+    limit 1
+  )
+from public.cash_receipts_journal as entry
+group by entry.branch_id, entry."date"
+on conflict (branch_id, "date")
+do update set target_sales = coalesce(saved_target.target_sales, excluded.target_sales);
 
 drop function if exists public.branch_admin_create_sales_target(uuid, date, numeric);
 drop function if exists public.branch_admin_update_sales_target(uuid, uuid, date, numeric);
@@ -142,7 +256,9 @@ $$;
 
 revoke all on function public.targets_calculate_fields()
   from public, anon, authenticated;
-revoke all on function public.targets_sync_cash_receipts_fields()
+revoke all on function public.targets_refresh_from_cash_receipts(uuid, date)
+  from public, anon, authenticated;
+revoke all on function public.cash_receipts_journal_sync_targets()
   from public, anon, authenticated;
 revoke all on function public.branch_admin_list_sales_targets(uuid, integer, integer)
   from public, anon, authenticated;

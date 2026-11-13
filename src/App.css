@@ -4068,28 +4068,7 @@ fieldset.employee-emergency-contact-box {
   border-bottom: 1px solid #e2e8f0;
 }
 
-.crj-target-calculations {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
-  gap: 12px 18px;
-}
-
-.crj-target-note {
-  grid-column: 1 / -1;
-  margin: 0;
-  color: #64748b;
-  font-size: 0.8rem;
-}
-
-.crj-target-actions {
-  display: flex;
-  grid-column: 1 / -1;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.crj-target-actions > button {
+.crj-target-form > button {
   min-height: 40px;
   padding: 9px 14px;
   border: 0;
@@ -4101,22 +4080,16 @@ fieldset.employee-emergency-contact-box {
   cursor: pointer;
 }
 
-.crj-target-actions > button:hover:not(:disabled) {
-  background: #1e40af;
-}
-
-.crj-target-actions > button:disabled {
+.crj-target-form > button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }
 
-.crj-target-actions > .crj-cancel-button {
-  color: #334155;
-  background: #e2e8f0;
-}
-
-.crj-target-actions > .crj-cancel-button:hover:not(:disabled) {
-  background: #cbd5e1;
+.crj-target-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #64748b;
+  font-size: 0.8rem;
 }
 
 .crj-target-table {
@@ -9986,6 +9959,16 @@ fieldset.employee-emergency-contact-box {
   max-width: 100%;
 }
 
+.branch-analytics-group-sales .branch-analytics-donut-layout {
+  min-height: 166px;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.branch-analytics-group-sales .branch-analytics-donut {
+  width: 150px;
+}
+
 .branch-analytics-donut-caption {
   fill: #83948d;
   font-size: 8px;
@@ -10492,6 +10475,15 @@ fieldset.employee-emergency-contact-box {
 
   .branch-analytics-donut-layout {
     grid-template-columns: 120px minmax(0, 1fr);
+  }
+
+  .branch-analytics-group-sales .branch-analytics-donut-layout {
+    grid-template-columns: 138px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .branch-analytics-group-sales .branch-analytics-donut {
+    width: 138px;
   }
 
   .branch-analytics-target-header {

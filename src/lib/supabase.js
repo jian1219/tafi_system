@@ -169,29 +169,13 @@ export async function listTafiAdminBranchSalesTargets(sessionToken, branchId) {
   )
 }
 
-export async function getTafiAdminBranchRecurringSalesTarget(sessionToken, branchId) {
-  try {
-    const supabaseClient = await getSupabaseClient()
-    const { data, error } = await supabaseClient.rpc('tafi_admin_get_branch_recurring_sales_target', {
-      p_session_token: sessionToken,
-      p_branch_id: branchId
-    })
-    return { data: data?.[0] ?? null, error }
-  } catch (error) {
-    return {
-      data: null,
-      error: error instanceof Error ? error : new Error('Unable to load the branch daily sales target.')
-    }
-  }
-}
-
-export async function setTafiAdminBranchRecurringSalesTarget(sessionToken, branchId, targetSales) {
+export async function setTafiAdminBranchSalesTarget(sessionToken, branchId, targetDate, targetSales) {
   return callTafiAdminBranchSalesRpc(
-    'tafi_admin_set_branch_recurring_sales_target',
+    'tafi_admin_set_branch_sales_target',
     sessionToken,
     branchId,
-    { p_target_sales: targetSales },
-    'Unable to save the branch daily sales target.'
+    { p_date: targetDate, p_target_sales: targetSales },
+    'Unable to save the daily sales target.'
   )
 }
 
@@ -3327,8 +3311,9 @@ export async function listBranchCDJEntries(sessionToken) {
 export async function createBranchCashReceiptsJournalEntry(sessionToken, entry) {
   try {
     const supabaseClient = await getSupabaseClient()
-    return await supabaseClient.rpc('branch_admin_create_cash_receipts_journal_entry', {
+    return await supabaseClient.rpc('branch_admin_create_cash_receipts_journal_entry_with_si_no', {
       p_session_token: sessionToken,
+      p_si_no: entry.siNo,
       p_total_sales: entry.totalSales,
       p_consigment_sales: entry.consigmentSales,
       p_discount: entry.discount,
@@ -3338,7 +3323,8 @@ export async function createBranchCashReceiptsJournalEntry(sessionToken, entry) 
       p_creditable_withholding_tax: entry.creditableWithholdingTax,
       p_cash_float: entry.cashFloat,
       p_expense: entry.expense,
-      p_cash_count: entry.cashCount
+      p_cash_count: entry.cashCount,
+      p_date: entry.date
     })
   } catch (error) {
     return {
@@ -3351,9 +3337,10 @@ export async function createBranchCashReceiptsJournalEntry(sessionToken, entry) 
 export async function updateBranchCashReceiptsJournalEntry(sessionToken, entryId, entry) {
   try {
     const supabaseClient = await getSupabaseClient()
-    return await supabaseClient.rpc('branch_admin_update_cash_receipts_journal_entry', {
+    return await supabaseClient.rpc('branch_admin_update_cash_receipts_journal_entry_with_si_no', {
       p_session_token: sessionToken,
       p_entry_id: entryId,
+      p_si_no: entry.siNo,
       p_total_sales: entry.totalSales,
       p_consigment_sales: entry.consigmentSales,
       p_discount: entry.discount,
@@ -3363,7 +3350,8 @@ export async function updateBranchCashReceiptsJournalEntry(sessionToken, entryId
       p_creditable_withholding_tax: entry.creditableWithholdingTax,
       p_cash_float: entry.cashFloat,
       p_expense: entry.expense,
-      p_cash_count: entry.cashCount
+      p_cash_count: entry.cashCount,
+      p_date: entry.date
     })
   } catch (error) {
     return {

@@ -59,50 +59,6 @@ begin
 end;
 $$;
 
-create table if not exists public.branch_recurring_sales_target (
-  branch_id uuid primary key references public.branch(id) on delete cascade,
-  target_sales numeric(14, 2) not null check (target_sales > 0),
-  effective_from date not null,
-  updated_at timestamptz not null default now()
-);
-
-alter table public.branch_recurring_sales_target enable row level security;
-revoke all on table public.branch_recurring_sales_target from public, anon, authenticated;
-
-create or replace function public.cash_receipts_journal_apply_recurring_target()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_target_sales numeric;
-  v_effective_from date;
-begin
-  select recurring_target.target_sales, recurring_target.effective_from
-  into v_target_sales, v_effective_from
-  from public.branch_recurring_sales_target as recurring_target
-  where recurring_target.branch_id = new.branch_id;
-
-  if not found or new."date" < v_effective_from then
-    return new;
-  end if;
-
-  insert into public.targets (branch_id, "date", target_sales)
-  values (new.branch_id, new."date", v_target_sales)
-  on conflict (branch_id, "date")
-  do update set target_sales = excluded.target_sales;
-
-  return new;
-end;
-$$;
-
-drop trigger if exists cash_receipts_journal_apply_recurring_target
-  on public.cash_receipts_journal;
-create trigger cash_receipts_journal_apply_recurring_target
-after insert or update on public.cash_receipts_journal
-for each row execute function public.cash_receipts_journal_apply_recurring_target();
-
 create or replace function public.tafi_admin_create_branch_cash_receipts_journal_entry(
   p_session_token uuid,
   p_branch_id uuid,
@@ -294,67 +250,39 @@ $$;
 drop function if exists public.tafi_admin_create_branch_sales_target(uuid, uuid, date, numeric);
 drop function if exists public.tafi_admin_update_branch_sales_target(uuid, uuid, uuid, date, numeric);
 
-create or replace function public.tafi_admin_get_branch_recurring_sales_target(
-  p_session_token uuid,
-  p_branch_id uuid
-)
-returns setof public.branch_recurring_sales_target
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-  perform public.tafi_admin_assert_sales_branch(p_session_token, p_branch_id);
-  return query
-  select recurring_target.*
-  from public.branch_recurring_sales_target as recurring_target
-  where recurring_target.branch_id = p_branch_id;
-end;
-$$;
-
-create or replace function public.tafi_admin_set_branch_recurring_sales_target(
+create or replace function public.tafi_admin_set_branch_sales_target(
   p_session_token uuid,
   p_branch_id uuid,
+  p_date date,
   p_target_sales numeric
 )
-returns setof public.branch_recurring_sales_target
+returns setof public.targets
 language plpgsql
 security definer
 set search_path = ''
 as $$
-declare
-  v_effective_from date := (now() at time zone 'Asia/Manila')::date;
 begin
   perform public.tafi_admin_assert_sales_admin_branch(p_session_token, p_branch_id);
-  if p_target_sales is null or p_target_sales <= 0 or p_target_sales <> round(p_target_sales, 2) then
-    raise exception 'Enter a daily target greater than zero with up to two decimal places';
+  if p_date is null or p_target_sales is null or p_target_sales < 0
+    or p_target_sales <> round(p_target_sales, 2) then
+    raise exception 'Enter a target date and target sales of zero or greater with up to two decimal places';
   end if;
 
-  insert into public.branch_recurring_sales_target (
-    branch_id, target_sales, effective_from, updated_at
-  )
-  values (p_branch_id, p_target_sales, v_effective_from, now())
-  on conflict (branch_id)
-  do update set
-    target_sales = excluded.target_sales,
-    effective_from = excluded.effective_from,
-    updated_at = now();
-
   insert into public.targets (branch_id, "date", target_sales)
-  select p_branch_id, v_effective_from, p_target_sales
-  where exists (
-    select 1
-    from public.cash_receipts_journal as entry
-    where entry.branch_id = p_branch_id
-      and entry."date" = v_effective_from
-  )
+  values (p_branch_id, p_date, p_target_sales)
   on conflict (branch_id, "date")
   do update set target_sales = excluded.target_sales;
 
+  update public.targets as saved_target
+  set target_sales = p_target_sales
+  where saved_target.branch_id = p_branch_id
+    and saved_target."date" > p_date;
+
   return query
-  select recurring_target.*
-  from public.branch_recurring_sales_target as recurring_target
-  where recurring_target.branch_id = p_branch_id;
+  select saved_target.*
+  from public.targets as saved_target
+  where saved_target.branch_id = p_branch_id
+    and saved_target."date" = p_date;
 end;
 $$;
 
@@ -629,8 +557,6 @@ revoke all on function public.tafi_admin_assert_sales_branch(uuid, uuid)
   from public, anon, authenticated;
 revoke all on function public.tafi_admin_assert_sales_admin_branch(uuid, uuid)
   from public, anon, authenticated;
-revoke all on function public.cash_receipts_journal_apply_recurring_target()
-  from public, anon, authenticated;
 revoke all on function public.tafi_admin_create_branch_cash_receipts_journal_entry(
   uuid, uuid, numeric, numeric, numeric, numeric, numeric, numeric, numeric, numeric, numeric, numeric
 ) from public, anon, authenticated;
@@ -639,11 +565,9 @@ revoke all on function public.tafi_admin_update_branch_cash_receipts_journal_ent
 ) from public, anon, authenticated;
 revoke all on function public.tafi_admin_list_branch_cash_receipts_journal_entries(uuid, uuid, integer, integer)
   from public, anon, authenticated;
-revoke all on function public.tafi_admin_get_branch_recurring_sales_target(uuid, uuid)
-  from public, anon, authenticated;
-revoke all on function public.tafi_admin_set_branch_recurring_sales_target(uuid, uuid, numeric)
-  from public, anon, authenticated;
 revoke all on function public.tafi_admin_list_branch_sales_targets(uuid, uuid, integer, integer)
+  from public, anon, authenticated;
+revoke all on function public.tafi_admin_set_branch_sales_target(uuid, uuid, date, numeric)
   from public, anon, authenticated;
 revoke all on function public.tafi_admin_create_branch_deposit(uuid, uuid, date, numeric, numeric)
   from public, anon, authenticated;
@@ -670,11 +594,9 @@ grant execute on function public.tafi_admin_update_branch_cash_receipts_journal_
 ) to anon, authenticated;
 grant execute on function public.tafi_admin_list_branch_cash_receipts_journal_entries(uuid, uuid, integer, integer)
   to anon, authenticated;
-grant execute on function public.tafi_admin_get_branch_recurring_sales_target(uuid, uuid)
-  to anon, authenticated;
-grant execute on function public.tafi_admin_set_branch_recurring_sales_target(uuid, uuid, numeric)
-  to anon, authenticated;
 grant execute on function public.tafi_admin_list_branch_sales_targets(uuid, uuid, integer, integer)
+  to anon, authenticated;
+grant execute on function public.tafi_admin_set_branch_sales_target(uuid, uuid, date, numeric)
   to anon, authenticated;
 grant execute on function public.tafi_admin_create_branch_deposit(uuid, uuid, date, numeric, numeric)
   to anon, authenticated;

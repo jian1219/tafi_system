@@ -79,7 +79,6 @@ export default function AccountantSales({
         branchAdmin={{ session_token: sessionToken }}
         api={api}
         canManageEntries={false}
-        canManageTargets={false}
       />
     : section === 'sales-deposit'
       ? <BranchDeposit

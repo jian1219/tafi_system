@@ -99,7 +99,9 @@ function getDailyTargetEntries(targets, monthKey) {
     return {
       date,
       day,
-      target: entry ? toCents(entry.target_sales) : null,
+      target: entry?.target_sales === null || entry?.target_sales === undefined
+        ? null
+        : toCents(entry.target_sales),
       achieved: entry?.total_gross_sales === null || entry?.total_gross_sales === undefined
         ? null
         : toCents(entry.total_gross_sales)
@@ -112,7 +114,7 @@ function getMonthlyTotals(entries, field, months) {
 
   entries.forEach((entry) => {
     const key = getMonthKey(entry.date)
-    if (totals.has(key)) {
+    if (totals.has(key) && entry[field] !== null && entry[field] !== undefined) {
       totals.set(key, totals.get(key) + toCents(entry[field]))
     }
   })
@@ -659,6 +661,16 @@ export default function BranchOverviewAnalytics({
     () => createMonthBuckets(analytics.sales, analytics.expenses, analytics.targets),
     [analytics.sales, analytics.expenses, analytics.targets]
   )
+  const configuredTargets = useMemo(
+    () => analytics.targets.filter((entry) => entry.target_sales !== null && entry.target_sales !== undefined),
+    [analytics.targets]
+  )
+  const achievedTargetEntries = useMemo(
+    () => configuredTargets.filter((entry) => (
+      entry.total_gross_sales !== null && entry.total_gross_sales !== undefined
+    )),
+    [configuredTargets]
+  )
   const salesMix = useMemo(
     () => getMixTotals(analytics.sales, salesMixFields, months),
     [analytics.sales, months]
@@ -676,23 +688,20 @@ export default function BranchOverviewAnalytics({
     [analytics.expenses, months]
   )
   const monthlyTargets = useMemo(
-    () => getMonthlyTotals(analytics.targets, 'target_sales', months),
-    [analytics.targets, months]
+    () => getMonthlyTotals(configuredTargets, 'target_sales', months),
+    [configuredTargets, months]
   )
   const monthlyTargetAchievement = useMemo(
-    () => getMonthlyTotals(analytics.targets, 'total_gross_sales', months),
-    [analytics.targets, months]
+    () => getMonthlyTotals(achievedTargetEntries, 'total_gross_sales', months),
+    [achievedTargetEntries, months]
   )
   const periodLabel = `Six months through ${months[months.length - 1]?.label ?? ''}`
   const salesTotal = sumValues(monthlySales)
   const expenseTotal = sumValues(monthlyExpenses)
   const salesRecordCount = countEntriesInMonths(analytics.sales, months)
   const expenseRecordCount = countEntriesInMonths(analytics.expenses, months)
-  const targetRecordCount = countEntriesInMonths(analytics.targets, months)
-  const targetSalesRecordCount = analytics.targets.filter((entry) => (
-    getMonthKey(entry.date) && entry.total_gross_sales !== null && entry.total_gross_sales !== undefined
-      && months.some((month) => month.key === getMonthKey(entry.date))
-  )).length
+  const targetRecordCount = countEntriesInMonths(configuredTargets, months)
+  const targetSalesRecordCount = countEntriesInMonths(achievedTargetEntries, months)
   const targetTotal = sumValues(monthlyTargets)
   const targetAchievedTotal = sumValues(monthlyTargetAchievement)
   const achievementRate = targetTotal > 0 && targetSalesRecordCount > 0

@@ -10,8 +10,7 @@ import {
   listTafiAdminBranchFoodPandaTransactions,
   listTafiAdminBranchGcashTransactions,
   listTafiAdminBranchSalesTargets,
-  getTafiAdminBranchRecurringSalesTarget,
-  setTafiAdminBranchRecurringSalesTarget,
+  setTafiAdminBranchSalesTarget,
   updateTafiAdminBranchCashReceiptsJournalEntry,
   updateTafiAdminBranchDeposit,
 } from '../../lib/supabase'
@@ -47,11 +46,8 @@ export default function TafiSales({
       listTafiAdminBranchCashReceiptsJournalEntries(token, selectedBranchId)
     ),
     listBranchSalesTargets: (token) => listTafiAdminBranchSalesTargets(token, selectedBranchId),
-    getBranchRecurringSalesTarget: (token) => (
-      getTafiAdminBranchRecurringSalesTarget(token, selectedBranchId)
-    ),
-    setBranchRecurringSalesTarget: (token, targetSales) => (
-      setTafiAdminBranchRecurringSalesTarget(token, selectedBranchId, targetSales)
+    setBranchSalesTarget: (token, date, targetSales) => (
+      setTafiAdminBranchSalesTarget(token, selectedBranchId, date, targetSales)
     ),
     createBranchDeposit: (token, deposit) => (
       createTafiAdminBranchDeposit(token, selectedBranchId, deposit)
