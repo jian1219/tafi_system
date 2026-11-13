@@ -3906,14 +3906,17 @@ fieldset.employee-emergency-contact-box {
 .branch-cdj-row-edit {
   min-height: 32px;
   padding: 5px 10px;
-  border: 1px solid #bfdbfe;
   border-radius: 6px;
-  color: #1d4ed8;
-  background: #eff6ff;
   font: inherit;
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
+}
+
+.branch-cdj-row-edit {
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  background: #eff6ff;
 }
 
 .branch-cdj-row-edit:hover:not(:disabled) {

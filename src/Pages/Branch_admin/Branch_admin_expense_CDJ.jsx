@@ -1,6 +1,10 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Plus, X } from 'lucide-react'
-import { createBranchCDJEntry, listBranchCDJEntries, updateBranchCDJEntry } from '../../lib/supabase'
+import {
+  createBranchCDJEntry,
+  listBranchCDJEntries,
+  updateBranchCDJEntry
+} from '../../lib/supabase'
 import BranchAdminExpenseDailySummary from './Branch_admin_expense_daily_summary'
 
 const accountTitles = [
