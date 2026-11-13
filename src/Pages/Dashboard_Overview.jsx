@@ -72,17 +72,17 @@ function WorkspaceImagePlayer({ imageSrc, audioSrc }) {
           />
           <div className="accountant-overview-workspace-audio">
             <button
+              className={`accountant-overview-workspace-audio-button${isPlaying ? ' is-playing' : ''}`}
               type="button"
               onClick={togglePlayback}
-              aria-label={isPlaying ? 'Pause mean.mp3' : 'Play mean.mp3'}
+              aria-label={isPlaying ? 'Pause music' : 'Play music'}
             >
               {isPlaying
                 ? <Pause size={18} fill="currentColor" aria-hidden="true" />
                 : <Play size={18} fill="currentColor" aria-hidden="true" />}
-              <span>{isPlaying ? 'Pause' : 'Play'}</span>
             </button>
             {playbackMessage && (
-              <span className="accountant-overview-workspace-audio-message" role="status">
+              <span className="accountant-overview-workspace-audio-status" role="status">
                 {playbackMessage}
               </span>
             )}

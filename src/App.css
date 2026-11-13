@@ -6224,31 +6224,37 @@ fieldset.employee-emergency-contact-box {
   pointer-events: none;
 }
 
-.accountant-overview-workspace-audio button,
-.accountant-overview-workspace-audio-message {
+.accountant-overview-workspace-audio button {
   border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.82);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d4af37, #1d4ed8, #0f172a);
+  background-size: 220% 220%;
+  background-position: 0 50%;
+  box-shadow: 0 5px 16px rgba(15, 23, 42, 0.34);
+  transition: background-position 220ms ease, transform 180ms ease, box-shadow 180ms ease;
 }
 
 .accountant-overview-workspace-audio button {
   display: inline-flex;
-  min-height: 42px;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 8px 15px;
+  padding: 0;
   color: #fff;
   cursor: pointer;
-  font: inherit;
-  font-size: 0.8rem;
-  font-weight: 750;
   pointer-events: auto;
 }
 
+.accountant-overview-workspace-audio button.is-playing {
+  background-image: linear-gradient(135deg, #0f766e, #2563eb, #9333ea);
+}
+
 .accountant-overview-workspace-audio button:hover {
-  background: rgba(15, 23, 42, 0.96);
+  background-position: 100% 50%;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.42);
+  transform: scale(1.06);
 }
 
 .accountant-overview-workspace-audio button:focus-visible {
@@ -6256,17 +6262,14 @@ fieldset.employee-emergency-contact-box {
   outline-offset: 3px;
 }
 
-.accountant-overview-workspace-audio-message {
-  max-width: 100%;
-  padding: 4px 10px;
-  color: #fff;
-  font-size: 0.7rem;
-  text-align: center;
-}
-
-.accountant-overview-workspace-audio-message {
-  border-radius: 8px;
-  pointer-events: auto;
+.accountant-overview-workspace-audio-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .accountant-overview-workspace-image img {
