@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   createBranchCashReceiptsJournalEntry,
+  listBranchDeposits,
   listBranchCashReceiptsJournalEntries,
   listBranchSalesTargets,
   updateBranchCashReceiptsJournalEntry
@@ -8,6 +9,7 @@ import {
 
 const branchCashReceiptsJournalApi = {
   createBranchCashReceiptsJournalEntry,
+  listBranchDeposits,
   listBranchSalesTargets,
   listBranchCashReceiptsJournalEntries,
   updateBranchCashReceiptsJournalEntry
@@ -153,6 +155,27 @@ const createFormFromEntry = (entry) => ({
   cashCount: Number(entry.cash_count).toFixed(2)
 })
 
+const getPreviousDayDepositCashFloat = (date, deposits) => {
+  if (!date) return '0.00'
+  const previousDate = new Date(`${date}T00:00:00.000Z`)
+  if (!Number.isFinite(previousDate.getTime())) return '0.00'
+  previousDate.setUTCDate(previousDate.getUTCDate() - 1)
+  const previousDateKey = previousDate.toISOString().slice(0, 10)
+  const deposit = deposits.find((item) => item.date_deposit === previousDateKey)
+  const amount = Number(deposit?.deposit_vs_cash_sales)
+  return Number.isFinite(amount) && amount >= 0 ? amount.toFixed(2) : '0.00'
+}
+
+const listDepositEntries = (api, sessionToken) => {
+  if (typeof api.listBranchDeposits !== 'function') {
+    return Promise.resolve({
+      data: null,
+      error: new Error('Deposit data is unavailable for Cash Float auto-fill.')
+    })
+  }
+  return api.listBranchDeposits(sessionToken)
+}
+
 const toCents = (value) => Math.round(Number(value) * 100)
 const formatCurrency = (amount) => Number(amount).toLocaleString('en-PH', {
   style: 'currency',
@@ -214,6 +237,7 @@ export default function BranchCashReceiptsJournal({
   const sessionToken = branchAdmin?.session_token
   const [entries, setEntries] = useState([])
   const [targets, setTargets] = useState([])
+  const [deposits, setDeposits] = useState([])
   const [form, setForm] = useState(createEmptyEntry)
   const [targetDate, setTargetDate] = useState(getManilaDateKey)
   const [targetSalesDraft, setTargetSalesDraft] = useState(null)
@@ -228,6 +252,7 @@ export default function BranchCashReceiptsJournal({
   const [isSaving, setIsSaving] = useState(false)
   const [isSavingTarget, setIsSavingTarget] = useState(false)
   const [selectedMonth, setSelectedMonth] = useState(() => getManilaDateKey().slice(0, 7))
+  const cashFloatManuallyEdited = useRef(false)
   const calculatedAmounts = useMemo(() => calculateAmounts(form), [form])
   const nextSiNo = useMemo(() => {
     const year = form.date.slice(0, 4)
@@ -269,9 +294,10 @@ export default function BranchCashReceiptsJournal({
         return
       }
 
-      const [entriesResult, targetsResult] = await Promise.all([
+      const [entriesResult, targetsResult, depositsResult] = await Promise.all([
         api.listBranchCashReceiptsJournalEntries(sessionToken),
-        api.listBranchSalesTargets(sessionToken)
+        api.listBranchSalesTargets(sessionToken),
+        listDepositEntries(api, sessionToken)
       ])
       if (!isCurrent) return
       if (entriesResult.error || targetsResult.error) {
@@ -282,7 +308,20 @@ export default function BranchCashReceiptsJournal({
 
       setEntries(entriesResult.data ?? [])
       setTargets(targetsResult.data ?? [])
-      setError('')
+      setDeposits(depositsResult.data ?? [])
+      setForm((current) => (
+        cashFloatManuallyEdited.current
+          ? current
+          : {
+              ...current,
+              cashFloat: getPreviousDayDepositCashFloat(current.date, depositsResult.data ?? [])
+            }
+      ))
+      setError(
+        depositsResult.error
+          ? `Cash Float auto-fill is unavailable: ${depositsResult.error.message}`
+          : ''
+      )
       setStatus('ready')
     }
 
@@ -327,9 +366,10 @@ export default function BranchCashReceiptsJournal({
       return
     }
 
-    const [entriesResult, targetsResult] = await Promise.all([
+    const [entriesResult, targetsResult, depositsResult] = await Promise.all([
       api.listBranchCashReceiptsJournalEntries(sessionToken),
-      api.listBranchSalesTargets(sessionToken)
+      api.listBranchSalesTargets(sessionToken),
+      listDepositEntries(api, sessionToken)
     ])
     setIsSaving(false)
     if (entriesResult.error || targetsResult.error) {
@@ -341,14 +381,26 @@ export default function BranchCashReceiptsJournal({
 
     setEntries(entriesResult.data ?? [])
     setTargets(targetsResult.data ?? [])
+    setDeposits(depositsResult.data ?? [])
     setSelectedMonth(form.date.slice(0, 7))
     setEditingEntryId('')
-    setForm(createEmptyEntry())
+    cashFloatManuallyEdited.current = false
+    const emptyEntry = createEmptyEntry()
+    setForm({
+      ...emptyEntry,
+      cashFloat: getPreviousDayDepositCashFloat(emptyEntry.date, depositsResult.data ?? [])
+    })
     setStatus('ready')
+    setError(
+      depositsResult.error
+        ? `Entry ${editingEntryId ? 'updated' : 'saved'}, but Cash Float auto-fill could not refresh: ${depositsResult.error.message}`
+        : ''
+    )
     setMessage(`Cash receipts journal entry SI No. ${savedSiNo} ${editingEntryId ? 'updated' : 'saved'}.`)
   }
 
   const handleEdit = (entry) => {
+    cashFloatManuallyEdited.current = true
     setEditingEntryId(entry.id)
     setActivePageSection('entry')
     setForm(createFormFromEntry(entry))
@@ -359,8 +411,13 @@ export default function BranchCashReceiptsJournal({
   }
 
   const cancelEdit = () => {
+    cashFloatManuallyEdited.current = false
     setEditingEntryId('')
-    setForm(createEmptyEntry())
+    const emptyEntry = createEmptyEntry()
+    setForm({
+      ...emptyEntry,
+      cashFloat: getPreviousDayDepositCashFloat(emptyEntry.date, deposits)
+    })
     setError('')
     setMessage('')
   }
@@ -519,10 +576,15 @@ export default function BranchCashReceiptsJournal({
                 <input
                   type="date"
                   value={form.date}
-                  onChange={(event) => setForm((current) => ({
-                    ...current,
-                    date: event.target.value
-                  }))}
+                  onChange={(event) => {
+                    const date = event.target.value
+                    cashFloatManuallyEdited.current = false
+                    setForm((current) => ({
+                      ...current,
+                      date,
+                      cashFloat: getPreviousDayDepositCashFloat(date, deposits)
+                    }))
+                  }}
                   required
                 />
               </label>
@@ -551,10 +613,13 @@ export default function BranchCashReceiptsJournal({
                     step="0.01"
                     inputMode="decimal"
                     value={form[field.key]}
-                    onChange={(event) => setForm((current) => ({
-                      ...current,
-                      [field.key]: event.target.value
-                    }))}
+                    onChange={(event) => {
+                      if (field.key === 'cashFloat') cashFloatManuallyEdited.current = true
+                      setForm((current) => ({
+                        ...current,
+                        [field.key]: event.target.value
+                      }))
+                    }}
                     required
                   />
                 </label>
