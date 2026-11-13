@@ -283,6 +283,7 @@ export default function TafiDashboard() {
 					{activePage === 'overview'
 						? (
 							<TafiOverview
+								sessionToken={sessionToken}
 								noAvailableStockCount={noAvailableStockCount}
 								isLoadingNoAvailableStockCount={isLoadingNoAvailableStockCount}
 								noAvailableStockCountError={noAvailableStockCountError}

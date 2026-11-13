@@ -3,7 +3,10 @@ import { CircleDollarSign, Receipt, Target } from 'lucide-react'
 import {
   listBranchCDJEntries,
   listBranchCashReceiptsJournalEntries,
-  listBranchSalesTargets
+  listBranchSalesTargets,
+  listTafiAdminBranchCDJEntries,
+  listTafiAdminBranchCashReceiptsJournalEntries,
+  listTafiAdminBranchSalesTargets
 } from '../../lib/supabase'
 
 const salesMixFields = [
@@ -597,7 +600,10 @@ function TargetAchievement({
 }
 
 export default function BranchOverviewAnalytics({
-  sessionToken
+  sessionToken,
+  branchId,
+  branchName,
+  isTafiAdmin = false
 }) {
   const [analytics, setAnalytics] = useState({
     sales: [],
@@ -614,13 +620,14 @@ export default function BranchOverviewAnalytics({
 
     const loadAnalytics = async () => {
       if (!sessionToken) {
+        const roleName = isTafiAdmin ? 'TAFI Admin' : 'Branch Admin'
         setAnalytics({
           sales: [],
           expenses: [],
           targets: [],
-          salesError: 'Branch Admin session is unavailable. Please sign in again.',
-          expenseError: 'Branch Admin session is unavailable. Please sign in again.',
-          targetError: 'Branch Admin session is unavailable. Please sign in again.',
+          salesError: `${roleName} session is unavailable. Please sign in again.`,
+          expenseError: `${roleName} session is unavailable. Please sign in again.`,
+          targetError: `${roleName} session is unavailable. Please sign in again.`,
           isLoading: false
         })
         return
@@ -633,11 +640,17 @@ export default function BranchOverviewAnalytics({
         expenseError: '',
         targetError: ''
       }))
-      const [salesResult, expenseResult, targetResult] = await Promise.all([
-        listBranchCashReceiptsJournalEntries(sessionToken),
-        listBranchCDJEntries(sessionToken),
-        listBranchSalesTargets(sessionToken)
-      ])
+      const [salesResult, expenseResult, targetResult] = isTafiAdmin
+        ? await Promise.all([
+          listTafiAdminBranchCashReceiptsJournalEntries(sessionToken, branchId),
+          listTafiAdminBranchCDJEntries(sessionToken, branchId),
+          listTafiAdminBranchSalesTargets(sessionToken, branchId)
+        ])
+        : await Promise.all([
+          listBranchCashReceiptsJournalEntries(sessionToken),
+          listBranchCDJEntries(sessionToken),
+          listBranchSalesTargets(sessionToken)
+        ])
       if (!isCurrent) return
 
       setAnalytics({
@@ -655,7 +668,7 @@ export default function BranchOverviewAnalytics({
     return () => {
       isCurrent = false
     }
-  }, [sessionToken])
+  }, [branchId, isTafiAdmin, sessionToken])
 
   const months = useMemo(
     () => createMonthBuckets(analytics.sales, analytics.expenses, analytics.targets),
@@ -715,6 +728,7 @@ export default function BranchOverviewAnalytics({
           <p className="branch-overview-heading-label">BRANCH ANALYTICS</p>
           <h2 id="branch-analytics-heading">Sales &amp; Expense</h2>
           <p className="branch-analytics-page-description">
+            {branchName ? `${branchName} · ` : ''}
             Journal performance from the latest six months of available data.
           </p>
         </div>

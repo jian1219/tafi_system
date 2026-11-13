@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Plus, X } from 'lucide-react'
-import { createBranchCDJEntry, listBranchCDJEntries } from '../../lib/supabase'
+import { createBranchCDJEntry, listBranchCDJEntries, updateBranchCDJEntry } from '../../lib/supabase'
 import BranchAdminExpenseDailySummary from './Branch_admin_expense_daily_summary'
 
 const accountTitles = [
@@ -109,6 +109,7 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
   const [message, setMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [editingEntryId, setEditingEntryId] = useState('')
   const [selectedMonth, setSelectedMonth] = useState(() => getManilaDateKey().slice(0, 7))
   const [selectedAccountTitle, setSelectedAccountTitle] = useState('')
   const [activeSection, setActiveSection] = useState('journal')
@@ -214,7 +215,10 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
     }
 
     setIsSaving(true)
-    const { error: saveError } = await createBranchCDJEntry(sessionToken, {
+    const isUpdating = Boolean(editingEntryId)
+    const saveEntry = isUpdating ? updateBranchCDJEntry : createBranchCDJEntry
+    const { error: saveError } = await saveEntry(sessionToken, {
+      ...(isUpdating ? { id: editingEntryId } : {}),
       ...form,
       ...amounts
     })
@@ -226,18 +230,41 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
 
     setSelectedMonth(form.date.slice(0, 7))
     setForm(createEmptyEntry())
+    setEditingEntryId('')
     setIsFormOpen(false)
     const { data, error: loadError } = await listBranchCDJEntries(sessionToken)
     setIsSaving(false)
     if (loadError) {
-      setError(`Entry saved, but the journal could not refresh: ${loadError.message}`)
+      setError(`Entry ${isUpdating ? 'updated' : 'saved'}, but the journal could not refresh: ${loadError.message}`)
       setStatus('error')
       return
     }
 
     setEntries(data ?? [])
     setStatus('ready')
-    setMessage('Cash disbursement entry saved.')
+    setMessage(`Cash disbursement entry ${isUpdating ? 'updated' : 'saved'}.`)
+  }
+
+  const handleEditEntry = (entry) => {
+    setEditingEntryId(entry.id)
+    setForm({
+      date: entry.date,
+      refNo: entry.ref_no ?? '',
+      disbursementVoucherNo: entry.disbursement_voucher_no ?? '',
+      description: entry.description ?? '',
+      accountTitle: entry.account_titles ?? '',
+      payeeSupplier: entry.payee_supplier ?? '',
+      tin: entry.tin ?? '',
+      cash: Number(entry.cash).toFixed(2),
+      bankTransfer: Number(entry.bank_transfer).toFixed(2),
+      gcash: Number(entry.gcash).toFixed(2),
+      cwt: Number(entry.cwt).toFixed(2)
+    })
+    setSelectedMonth(entry.date.slice(0, 7))
+    setActiveSection('journal')
+    setIsFormOpen(true)
+    setError('')
+    setMessage('')
   }
 
   return (
@@ -260,7 +287,8 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
             setIsFormOpen((isOpen) => !isOpen)
             setError('')
             setMessage('')
-            if (isFormOpen) setForm(createEmptyEntry())
+            setForm(createEmptyEntry())
+            setEditingEntryId('')
           }}
         >
           {isFormOpen
@@ -361,8 +389,23 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
           <strong>{formatCurrency(total)}</strong>
         </div>
         <button type="submit" disabled={isSaving || status !== 'ready'}>
-          {isSaving ? 'Saving…' : 'Save Entry'}
+          {isSaving ? (editingEntryId ? 'Updating…' : 'Saving…') : (editingEntryId ? 'Update Entry' : 'Save Entry')}
         </button>
+        {editingEntryId && (
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={() => {
+              setForm(createEmptyEntry())
+              setEditingEntryId('')
+              setIsFormOpen(false)
+              setError('')
+              setMessage('')
+            }}
+          >
+            Cancel
+          </button>
+        )}
       </form>
 
       {status === 'loading' && (
@@ -446,6 +489,7 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
                 <th>GCash</th>
                 <th>CWT</th>
                 <th>Total</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -469,6 +513,17 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
                       <td>{formatCurrency(entry.gcash)}</td>
                       <td>{formatCurrency(entry.cwt)}</td>
                       <td><strong>{formatCurrency(entry.total)}</strong></td>
+                      <td>
+                        <button
+                          className="branch-cdj-row-edit"
+                          type="button"
+                          disabled={isSaving}
+                          aria-label={`Edit cash disbursement entry dated ${formatDate(entry.date)}`}
+                          onClick={() => handleEditEntry(entry)}
+                        >
+                          Edit
+                        </button>
+                      </td>
                     </tr>
                   ))}
                   <tr className="branch-cdj-date-total" key={`${group.date}-total`}>
@@ -485,12 +540,13 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
                         )}
                       </strong>
                     </td>
+                    <td />
                   </tr>
                 </Fragment>
               ))}
               {status === 'ready' && filteredEntries.length === 0 && (
                 <tr>
-                  <td className="employee-empty-state" colSpan={12}>
+                  <td className="employee-empty-state" colSpan={13}>
                     {selectedAccountTitle
                       ? `No ${selectedAccountTitle} entries for the selected month.`
                       : 'No cash disbursement entries for the selected month.'}
@@ -511,6 +567,7 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
                       )}
                     </strong>
                   </td>
+                  <td />
                 </tr>
               )}
             </tbody>

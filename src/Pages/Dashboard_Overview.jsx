@@ -1,4 +1,97 @@
-import { Barcode, BookOpen, ClipboardList, PackageX, Quote } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Barcode, BookOpen, ClipboardList, PackageX, Pause, Play, Quote } from 'lucide-react'
+
+function WorkspaceImagePlayer({ imageSrc, audioSrc }) {
+  const audioRef = useRef(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [playbackMessage, setPlaybackMessage] = useState('')
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return undefined
+
+    let isCurrent = true
+    const attemptAutoplay = async () => {
+      try {
+        await audio.play()
+        if (isCurrent) setPlaybackMessage('')
+      } catch (error) {
+        if (!isCurrent) return
+        setPlaybackMessage(error instanceof Error && error.name === 'NotAllowedError'
+          ? 'Select Play to start the music.'
+          : error instanceof Error
+            ? error.message
+            : 'Unable to play mean.mp3.')
+      }
+    }
+
+    void attemptAutoplay()
+    return () => {
+      isCurrent = false
+      audio.pause()
+    }
+  }, [audioSrc])
+
+  const togglePlayback = async () => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    setPlaybackMessage('')
+    if (!audio.paused) {
+      audio.pause()
+      return
+    }
+
+    try {
+      await audio.play()
+    } catch (error) {
+      setPlaybackMessage(error instanceof Error && error.name === 'NotAllowedError'
+        ? 'Select Play to start the music.'
+        : error instanceof Error
+          ? error.message
+          : 'Unable to play mean.mp3.')
+    }
+  }
+
+  return (
+    <figure className="accountant-overview-workspace-image">
+      <img src={imageSrc} alt="" />
+      {audioSrc && (
+        <>
+          <audio
+            ref={audioRef}
+            src={audioSrc}
+            preload="auto"
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            onEnded={() => setIsPlaying(false)}
+            onError={() => {
+              setIsPlaying(false)
+              setPlaybackMessage('Unable to load mean.mp3.')
+            }}
+          />
+          <div className="accountant-overview-workspace-audio">
+            <button
+              type="button"
+              onClick={togglePlayback}
+              aria-label={isPlaying ? 'Pause mean.mp3' : 'Play mean.mp3'}
+            >
+              {isPlaying
+                ? <Pause size={18} fill="currentColor" aria-hidden="true" />
+                : <Play size={18} fill="currentColor" aria-hidden="true" />}
+              <span>{isPlaying ? 'Pause' : 'Play'}</span>
+            </button>
+            {playbackMessage && (
+              <span className="accountant-overview-workspace-audio-message" role="status">
+                {playbackMessage}
+              </span>
+            )}
+          </div>
+        </>
+      )}
+    </figure>
+  )
+}
 
 export default function DashboardOverview({
   roleName,
@@ -6,10 +99,16 @@ export default function DashboardOverview({
   isLoadingNoAvailableStockCount,
   noAvailableStockCountError,
   showBarcodeWithoutPrice = false,
+  showPlaceholderCards = true,
+  noDataCardCount = 0,
+  stackWorkspaceCards = false,
   noPriceBarcodeCount,
   isLoadingNoPriceBarcodeCount,
   noPriceBarcodeCountError,
   showPendingStockRequests = false,
+  showWelcomePanel = true,
+  workspaceImage,
+  workspaceAudio,
   pendingStockRequestBranches = [],
   isLoadingPendingStockRequests,
   pendingStockRequestsError
@@ -17,7 +116,7 @@ export default function DashboardOverview({
   const idPrefix = roleName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 
   return (
-    <div className="accountant-overview">
+    <div className={`accountant-overview${showWelcomePanel ? '' : ' accountant-overview-no-welcome'}${workspaceImage ? ' accountant-overview-has-image' : ''}${stackWorkspaceCards ? ' accountant-overview-workspace-stack' : ''}`}>
       <div className="accountant-overview-stock-column">
         <div className="accountant-overview-live-cards">
           <article className="accountant-overview-card" aria-labelledby={`${idPrefix}-no-stock-title`}>
@@ -87,34 +186,48 @@ export default function DashboardOverview({
             </article>
           )}
         </div>
-        {Array.from({ length: 5 }, (_, index) => (
+        {noDataCardCount > 0 && (
+          <div className="accountant-overview-no-data-grid">
+            {Array.from({ length: noDataCardCount }, (_, index) => (
+              <article className="accountant-overview-no-data-card" key={`no-data-${index + 1}`}>
+                No data
+              </article>
+            ))}
+          </div>
+        )}
+        {showPlaceholderCards && Array.from({ length: 5 }, (_, index) => (
           <article className="accountant-overview-placeholder-card" key={`placeholder-${index + 1}`}>
             Dummy text
           </article>
         ))}
       </div>
       <div className="accountant-overview-right-column">
-        <section className="branch-overview-verse-panel accountant-overview-verse">
-          <div className="branch-overview-brand">
-            <span className="branch-overview-brand-icon">
-              <BookOpen size={19} aria-hidden="true" />
-            </span>
-            <span>{roleName} workspace</span>
-          </div>
-          <div className="branch-overview-verse-content">
-            <p className="branch-overview-welcome">Welcome back</p>
-            <h2>{roleName} Overview</h2>
-            <blockquote className="tafi-overview-verse branch-overview-scripture">
-              <Quote className="branch-overview-quote-icon" size={30} aria-hidden="true" />
-              <p>“Commit thy works unto the LORD, and thy thoughts shall be established.”</p>
-              <cite>Proverbs 16:3 <span>·</span> KJV</cite>
-            </blockquote>
-          </div>
-          <div className="branch-overview-verse-footer">
-            <span className="branch-overview-status-dot" aria-hidden="true" />
-            <span>Stewardship with accuracy and care</span>
-          </div>
-        </section>
+        {showWelcomePanel && (
+          <section className="branch-overview-verse-panel accountant-overview-verse">
+            <div className="branch-overview-brand">
+              <span className="branch-overview-brand-icon">
+                <BookOpen size={19} aria-hidden="true" />
+              </span>
+              <span>{roleName} workspace</span>
+            </div>
+            <div className="branch-overview-verse-content">
+              <p className="branch-overview-welcome">Welcome back</p>
+              <h2>{roleName} Overview</h2>
+              <blockquote className="tafi-overview-verse branch-overview-scripture">
+                <Quote className="branch-overview-quote-icon" size={30} aria-hidden="true" />
+                <p>“Commit thy works unto the LORD, and thy thoughts shall be established.”</p>
+                <cite>Proverbs 16:3 <span>·</span> KJV</cite>
+              </blockquote>
+            </div>
+            <div className="branch-overview-verse-footer">
+              <span className="branch-overview-status-dot" aria-hidden="true" />
+              <span>Stewardship with accuracy and care</span>
+            </div>
+          </section>
+        )}
+        {!showWelcomePanel && workspaceImage && (
+          <WorkspaceImagePlayer imageSrc={workspaceImage} audioSrc={workspaceAudio} />
+        )}
         {showPendingStockRequests && (
           <article
             className="accountant-overview-requests-card"

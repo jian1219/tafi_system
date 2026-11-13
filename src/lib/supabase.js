@@ -3278,6 +3278,32 @@ export async function createBranchCDJEntry(sessionToken, entry) {
   }
 }
 
+export async function updateBranchCDJEntry(sessionToken, entry) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_update_cdj_entry_with_date', {
+      p_session_token: sessionToken,
+      p_entry_id: entry.id,
+      p_date: entry.date,
+      p_ref_no: entry.refNo,
+      p_disbursement_voucher_no: entry.disbursementVoucherNo,
+      p_description: entry.description,
+      p_account_titles: entry.accountTitle,
+      p_payee_supplier: entry.payeeSupplier,
+      p_tin: entry.tin,
+      p_cash: entry.cash,
+      p_bank_transfer: entry.bankTransfer,
+      p_gcash: entry.gcash,
+      p_cwt: entry.cwt
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the Cash Disbursement Journal entry.')
+    }
+  }
+}
+
 export async function listBranchCDJEntries(sessionToken) {
   try {
     const supabaseClient = await getSupabaseClient()
