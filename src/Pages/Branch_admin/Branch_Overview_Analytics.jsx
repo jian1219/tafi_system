@@ -726,7 +726,7 @@ export default function BranchOverviewAnalytics({
       <header className="branch-analytics-page-header">
         <div>
           <p className="branch-overview-heading-label">BRANCH ANALYTICS</p>
-          <h2 id="branch-analytics-heading">Sales &amp; Expense</h2>
+          <h2 id="branch-analytics-heading">Sales Performance, Sales & Expense</h2>
           <p className="branch-analytics-page-description">
             {branchName ? `${branchName} · ` : ''}
             Journal performance from the latest six months of available data.

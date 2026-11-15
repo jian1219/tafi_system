@@ -45,8 +45,10 @@ const formatCurrency = (amount) => Number(amount).toLocaleString('en-PH', {
   minimumFractionDigits: 2
 })
 
-export default function BranchAdminDiscounts({ branchName = 'Branch', branchAdmin }) {
+export default function BranchAdminDiscounts({ branchName = 'Branch', branchAdmin, api }) {
   const sessionToken = branchAdmin?.session_token
+  const createSalesDiscount = api?.createBranchSalesDiscount ?? createBranchSalesDiscount
+  const listSalesDiscounts = api?.listBranchSalesDiscounts ?? listBranchSalesDiscounts
   const [form, setForm] = useState(createEmptyDiscount)
   const [formOpen, setFormOpen] = useState(false)
   const [discounts, setDiscounts] = useState([])
@@ -70,7 +72,7 @@ export default function BranchAdminDiscounts({ branchName = 'Branch', branchAdmi
         return
       }
 
-      const result = await listBranchSalesDiscounts(sessionToken)
+      const result = await listSalesDiscounts(sessionToken)
       if (!isCurrent) return
       if (result.error) {
         setError(result.error.message)
@@ -87,7 +89,7 @@ export default function BranchAdminDiscounts({ branchName = 'Branch', branchAdmi
     return () => {
       isCurrent = false
     }
-  }, [sessionToken])
+  }, [listSalesDiscounts, sessionToken])
 
   const updateForm = (key, value) => {
     setForm((current) => ({ ...current, [key]: value }))
@@ -140,7 +142,7 @@ export default function BranchAdminDiscounts({ branchName = 'Branch', branchAdmi
     }
 
     setSaving(true)
-    const saveResult = await createBranchSalesDiscount(sessionToken, {
+    const saveResult = await createSalesDiscount(sessionToken, {
       ...form,
       gross: grossAmount,
       customerCountPerOrder: perOrderCount,
@@ -154,7 +156,7 @@ export default function BranchAdminDiscounts({ branchName = 'Branch', branchAdmi
 
     setForm(createEmptyDiscount())
     setFormOpen(false)
-    const listResult = await listBranchSalesDiscounts(sessionToken)
+    const listResult = await listSalesDiscounts(sessionToken)
     setSaving(false)
     if (listResult.error) {
       setError(`Discount saved, but the list could not refresh: ${listResult.error.message}`)

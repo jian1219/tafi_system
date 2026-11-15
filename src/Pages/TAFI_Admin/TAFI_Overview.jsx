@@ -3,8 +3,6 @@ import { BarChart3, BookOpen, ChevronRight, Megaphone } from 'lucide-react'
 import DashboardOverview from '../Dashboard_Overview'
 import TafiOverviewAnalytics from './TAFI_Overview_Analytics'
 import TafiOverviewAnnouncement from './TAFI_Overview_Announcement'
-import lanyImage from '../../images/lany.jpg'
-import meanMusic from '../../music/mean.mp3'
 
 const overviewSections = [
   { id: 'workspace-info', label: 'Workspace Info', icon: BookOpen },
@@ -41,10 +39,9 @@ export default function TafiOverview({
             showPlaceholderCards={false}
             noDataCardCount={3}
             stackWorkspaceCards
+            showWorkspaceNoDataCard
             showPendingStockRequests
             showWelcomePanel={false}
-            workspaceImage={lanyImage}
-            workspaceAudio={meanMusic}
             noAvailableStockCount={noAvailableStockCount}
             isLoadingNoAvailableStockCount={isLoadingNoAvailableStockCount}
             noAvailableStockCountError={noAvailableStockCountError}

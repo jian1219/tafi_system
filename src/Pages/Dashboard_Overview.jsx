@@ -106,6 +106,7 @@ export default function DashboardOverview({
   isLoadingNoPriceBarcodeCount,
   noPriceBarcodeCountError,
   showPendingStockRequests = false,
+  showWorkspaceNoDataCard = false,
   showWelcomePanel = true,
   workspaceImage,
   workspaceAudio,
@@ -116,7 +117,7 @@ export default function DashboardOverview({
   const idPrefix = roleName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 
   return (
-    <div className={`accountant-overview${showWelcomePanel ? '' : ' accountant-overview-no-welcome'}${workspaceImage ? ' accountant-overview-has-image' : ''}${stackWorkspaceCards ? ' accountant-overview-workspace-stack' : ''}`}>
+    <div className={`accountant-overview${showWelcomePanel ? '' : ' accountant-overview-no-welcome'}${workspaceImage ? ' accountant-overview-has-image' : ''}${stackWorkspaceCards ? ' accountant-overview-workspace-stack' : ''}${showWorkspaceNoDataCard ? ' accountant-overview-has-workspace-no-data' : ''}`}>
       <div className="accountant-overview-stock-column">
         <div className="accountant-overview-live-cards">
           <article className="accountant-overview-card" aria-labelledby={`${idPrefix}-no-stock-title`}>
@@ -271,6 +272,11 @@ export default function DashboardOverview({
                 No pending purchase order requests.
               </p>
             )}
+          </article>
+        )}
+        {showWorkspaceNoDataCard && (
+          <article className="accountant-overview-no-data-card">
+            No data
           </article>
         )}
       </div>

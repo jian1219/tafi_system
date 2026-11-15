@@ -1,5 +1,6 @@
 -- Run after branch_management.sql, cash_receipts_journal.sql, cash_receipts_targets.sql,
--- deposit.sql, branch_transactions.sql, tafi_admin_management.sql, and accountant_management.sql.
+-- deposit.sql, branch_transactions.sql, sales_discounts.sql, daily_summary_crj.sql,
+-- tafi_admin_management.sql, and accountant_management.sql.
 begin;
 
 create or replace function public.tafi_admin_assert_sales_branch(
@@ -313,6 +314,126 @@ begin
 end;
 $$;
 
+create or replace function public.tafi_admin_create_branch_sales_discount(
+  p_session_token uuid,
+  p_branch_id uuid,
+  p_date date,
+  p_type text,
+  p_name text,
+  p_sales_invoice text,
+  p_billing text,
+  p_consigment text,
+  p_gross numeric,
+  p_customer_count_per_order integer,
+  p_no_person_granted_discount integer
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_discount_id uuid;
+begin
+  perform public.tafi_admin_assert_sales_admin_branch(p_session_token, p_branch_id);
+
+  if p_date is null or p_type is null
+    or p_type not in ('Senior Citizen', 'PWD', 'Eagle''s', 'Pag-ibig', 'Loyalty Card') then
+    raise exception 'Select a valid date and discount type';
+  end if;
+  if p_gross is null or p_gross < 0 or p_gross <> round(p_gross, 2) then
+    raise exception 'Enter a gross amount of zero or greater with up to two decimal places';
+  end if;
+  if p_customer_count_per_order is null or p_customer_count_per_order < 1
+    or p_no_person_granted_discount is null or p_no_person_granted_discount < 0
+    or p_no_person_granted_discount > p_customer_count_per_order then
+    raise exception 'Enter a customer count greater than zero and a discounted-person count from zero up to the customer count';
+  end if;
+
+  insert into public.sales_discounts (
+    branch_id,
+    "date",
+    "type",
+    name,
+    sales_invoice,
+    billing,
+    consigment,
+    gross,
+    customer_count_per_order,
+    no_person_granted_discount
+  )
+  values (
+    p_branch_id,
+    p_date,
+    p_type,
+    nullif(btrim(p_name), ''),
+    nullif(btrim(p_sales_invoice), ''),
+    nullif(btrim(p_billing), ''),
+    nullif(btrim(p_consigment), ''),
+    p_gross,
+    p_customer_count_per_order,
+    p_no_person_granted_discount
+  )
+  returning id into v_discount_id;
+
+  return v_discount_id;
+end;
+$$;
+
+create or replace function public.tafi_admin_list_branch_sales_discounts(
+  p_session_token uuid,
+  p_branch_id uuid,
+  p_offset integer default 0,
+  p_limit integer default 500
+)
+returns setof public.sales_discounts
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform public.tafi_admin_assert_sales_branch(p_session_token, p_branch_id);
+  if p_offset is null or p_offset < 0 or p_limit is null or p_limit < 1 or p_limit > 500 then
+    raise exception 'Invalid sales discount page range';
+  end if;
+
+  return query
+  select discount.*
+  from public.sales_discounts as discount
+  where discount.branch_id = p_branch_id
+  order by discount."date" desc, discount.created_at desc
+  offset p_offset
+  limit p_limit;
+end;
+$$;
+
+create or replace function public.tafi_admin_list_branch_daily_summary_crj(
+  p_session_token uuid,
+  p_branch_id uuid,
+  p_offset integer default 0,
+  p_limit integer default 500
+)
+returns setof public.daily_summary_crj
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform public.tafi_admin_assert_sales_branch(p_session_token, p_branch_id);
+  if p_offset is null or p_offset < 0 or p_limit is null or p_limit < 1 or p_limit > 500 then
+    raise exception 'Invalid Cash Receipts Journal summary page range';
+  end if;
+
+  return query
+  select summary.*
+  from public.daily_summary_crj as summary
+  where summary.branch_id = p_branch_id
+  order by summary."date" desc, summary.created_at desc
+  offset p_offset
+  limit p_limit;
+end;
+$$;
+
 create or replace function public.tafi_admin_create_branch_deposit(
   p_session_token uuid,
   p_branch_id uuid,
@@ -567,6 +688,13 @@ revoke all on function public.tafi_admin_list_branch_cash_receipts_journal_entri
   from public, anon, authenticated;
 revoke all on function public.tafi_admin_list_branch_sales_targets(uuid, uuid, integer, integer)
   from public, anon, authenticated;
+revoke all on function public.tafi_admin_create_branch_sales_discount(
+  uuid, uuid, date, text, text, text, text, text, numeric, integer, integer
+) from public, anon, authenticated;
+revoke all on function public.tafi_admin_list_branch_sales_discounts(uuid, uuid, integer, integer)
+  from public, anon, authenticated;
+revoke all on function public.tafi_admin_list_branch_daily_summary_crj(uuid, uuid, integer, integer)
+  from public, anon, authenticated;
 revoke all on function public.tafi_admin_set_branch_sales_target(uuid, uuid, date, numeric)
   from public, anon, authenticated;
 revoke all on function public.tafi_admin_create_branch_deposit(uuid, uuid, date, numeric, numeric)
@@ -595,6 +723,13 @@ grant execute on function public.tafi_admin_update_branch_cash_receipts_journal_
 grant execute on function public.tafi_admin_list_branch_cash_receipts_journal_entries(uuid, uuid, integer, integer)
   to anon, authenticated;
 grant execute on function public.tafi_admin_list_branch_sales_targets(uuid, uuid, integer, integer)
+  to anon, authenticated;
+grant execute on function public.tafi_admin_create_branch_sales_discount(
+  uuid, uuid, date, text, text, text, text, text, numeric, integer, integer
+) to anon, authenticated;
+grant execute on function public.tafi_admin_list_branch_sales_discounts(uuid, uuid, integer, integer)
+  to anon, authenticated;
+grant execute on function public.tafi_admin_list_branch_daily_summary_crj(uuid, uuid, integer, integer)
   to anon, authenticated;
 grant execute on function public.tafi_admin_set_branch_sales_target(uuid, uuid, date, numeric)
   to anon, authenticated;

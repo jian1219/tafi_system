@@ -58,7 +58,9 @@ const navigationGroups = [
 		items: [
 			{ id: 'sales-crj', label: 'Cash Receipts Journal', icon: Receipt },
 			{ id: 'sales-deposit', label: 'Deposit', icon: Wallet },
-			{ id: 'sales-transactions', label: 'Transactions', icon: ClipboardList }
+			{ id: 'sales-transactions', label: 'Transactions', icon: ClipboardList },
+			{ id: 'sales-discounts', label: 'Discounts', icon: Receipt },
+			{ id: 'sales-summary', label: 'Summary', icon: ClipboardList }
 		]
 	},
 	{
@@ -357,7 +359,7 @@ export default function TafiDashboard() {
 											<TafiAPSubsidiaryLedger sessionToken={tafiAdmin.session_token} />
 										</Suspense>
 									)
-								: ['sales-crj', 'sales-deposit', 'sales-transactions'].includes(activePage)
+								: ['sales-crj', 'sales-deposit', 'sales-transactions', 'sales-discounts', 'sales-summary'].includes(activePage)
 									? (
 										<Suspense fallback={<p className="cash-advance-message" role="status">Loading Sales tools...</p>}>
 											<TafiSales

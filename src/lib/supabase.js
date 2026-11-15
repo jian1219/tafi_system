@@ -179,6 +179,44 @@ export async function setTafiAdminBranchSalesTarget(sessionToken, branchId, targ
   )
 }
 
+export async function createTafiAdminBranchSalesDiscount(sessionToken, branchId, discount) {
+  return callTafiAdminBranchSalesRpc(
+    'tafi_admin_create_branch_sales_discount',
+    sessionToken,
+    branchId,
+    {
+      p_date: discount.date,
+      p_type: discount.type,
+      p_name: discount.name.trim() || null,
+      p_sales_invoice: discount.salesInvoice.trim() || null,
+      p_billing: discount.billing.trim() || null,
+      p_consigment: discount.consigment.trim() || null,
+      p_gross: discount.gross,
+      p_customer_count_per_order: discount.customerCountPerOrder,
+      p_no_person_granted_discount: discount.noPersonGrantedDiscount
+    },
+    'Unable to save the sales discount.'
+  )
+}
+
+export async function listTafiAdminBranchSalesDiscounts(sessionToken, branchId) {
+  return listTafiAdminBranchSalesRows(
+    'tafi_admin_list_branch_sales_discounts',
+    sessionToken,
+    branchId,
+    'Unable to load sales discounts.'
+  )
+}
+
+export async function listTafiAdminBranchDailySummaryCRJ(sessionToken, branchId) {
+  return listTafiAdminBranchSalesRows(
+    'tafi_admin_list_branch_daily_summary_crj',
+    sessionToken,
+    branchId,
+    'Unable to load the Cash Receipts Journal summary.'
+  )
+}
+
 export async function createTafiAdminBranchDeposit(sessionToken, branchId, deposit) {
   return callTafiAdminBranchSalesRpc(
     'tafi_admin_create_branch_deposit',

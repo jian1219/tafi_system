@@ -5904,6 +5904,7 @@ fieldset.employee-emergency-contact-box {
 }
 
 .accountant-overview-workspace-stack .accountant-overview-stock-column {
+  align-content: start;
   grid-template-columns: minmax(0, 1fr);
 }
 
@@ -6196,6 +6197,11 @@ fieldset.employee-emergency-contact-box {
   min-height: 0;
   grid-template-rows: auto;
   align-content: start;
+}
+
+.accountant-overview-has-workspace-no-data .accountant-overview-right-column {
+  grid-template-rows: auto minmax(120px, 1fr);
+  align-content: stretch;
 }
 
 .accountant-overview-no-welcome.accountant-overview-has-image .accountant-overview-right-column {

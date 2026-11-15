@@ -27,8 +27,9 @@ const formatDate = (dateKey) => new Date(`${dateKey}T12:00:00`).toLocaleDateStri
   year: 'numeric'
 })
 
-export default function BranchAdminSummaryCRJ({ branchName = 'Branch', branchAdmin }) {
+export default function BranchAdminSummaryCRJ({ branchName = 'Branch', branchAdmin, api }) {
   const sessionToken = branchAdmin?.session_token
+  const listSummaries = api?.listBranchDailySummaryCRJ ?? listBranchDailySummaryCRJ
   const [activeSection, setActiveSection] = useState('daily')
   const [summaries, setSummaries] = useState([])
   const [status, setStatus] = useState('loading')
@@ -44,7 +45,7 @@ export default function BranchAdminSummaryCRJ({ branchName = 'Branch', branchAdm
         return
       }
 
-      const { data, error: loadError } = await listBranchDailySummaryCRJ(sessionToken)
+      const { data, error: loadError } = await listSummaries(sessionToken)
       if (!isCurrent) return
       if (loadError) {
         setError(loadError.message)
@@ -61,7 +62,7 @@ export default function BranchAdminSummaryCRJ({ branchName = 'Branch', branchAdm
     return () => {
       isCurrent = false
     }
-  }, [sessionToken])
+  }, [listSummaries, sessionToken])
 
   return (
     <section className="branch-cdj-page">

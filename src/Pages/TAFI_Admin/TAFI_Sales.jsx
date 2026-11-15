@@ -4,17 +4,22 @@ import {
   createTafiAdminBranchDeposit,
   createTafiAdminBranchFoodPandaTransaction,
   createTafiAdminBranchGcashTransaction,
+  createTafiAdminBranchSalesDiscount,
   listTafiAdminBranches,
   listTafiAdminBranchCashReceiptsJournalEntries,
+  listTafiAdminBranchDailySummaryCRJ,
   listTafiAdminBranchDeposits,
   listTafiAdminBranchFoodPandaTransactions,
   listTafiAdminBranchGcashTransactions,
+  listTafiAdminBranchSalesDiscounts,
   listTafiAdminBranchSalesTargets,
   setTafiAdminBranchSalesTarget,
   updateTafiAdminBranchCashReceiptsJournalEntry,
   updateTafiAdminBranchDeposit,
 } from '../../lib/supabase'
 import BranchCashReceiptsJournal from '../Branch_admin/Branch_cash_receipts_journal'
+import BranchAdminDiscounts from '../Branch_admin/Branch_admin_discounts'
+import BranchAdminSummaryCRJ from '../Branch_admin/Branch_admin_summary_crj'
 import BranchDeposit from '../Branch_admin/Branch_Deposit'
 import BranchTransactions from '../Branch_admin/Branch_transactions'
 
@@ -44,6 +49,15 @@ export default function TafiSales({
     ),
     listBranchCashReceiptsJournalEntries: (token) => (
       listTafiAdminBranchCashReceiptsJournalEntries(token, selectedBranchId)
+    ),
+    createBranchSalesDiscount: (token, discount) => (
+      createTafiAdminBranchSalesDiscount(token, selectedBranchId, discount)
+    ),
+    listBranchSalesDiscounts: (token) => (
+      listTafiAdminBranchSalesDiscounts(token, selectedBranchId)
+    ),
+    listBranchDailySummaryCRJ: (token) => (
+      listTafiAdminBranchDailySummaryCRJ(token, selectedBranchId)
     ),
     listBranchSalesTargets: (token) => listTafiAdminBranchSalesTargets(token, selectedBranchId),
     setBranchSalesTarget: (token, date, targetSales) => (
@@ -113,6 +127,20 @@ export default function TafiSales({
         canManageEntries={canManageEntries}
         canManageTargets={canManageTargets}
       />
+    : section === 'sales-discounts'
+      ? <BranchAdminDiscounts
+          key={selectedBranchId}
+          branchName={selectedBranch?.branch_name}
+          branchAdmin={{ session_token: sessionToken }}
+          api={api}
+        />
+      : section === 'sales-summary'
+        ? <BranchAdminSummaryCRJ
+            key={selectedBranchId}
+            branchName={selectedBranch?.branch_name}
+            branchAdmin={{ session_token: sessionToken }}
+            api={api}
+          />
     : section === 'sales-deposit'
       ? <BranchDeposit
           key={selectedBranchId}
