@@ -5,9 +5,13 @@ import {
   listTafiAdminBranchDeposits,
   listTafiAdminBranchFoodPandaTransactions,
   listTafiAdminBranchGcashTransactions,
+  listTafiAdminBranchDailySummaryCRJ,
+  listTafiAdminBranchSalesDiscounts,
   listTafiAdminBranchSalesTargets
 } from '../../lib/supabase'
 import BranchCashReceiptsJournal from '../Branch_admin/Branch_cash_receipts_journal'
+import BranchAdminDiscounts from '../Branch_admin/Branch_admin_discounts'
+import BranchAdminSummaryCRJ from '../Branch_admin/Branch_admin_summary_crj'
 import BranchDeposit from '../Branch_admin/Branch_Deposit'
 import BranchTransactions from '../Branch_admin/Branch_transactions'
 
@@ -25,6 +29,12 @@ export default function AccountantSales({
   const api = useMemo(() => ({
     listBranchCashReceiptsJournalEntries: (token) => (
       listTafiAdminBranchCashReceiptsJournalEntries(token, selectedBranchId)
+    ),
+    listBranchSalesDiscounts: (token) => (
+      listTafiAdminBranchSalesDiscounts(token, selectedBranchId)
+    ),
+    listBranchDailySummaryCRJ: (token) => (
+      listTafiAdminBranchDailySummaryCRJ(token, selectedBranchId)
     ),
     listBranchSalesTargets: (token) => (
       listTafiAdminBranchSalesTargets(token, selectedBranchId)
@@ -80,6 +90,21 @@ export default function AccountantSales({
         api={api}
         canManageEntries={false}
       />
+    : section === 'sales-discounts'
+      ? <BranchAdminDiscounts
+          key={selectedBranchId}
+          branchName={selectedBranch?.branch_name}
+          branchAdmin={{ session_token: sessionToken }}
+          api={api}
+          canManageDiscounts={false}
+        />
+      : section === 'sales-summary'
+        ? <BranchAdminSummaryCRJ
+            key={selectedBranchId}
+            branchName={selectedBranch?.branch_name}
+            branchAdmin={{ session_token: sessionToken }}
+            api={api}
+          />
     : section === 'sales-deposit'
       ? <BranchDeposit
           key={selectedBranchId}
@@ -102,7 +127,7 @@ export default function AccountantSales({
         <div>
           <p className="employee-info-eyebrow">Accountant Sales</p>
           <p className="employee-info-description">
-            Select a branch to view its sales journal, deposits, and transactions.
+            Select a branch to view its sales journal, deposits, transactions, discounts, and summaries.
           </p>
         </div>
         <label className="cash-advance-month-control tafi-cash-advance-branch-select">

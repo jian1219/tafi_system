@@ -45,7 +45,12 @@ const formatCurrency = (amount) => Number(amount).toLocaleString('en-PH', {
   minimumFractionDigits: 2
 })
 
-export default function BranchAdminDiscounts({ branchName = 'Branch', branchAdmin, api }) {
+export default function BranchAdminDiscounts({
+  branchName = 'Branch',
+  branchAdmin,
+  api,
+  canManageDiscounts = true
+}) {
   const sessionToken = branchAdmin?.session_token
   const createSalesDiscount = api?.createBranchSalesDiscount ?? createBranchSalesDiscount
   const listSalesDiscounts = api?.listBranchSalesDiscounts ?? listBranchSalesDiscounts
@@ -67,7 +72,7 @@ export default function BranchAdminDiscounts({ branchName = 'Branch', branchAdmi
 
     const loadDiscounts = async () => {
       if (!sessionToken) {
-        setError('Your Branch Admin session is missing. Sign out and sign in again to continue.')
+        setError('Your session is missing. Sign out and sign in again to continue.')
         setStatus('error')
         return
       }
@@ -181,7 +186,8 @@ export default function BranchAdminDiscounts({ branchName = 'Branch', branchAdmi
       {error && <p className="accountant-inventory-error" role="alert">{error}</p>}
       {message && <p className="accountant-inventory-notice" role="status">{message}</p>}
 
-      <div className="accountant-inventory-panel">
+      {canManageDiscounts && (
+        <div className="accountant-inventory-panel">
         <div className="branch-transaction-form-toggle">
           <button
             type="button"
@@ -300,7 +306,8 @@ export default function BranchAdminDiscounts({ branchName = 'Branch', branchAdmi
             </button>
           </div>
         </form>
-      </div>
+        </div>
+      )}
 
       <div className="accountant-inventory-panel">
         <div className="cash-advance-history-heading">
@@ -335,6 +342,9 @@ export default function BranchAdminDiscounts({ branchName = 'Branch', branchAdmi
                 <th scope="col">Customers / order</th>
                 <th scope="col">Discounted people</th>
                 <th scope="col">Basis</th>
+                <th scope="col">Gross x DR</th>
+                <th scope="col">Basic x DR</th>
+                <th scope="col">SC/PWD Bill 12%</th>
               </tr>
             </thead>
             <tbody>
@@ -351,11 +361,14 @@ export default function BranchAdminDiscounts({ branchName = 'Branch', branchAdmi
                   <td>{discount.customer_count_per_order}</td>
                   <td>{discount.no_person_granted_discount}</td>
                   <td>{formatCurrency(discount.basis)}</td>
+                  <td>{formatCurrency(discount.gross_x_dr)}</td>
+                  <td>{formatCurrency(discount.basic_x_dr)}</td>
+                  <td>{formatCurrency(discount.sc_pwd_bill_12)}</td>
                 </tr>
               ))}
               {status === 'ready' && visibleDiscounts.length === 0 && (
                 <tr>
-                  <td className="employee-empty-state" colSpan={11}>No sales discounts for the selected month.</td>
+                  <td className="employee-empty-state" colSpan={14}>No sales discounts for the selected month.</td>
                 </tr>
               )}
             </tbody>

@@ -38,7 +38,9 @@ const salesNavigationGroup = {
 	items: [
 		{ id: 'sales-crj', label: 'Cash Receipts Journal', icon: Receipt },
 		{ id: 'sales-deposit', label: 'Deposit', icon: Wallet },
-		{ id: 'sales-transactions', label: 'Transactions', icon: ClipboardList }
+		{ id: 'sales-transactions', label: 'Transactions', icon: ClipboardList },
+		{ id: 'sales-discounts', label: 'Discounts', icon: Receipt },
+		{ id: 'sales-summary', label: 'Summary', icon: ClipboardList }
 	]
 }
 const expenseNavigationGroup = {
@@ -308,6 +310,10 @@ export default function AccountantDashboard() {
 													? 'Deposit'
 													: activePage === 'sales-transactions'
 														? 'Transactions'
+														: activePage === 'sales-discounts'
+															? 'Discounts'
+															: activePage === 'sales-summary'
+																? 'Summary'
 													: 'Accountant Dashboard'}
 						</h1>
 					</div>

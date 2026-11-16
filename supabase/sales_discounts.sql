@@ -30,8 +30,52 @@ create table if not exists public.sales_discounts (
   basis numeric(14, 2) generated always as (
     ((gross / customer_count_per_order) / 1.12) * no_person_granted_discount
   ) stored,
+  gross_x_dr numeric(14, 2) generated always as (
+    case
+      when "type" in ('Eagle''s', 'Pag-ibig', 'Loyalty Card') then round(gross * 0.10, 2)
+      else 0
+    end
+  ) stored,
+  basic_x_dr numeric(14, 2) generated always as (
+    case
+      when "type" in ('Senior Citizen', 'PWD') then round(
+        round(((gross / customer_count_per_order) / 1.12) * no_person_granted_discount, 2) * 0.20,
+        2
+      )
+      else 0
+    end
+  ) stored,
+  sc_pwd_bill_12 numeric(14, 2) generated always as (
+    case
+      when "type" in ('Senior Citizen', 'PWD') then round(gross * 0.12, 2)
+      else 0
+    end
+  ) stored,
   created_at timestamptz not null default now()
 );
+
+alter table public.sales_discounts
+  add column if not exists gross_x_dr numeric(14, 2) generated always as (
+    case
+      when "type" in ('Eagle''s', 'Pag-ibig', 'Loyalty Card') then round(gross * 0.10, 2)
+      else 0
+    end
+  ) stored,
+  add column if not exists basic_x_dr numeric(14, 2) generated always as (
+    case
+      when "type" in ('Senior Citizen', 'PWD') then round(
+        round(((gross / customer_count_per_order) / 1.12) * no_person_granted_discount, 2) * 0.20,
+        2
+      )
+      else 0
+    end
+  ) stored,
+  add column if not exists sc_pwd_bill_12 numeric(14, 2) generated always as (
+    case
+      when "type" in ('Senior Citizen', 'PWD') then round(gross * 0.12, 2)
+      else 0
+    end
+  ) stored;
 
 create index if not exists sales_discounts_branch_date_idx
   on public.sales_discounts (branch_id, "date" desc, created_at desc);
