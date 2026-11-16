@@ -3151,6 +3151,11 @@ fieldset.employee-emergency-contact-box {
   color: #b91c1c;
 }
 
+.leave-request-actions button.leave-request-edit {
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
 .leave-credits-feedback {
   margin: 0;
   padding: 10px 24px 0;

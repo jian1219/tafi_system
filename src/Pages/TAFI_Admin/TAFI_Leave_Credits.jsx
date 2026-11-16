@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Download, Eye, X } from 'lucide-react'
+import { Check, Download, Eye, Pencil, X } from 'lucide-react'
 import {
 	addTafiAdminEmployeeLeaveCredits,
 	fileTafiAdminEmployeeLeaveRequest,
@@ -7,7 +7,8 @@ import {
 	listTafiAdminBranches,
 	listTafiAdminEmployeeLeaveCreditSummary,
 	listTafiAdminEmployeeLeaveRequests,
-	updateTafiAdminEmployeeLeaveRequestStatus
+	updateTafiAdminEmployeeLeaveRequestStatus,
+	updateTafiAdminEmployeeLeaveRequestType
 } from '../../lib/supabase'
 
 const formatCredits = (value) => `${Number(value ?? 0).toFixed(2)} days`
@@ -114,6 +115,8 @@ export default function TafiLeaveCredits({ sessionToken }) {
 	const [isLoadingCredits, setIsLoadingCredits] = useState(false)
 	const [isSubmitting, setIsSubmitting] = useState(false)
 	const [updatingRequestId, setUpdatingRequestId] = useState('')
+	const [editingRequestId, setEditingRequestId] = useState('')
+	const [editingLeaveType, setEditingLeaveType] = useState('')
 	const [error, setError] = useState('')
 	const [message, setMessage] = useState('')
 	const [searchTerm, setSearchTerm] = useState('')
@@ -481,6 +484,33 @@ export default function TafiLeaveCredits({ sessionToken }) {
 		setReloadVersion((version) => version + 1)
 	}
 
+	const saveRequestLeaveType = async (requestId) => {
+		if (!leaveTypes.some((type) => type.value === editingLeaveType)) {
+			setError('Select a valid leave type.')
+			return
+		}
+
+		setUpdatingRequestId(requestId)
+		setError('')
+		setMessage('')
+		const { error: updateError } = await updateTafiAdminEmployeeLeaveRequestType(
+			sessionToken,
+			selectedBranchId,
+			requestId,
+			editingLeaveType
+		)
+		setUpdatingRequestId('')
+		if (updateError) {
+			setError(updateError.message)
+			return
+		}
+
+		setEditingRequestId('')
+		setEditingLeaveType('')
+		setMessage('Leave type updated. Attendance and paid-leave credits were updated accordingly.')
+		setReloadVersion((version) => version + 1)
+	}
+
 	const total = (field) => employees.reduce(
 		(sum, employee) => sum + Number(employee[field] ?? 0),
 		0
@@ -514,6 +544,8 @@ export default function TafiLeaveCredits({ sessionToken }) {
 							setLeaveEndDate('')
 							setLeaveReason('')
 							setSelectedFiles([])
+							setEditingRequestId('')
+							setEditingLeaveType('')
 						}}
 						disabled={isLoadingBranches || branches.length === 0}
 					>
@@ -855,7 +887,22 @@ export default function TafiLeaveCredits({ sessionToken }) {
 										<td><strong>{request.employee_name}</strong><small>{request.employee_code}</small></td>
 										<td>{formatDate(request.start_date)} – {formatDate(request.end_date)}</td>
 										<td>{getInclusiveDayCount(request.start_date, request.end_date)}</td>
-										<td>{leaveTypes.find((type) => type.value === request.leave_type)?.label ?? request.leave_type}</td>
+										<td>
+											{editingRequestId === request.id ? (
+												<select
+													value={editingLeaveType}
+													aria-label={`Leave type for ${request.employee_name}`}
+													disabled={updatingRequestId === request.id}
+													onChange={(event) => setEditingLeaveType(event.target.value)}
+												>
+													{leaveTypes.map((type) => (
+														<option key={type.value} value={type.value}>{type.label}</option>
+													))}
+												</select>
+											) : (
+												leaveTypes.find((type) => type.value === request.leave_type)?.label ?? request.leave_type
+											)}
+										</td>
 										<td>{formatCredits(request.credit_days)}</td>
 										<td className="leave-request-reason-cell">{request.reason}</td>
 										<td>
@@ -889,6 +936,46 @@ export default function TafiLeaveCredits({ sessionToken }) {
 											<span className={`leave-request-status ${request.status}`}>
 												{request.status === 'approved' ? 'Filed' : request.status}
 											</span>
+											{request.status === 'approved' && (
+												<div className="leave-request-actions">
+													{editingRequestId === request.id ? (
+														<>
+															<button
+																type="button"
+																disabled={updatingRequestId === request.id}
+																onClick={() => saveRequestLeaveType(request.id)}
+															>
+																<Check size={16} aria-hidden="true" />
+																{updatingRequestId === request.id ? 'Saving…' : 'Save'}
+															</button>
+															<button
+																type="button"
+																disabled={updatingRequestId === request.id}
+																onClick={() => {
+																	setEditingRequestId('')
+																	setEditingLeaveType('')
+																}}
+															>
+																<X size={16} aria-hidden="true" /> Cancel
+															</button>
+														</>
+													) : (
+														<button
+															type="button"
+															className="leave-request-edit"
+															aria-label={`Edit leave type for ${request.employee_name}`}
+															onClick={() => {
+																setError('')
+																setMessage('')
+																setEditingRequestId(request.id)
+																setEditingLeaveType(request.leave_type)
+															}}
+														>
+															<Pencil size={15} aria-hidden="true" /> Edit
+														</button>
+													)}
+												</div>
+											)}
 											{request.status === 'pending' && (
 												<div className="leave-request-actions">
 													<button

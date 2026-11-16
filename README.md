@@ -85,7 +85,8 @@ Vacation Leave with Pay is limited to Regular employees with enough available
 credits; other leave types do not use credits. The new leave rows are locked
 from attendance status changes. For an existing installation, rerun the updated
 `supabase/branch_employee_filed_leave_requests.sql` script to enable the image
-attachment types in the database.
+attachment types and install the TAFI Admin edit-leave-type action. Editing a
+filed leave updates its attendance status and adjusts paid-leave credit usage.
 
 ## Branch Admin employee records
 

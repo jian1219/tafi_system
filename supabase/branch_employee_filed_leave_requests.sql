@@ -637,6 +637,169 @@ begin
 end;
 $$;
 
+create or replace function public.tafi_admin_update_employee_leave_request_type(
+  p_session_token uuid,
+  p_branch_id uuid,
+  p_request_id uuid,
+  p_leave_type text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_tafi_admin_id uuid;
+  v_employee_id uuid;
+  v_employee_code text;
+  v_employee_classification text;
+  v_employment_status text;
+  v_start_date date;
+  v_end_date date;
+  v_current_leave_type text;
+  v_day_count integer;
+  v_credit_days numeric := 0;
+  v_earned numeric := 0;
+  v_manual numeric := 0;
+  v_used numeric := 0;
+  v_pending numeric := 0;
+  v_attendance_count bigint;
+  v_updated_count bigint;
+begin
+  select admin_session.tafi_admin_id
+  into v_tafi_admin_id
+  from public.tafi_admin_session as admin_session
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now();
+
+  if not found then
+    raise exception 'Invalid or expired TAFI Admin session' using errcode = '28000';
+  end if;
+  if p_branch_id is null or not exists (
+    select 1 from public.branch where id = p_branch_id
+  ) then
+    raise exception 'Selected branch was not found';
+  end if;
+  if p_leave_type is null or p_leave_type not in (
+    'vl_with_pay',
+    'vl_without_pay',
+    'maternity_leave',
+    'paternity_leave',
+    'birthday_leave',
+    'authorized_leave',
+    'sick_leave',
+    'emergency_leave'
+  ) then
+    raise exception 'Select a valid leave type';
+  end if;
+
+  select leave_request.employee_code,
+    leave_request.start_date,
+    leave_request.end_date,
+    leave_request.leave_type
+  into v_employee_code, v_start_date, v_end_date, v_current_leave_type
+  from public.branch_employee_leave_request as leave_request
+  where leave_request.id = p_request_id
+    and leave_request.branch_id = p_branch_id
+    and leave_request.status = 'approved'
+  for update;
+
+  if not found then
+    raise exception 'Filed leave was not found in the selected branch';
+  end if;
+  if v_current_leave_type = p_leave_type then
+    return true;
+  end if;
+
+  select employee.id,
+    employee.employment_classification,
+    employee.employment_status
+  into v_employee_id, v_employee_classification, v_employment_status
+  from public.employee as employee
+  where employee.branch_id = p_branch_id
+    and employee.employee_code = v_employee_code
+  for update;
+
+  if not found then
+    raise exception 'The employee was not found in the selected branch';
+  end if;
+
+  v_day_count := v_end_date - v_start_date + 1;
+  if p_leave_type = 'vl_with_pay' then
+    if v_employment_status <> 'active' or v_employee_classification <> 'Regular' then
+      raise exception 'Vacation Leave with Pay is limited to active Regular employees';
+    end if;
+    v_credit_days := v_day_count;
+
+    select count(*)::numeric * 1.25
+    into v_earned
+    from (
+      select date_trunc('month', attendance.attendance_date)::date as attendance_month
+      from public.employee_attendance as attendance
+      where attendance.employee_id = v_employee_id
+        and attendance.status in ('present', 'present_late')
+      group by date_trunc('month', attendance.attendance_date)::date
+      having count(distinct attendance.attendance_date) >=
+        case when extract(month from min(attendance.attendance_date)) = 2
+          then 24 else 26 end
+    ) as qualifying_months;
+
+    select coalesce(sum(adjustment.credit_days), 0)
+    into v_manual
+    from public.branch_employee_leave_credit_adjustment as adjustment
+    where adjustment.branch_id = p_branch_id
+      and adjustment.employee_code = v_employee_code;
+
+    select
+      coalesce(sum(leave_request.credit_days) filter (where leave_request.status = 'approved'), 0),
+      coalesce(sum(leave_request.credit_days) filter (where leave_request.status = 'pending'), 0)
+    into v_used, v_pending
+    from public.branch_employee_leave_request as leave_request
+    where leave_request.branch_id = p_branch_id
+      and leave_request.employee_code = v_employee_code
+      and leave_request.id <> p_request_id;
+
+    if v_credit_days > v_earned + v_manual - v_used - v_pending then
+      raise exception 'Insufficient leave credits: % days are available; choose another leave type',
+        greatest(v_earned + v_manual - v_used - v_pending, 0);
+    end if;
+  end if;
+
+  select count(*)
+  into v_attendance_count
+  from public.employee_attendance as attendance
+  where attendance.employee_id = v_employee_id
+    and attendance.attendance_date between v_start_date and v_end_date
+    and attendance.status = v_current_leave_type;
+
+  if v_attendance_count <> v_day_count then
+    raise exception 'Attendance no longer matches this filed leave; the type was not changed';
+  end if;
+
+  update public.branch_employee_leave_request as leave_request
+  set leave_type = p_leave_type,
+    credit_days = v_credit_days,
+    updated_at = now()
+  where leave_request.id = p_request_id
+    and leave_request.branch_id = p_branch_id
+    and leave_request.status = 'approved';
+
+  update public.employee_attendance as attendance
+  set status = p_leave_type,
+    updated_at = now()
+  where attendance.employee_id = v_employee_id
+    and attendance.attendance_date between v_start_date and v_end_date
+    and attendance.status = v_current_leave_type;
+
+  get diagnostics v_updated_count = row_count;
+  if v_updated_count <> v_day_count then
+    raise exception 'Could not update attendance for every date in this leave';
+  end if;
+
+  return true;
+end;
+$$;
+
 create or replace function public.branch_admin_get_employee_leave_request_attachment(
   p_session_token uuid,
   p_attachment_id uuid
@@ -808,6 +971,7 @@ revoke all on function public.branch_admin_file_employee_leave_request(uuid, tex
 revoke all on function public.branch_admin_get_employee_leave_request_attachment(uuid, uuid) from public;
 revoke all on function public.tafi_admin_list_employee_leave_requests(uuid, uuid) from public;
 revoke all on function public.tafi_admin_file_employee_leave_request(uuid, uuid, text, date, date, text, text, jsonb) from public;
+revoke all on function public.tafi_admin_update_employee_leave_request_type(uuid, uuid, uuid, text) from public, anon, authenticated;
 revoke all on function public.tafi_admin_get_employee_leave_request_attachment(uuid, uuid) from public;
 revoke all on function public.file_employee_leave_request_internal(uuid, uuid, uuid, text, date, date, text, text, jsonb) from public, anon, authenticated;
 
@@ -816,6 +980,9 @@ grant execute on function public.branch_admin_file_employee_leave_request(uuid, 
 grant execute on function public.branch_admin_get_employee_leave_request_attachment(uuid, uuid) to anon, authenticated;
 grant execute on function public.tafi_admin_list_employee_leave_requests(uuid, uuid) to anon, authenticated;
 grant execute on function public.tafi_admin_file_employee_leave_request(uuid, uuid, text, date, date, text, text, jsonb) to anon, authenticated;
+grant execute on function public.tafi_admin_update_employee_leave_request_type(uuid, uuid, uuid, text) to anon, authenticated;
 grant execute on function public.tafi_admin_get_employee_leave_request_attachment(uuid, uuid) to anon, authenticated;
+
+notify pgrst, 'reload schema';
 
 commit;

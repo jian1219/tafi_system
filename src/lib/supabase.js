@@ -1596,6 +1596,23 @@ export async function updateTafiAdminEmployeeLeaveRequestStatus(sessionToken, br
   }
 }
 
+export async function updateTafiAdminEmployeeLeaveRequestType(sessionToken, branchId, requestId, leaveType) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_update_employee_leave_request_type', {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      p_request_id: requestId,
+      p_leave_type: leaveType
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the employee leave type.')
+    }
+  }
+}
+
 export async function fileTafiAdminEmployeeLeaveRequest(sessionToken, branchId, request) {
   try {
     const supabaseClient = await getSupabaseClient()
