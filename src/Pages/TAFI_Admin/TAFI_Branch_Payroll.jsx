@@ -7,7 +7,7 @@ import {
 } from '../../lib/supabase'
 import { getAttendanceDayValue, getLocalDateKey } from '../Branch_admin/branchAttendanceRecords'
 import { downloadPayrollWorkbook } from './payrollXlsxExport'
-import { getPayrollPeriods } from '../../lib/payrollPeriods'
+import { getPayrollPeriods, getSemiMonthlyPayrollPeriods } from '../../lib/payrollPeriods'
 
 const formatCurrency = (amount) => amount.toLocaleString('en-PH', {
   style: 'currency',
@@ -30,6 +30,67 @@ const getEmploymentStatusLabel = (classification) => (
     ? classification.trim()
     : 'Unspecified'
 )
+
+const getPayrollDataForPeriod = async ({
+  getPayrollData,
+  sessionToken,
+  branchId,
+  monthKey,
+  periodStart,
+  periodEnd
+}) => {
+  const requests = getPayrollPeriods(monthKey)
+    .filter((period) => period.endDate >= periodStart && period.startDate <= periodEnd)
+    .map((period) => ({
+      startDate: period.startDate > periodStart ? period.startDate : periodStart,
+      endDate: period.endDate < periodEnd ? period.endDate : periodEnd
+    }))
+
+  if (requests.length === 0) {
+    return { data: null, error: new Error('The selected payroll period has no valid date ranges.') }
+  }
+
+  const recordFields = [
+    'attendance',
+    'cash_advance_payments',
+    'hdmf_payments',
+    'undertime_deductions',
+    'other_deductions',
+    'payroll_additions'
+  ]
+  let combinedData = null
+
+  for (const request of requests) {
+    const { data, error } = await getPayrollData(
+      sessionToken,
+      branchId,
+      request.startDate,
+      request.endDate
+    )
+    if (error) return { data: null, error }
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return { data: null, error: new Error('The payroll service returned invalid data.') }
+    }
+
+    if (!combinedData) {
+      combinedData = data
+      continue
+    }
+
+    const mergedData = { ...combinedData }
+    for (const field of recordFields) {
+      const currentRecords = combinedData[field] ?? []
+      const nextRecords = data[field] ?? []
+      if (!Array.isArray(currentRecords) || !Array.isArray(nextRecords)) {
+        return { data: null, error: new Error('The payroll service returned invalid data.') }
+      }
+      mergedData[field] = [...currentRecords, ...nextRecords]
+    }
+    combinedData = mergedData
+  }
+
+  return { data: combinedData, error: null }
+}
 
 export default function TafiBranchPayroll({ sessionToken, readOnly = false }) {
   const [branches, setBranches] = useState([])
@@ -64,11 +125,17 @@ export default function TafiBranchPayroll({ sessionToken, readOnly = false }) {
     month: 'long',
     year: 'numeric'
   })
-  const payrollWeeks = useMemo(() => getPayrollPeriods(selectedMonth), [selectedMonth])
-  const selectedWeek = payrollWeeks[selectedWeekIndex] ?? payrollWeeks[0]
-  const selectedStartDate = selectedWeek?.startDate ?? getLocalDateKey(payrollMonthStart)
-  const selectedEndDate = selectedWeek?.endDate ?? selectedStartDate
   const selectedBranch = branches.find((branch) => branch.branch_id === selectedBranchId)
+  const usesSemiMonthlyPeriods = !readOnly && selectedBranch?.branch_name === 'TAFI - HO'
+  const payrollPeriods = useMemo(() => (
+    usesSemiMonthlyPeriods
+      ? getSemiMonthlyPayrollPeriods(selectedMonth)
+      : getPayrollPeriods(selectedMonth)
+  ), [selectedMonth, usesSemiMonthlyPeriods])
+  const selectedPeriodIndex = payrollPeriods[selectedWeekIndex] ? selectedWeekIndex : 0
+  const selectedPeriod = payrollPeriods[selectedPeriodIndex] ?? payrollPeriods[0]
+  const selectedStartDate = selectedPeriod?.startDate ?? getLocalDateKey(payrollMonthStart)
+  const selectedEndDate = selectedPeriod?.endDate ?? selectedStartDate
 
   useEffect(() => {
     let isCurrent = true
@@ -129,9 +196,14 @@ export default function TafiBranchPayroll({ sessionToken, readOnly = false }) {
       setPayrollAdditions({})
 
       const getPayrollData = readOnly ? getGuestWeeklyPayrollData : getTafiAdminWeeklyPayrollData
-      const { data, error } = await getPayrollData(
-        sessionToken, selectedBranchId, selectedStartDate, selectedEndDate
-      )
+      const { data, error } = await getPayrollDataForPeriod({
+        getPayrollData,
+        sessionToken,
+        branchId: selectedBranchId,
+        monthKey: selectedMonth,
+        periodStart: selectedStartDate,
+        periodEnd: selectedEndDate
+      })
       if (!isCurrent) return
 
       if (error) {
@@ -187,7 +259,7 @@ export default function TafiBranchPayroll({ sessionToken, readOnly = false }) {
     return () => {
       isCurrent = false
     }
-  }, [sessionToken, readOnly, selectedBranchId, branchStatus, selectedStartDate, selectedEndDate])
+  }, [sessionToken, readOnly, selectedBranchId, branchStatus, selectedMonth, selectedStartDate, selectedEndDate])
 
   const payrollRows = useMemo(() => employees.map((employee) => {
     const employeeRecords = attendanceRecords.filter((record) =>
@@ -307,7 +379,7 @@ export default function TafiBranchPayroll({ sessionToken, readOnly = false }) {
         payrollRows: selectedRows,
         branchName: selectedBranch?.branch_name ?? 'Branch',
         selectedMonth,
-        selectedWeek,
+        selectedWeek: selectedPeriod,
         payrollMonthLabel,
         selectedStartDate,
         selectedEndDate
@@ -326,8 +398,10 @@ export default function TafiBranchPayroll({ sessionToken, readOnly = false }) {
       <header className="branch-payroll-header">
         <div>
           <p className="employee-info-eyebrow">{selectedBranch?.branch_name ?? (readOnly ? 'Guest' : 'TAFI Admin')}</p>
-          <h3>Weekly Payroll</h3>
-          <p className="employee-info-description">Payroll shows monthly rate, attendance-based basic salary, additional earnings, deductions, and estimated final net pay for the selected branch and week.</p>
+          <h3>{usesSemiMonthlyPeriods ? 'Semi-monthly Payroll' : 'Weekly Payroll'}</h3>
+          <p className="employee-info-description">
+            Payroll shows monthly rate, attendance-based basic salary, additional earnings, deductions, and estimated final net pay for the selected branch and {usesSemiMonthlyPeriods ? 'period' : 'week'}.
+          </p>
         </div>
         <div className="payroll-period-controls">
           <label className="payroll-period-control">
@@ -358,12 +432,12 @@ export default function TafiBranchPayroll({ sessionToken, readOnly = false }) {
           <label className="payroll-period-control">
             <span>Payroll period</span>
             <select
-              value={selectedWeekIndex}
+              value={selectedPeriodIndex}
               onChange={(event) => setSelectedWeekIndex(Number(event.target.value))}
             >
-              {payrollWeeks.map((week) => (
-                <option key={week.index} value={week.index}>
-                  {week.label} · {payrollMonthLabel.split(' ')[0]} {week.startDay}–{week.endDay}
+              {payrollPeriods.map((period) => (
+                <option key={period.index} value={period.index}>
+                  {period.label} · {payrollMonthLabel.split(' ')[0]} {period.startDay}–{period.endDay}
                 </option>
               ))}
             </select>
@@ -463,14 +537,14 @@ export default function TafiBranchPayroll({ sessionToken, readOnly = false }) {
       <div className="payroll-summary-grid">
         <div className="payroll-summary-card">
           <span>Selected period</span>
-          <strong>{selectedWeek.label} · {payrollMonthLabel.split(' ')[0]} {selectedWeek.startDay}–{selectedWeek.endDay}</strong>
+          <strong>{selectedPeriod.label} · {payrollMonthLabel.split(' ')[0]} {selectedPeriod.startDay}–{selectedPeriod.endDay}</strong>
         </div>
         <div className="payroll-summary-card">
           <span>Estimated salary credit</span>
           <strong>{calculatedCount === 0 ? 'Awaiting data' : formatCurrency(estimatedTotal)}</strong>
         </div>
         <div className="payroll-summary-card">
-          <span>Total weekly deductions</span>
+          <span>Total {usesSemiMonthlyPeriods ? 'period' : 'weekly'} deductions</span>
           <strong>{payrollStatus !== 'ready' ? 'Unavailable' : formatCurrency(estimatedDeductions)}</strong>
           {payrollStatus === 'ready' && missingContributionCount > 0 && (
             <small>{missingContributionCount} employees need contribution entries</small>
@@ -487,7 +561,9 @@ export default function TafiBranchPayroll({ sessionToken, readOnly = false }) {
       </div>
 
       {payrollStatus === 'loading' && (
-        <p className="payroll-contribution-message" role="status">Loading weekly payroll data…</p>
+        <p className="payroll-contribution-message" role="status">
+          Loading {usesSemiMonthlyPeriods ? 'payroll' : 'weekly payroll'} data…
+        </p>
       )}
       {payrollStatus === 'error' && (
         <p className="payroll-contribution-message error" role="alert">

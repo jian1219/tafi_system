@@ -45,3 +45,35 @@ export function getPayrollPeriods(monthKey) {
 
   return periods
 }
+
+export function getSemiMonthlyPayrollPeriods(monthKey) {
+  const [year, month] = monthKey.split('-').map(Number)
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+    return []
+  }
+
+  const daysInMonth = new Date(year, month, 0).getDate()
+  const dateKey = (day) =>
+    `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+
+  return [
+    {
+      index: 0,
+      type: 'covered',
+      startDay: 1,
+      endDay: Math.min(15, daysInMonth),
+      startDate: dateKey(1),
+      endDate: dateKey(Math.min(15, daysInMonth)),
+      label: '1st period'
+    },
+    {
+      index: 1,
+      type: 'covered',
+      startDay: 16,
+      endDay: daysInMonth,
+      startDate: dateKey(16),
+      endDate: dateKey(daysInMonth),
+      label: '2nd period'
+    }
+  ]
+}
