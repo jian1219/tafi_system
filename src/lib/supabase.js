@@ -1869,6 +1869,183 @@ export async function listGuestEmployeeBranches(sessionToken) {
   }
 }
 
+export async function listGuestBranchSelectorOptions(sessionToken) {
+  const result = await listGuestEmployeeBranches(sessionToken)
+  if (result.error || !Array.isArray(result.data)) return result
+
+  return {
+    ...result,
+    data: result.data.filter(
+      (branch) => branch.branch_name?.trim().toLowerCase() !== 'tafi - ho'
+    )
+  }
+}
+
+async function callGuestBranchSalesRpc(rpcName, sessionToken, branchId, parameters, fallbackMessage) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc(rpcName, {
+      p_session_token: sessionToken,
+      p_branch_id: branchId,
+      ...parameters
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error(fallbackMessage)
+    }
+  }
+}
+
+async function listGuestBranchSalesRows(rpcName, sessionToken, branchId, fallbackMessage) {
+  const rows = []
+  const pageSize = 500
+  let offset = 0
+
+  while (true) {
+    const { data, error } = await callGuestBranchSalesRpc(
+      rpcName,
+      sessionToken,
+      branchId,
+      { p_offset: offset, p_limit: pageSize },
+      fallbackMessage
+    )
+    if (error) return { data: null, error }
+
+    const page = data ?? []
+    rows.push(...page)
+    if (page.length < pageSize) break
+    offset += pageSize
+  }
+
+  return { data: rows, error: null }
+}
+
+export async function listGuestBranchCashReceiptsJournalEntries(sessionToken, branchId) {
+  return listGuestBranchSalesRows(
+    'guest_list_branch_cash_receipts_journal_entries',
+    sessionToken,
+    branchId,
+    'Unable to load Cash Receipts Journal entries.'
+  )
+}
+
+export async function listGuestBranchSalesTargets(sessionToken, branchId) {
+  return listGuestBranchSalesRows(
+    'guest_list_branch_sales_targets',
+    sessionToken,
+    branchId,
+    'Unable to load sales targets.'
+  )
+}
+
+export async function listGuestBranchSalesDiscounts(sessionToken, branchId) {
+  return listGuestBranchSalesRows(
+    'guest_list_branch_sales_discounts',
+    sessionToken,
+    branchId,
+    'Unable to load sales discounts.'
+  )
+}
+
+export async function listGuestBranchDailySummaryCRJ(sessionToken, branchId) {
+  return listGuestBranchSalesRows(
+    'guest_list_branch_daily_summary_crj',
+    sessionToken,
+    branchId,
+    'Unable to load the Cash Receipts Journal summary.'
+  )
+}
+
+export async function listGuestBranchDeposits(sessionToken, branchId) {
+  return listGuestBranchSalesRows(
+    'guest_list_branch_deposits',
+    sessionToken,
+    branchId,
+    'Unable to load deposits.'
+  )
+}
+
+export async function listGuestBranchGcashTransactions(sessionToken, branchId) {
+  return listGuestBranchSalesRows(
+    'guest_list_branch_gcash_transactions',
+    sessionToken,
+    branchId,
+    'Unable to load GCash transactions.'
+  )
+}
+
+export async function listGuestBranchFoodPandaTransactions(sessionToken, branchId) {
+  return listGuestBranchSalesRows(
+    'guest_list_branch_food_panda_transactions',
+    sessionToken,
+    branchId,
+    'Unable to load Food Panda transactions.'
+  )
+}
+
+export async function listGuestBranchCDJEntries(sessionToken, branchId) {
+  return listGuestBranchSalesRows(
+    'guest_list_branch_cdj_entries',
+    sessionToken,
+    branchId,
+    'Unable to load Branch Cash Disbursement Journal entries.'
+  )
+}
+
+export async function listGuestBranchDailySummaryCDJ(sessionToken, branchId) {
+  return listGuestBranchSalesRows(
+    'guest_list_branch_daily_summary_cdj',
+    sessionToken,
+    branchId,
+    'Unable to load the Branch Cash Disbursement Journal summary.'
+  )
+}
+
+export async function listGuestTafiCDJEntries(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const entries = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('guest_list_tafi_cdj_entries', {
+        p_session_token: sessionToken,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      entries.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: entries, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the TAFI Cash Disbursement Journal.')
+    }
+  }
+}
+
+export async function listGuestTafiAPSubsidiaryLedger(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('guest_list_tafi_ap_subsidiary_ledger', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load the AP Subsidiary Ledger.')
+    }
+  }
+}
+
 export async function listGuestEmployees(sessionToken) {
   try {
     const supabaseClient = await getSupabaseClient()

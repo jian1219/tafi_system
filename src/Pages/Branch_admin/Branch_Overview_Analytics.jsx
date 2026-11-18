@@ -603,7 +603,11 @@ export default function BranchOverviewAnalytics({
   sessionToken,
   branchId,
   branchName,
-  isTafiAdmin = false
+  isTafiAdmin = false,
+  sessionRoleLabel = isTafiAdmin ? 'TAFI Admin' : 'Branch Admin',
+  listSalesEntries,
+  listExpenseEntries,
+  listTargets
 }) {
   const [analytics, setAnalytics] = useState({
     sales: [],
@@ -620,14 +624,13 @@ export default function BranchOverviewAnalytics({
 
     const loadAnalytics = async () => {
       if (!sessionToken) {
-        const roleName = isTafiAdmin ? 'TAFI Admin' : 'Branch Admin'
         setAnalytics({
           sales: [],
           expenses: [],
           targets: [],
-          salesError: `${roleName} session is unavailable. Please sign in again.`,
-          expenseError: `${roleName} session is unavailable. Please sign in again.`,
-          targetError: `${roleName} session is unavailable. Please sign in again.`,
+          salesError: `${sessionRoleLabel} session is unavailable. Please sign in again.`,
+          expenseError: `${sessionRoleLabel} session is unavailable. Please sign in again.`,
+          targetError: `${sessionRoleLabel} session is unavailable. Please sign in again.`,
           isLoading: false
         })
         return
@@ -640,17 +643,26 @@ export default function BranchOverviewAnalytics({
         expenseError: '',
         targetError: ''
       }))
-      const [salesResult, expenseResult, targetResult] = isTafiAdmin
-        ? await Promise.all([
-          listTafiAdminBranchCashReceiptsJournalEntries(sessionToken, branchId),
-          listTafiAdminBranchCDJEntries(sessionToken, branchId),
-          listTafiAdminBranchSalesTargets(sessionToken, branchId)
-        ])
-        : await Promise.all([
-          listBranchCashReceiptsJournalEntries(sessionToken),
-          listBranchCDJEntries(sessionToken),
-          listBranchSalesTargets(sessionToken)
-        ])
+      const loadSales = listSalesEntries ?? (
+        isTafiAdmin
+          ? (token, selectedBranchId) => listTafiAdminBranchCashReceiptsJournalEntries(token, selectedBranchId)
+          : (token) => listBranchCashReceiptsJournalEntries(token)
+      )
+      const loadExpenses = listExpenseEntries ?? (
+        isTafiAdmin
+          ? (token, selectedBranchId) => listTafiAdminBranchCDJEntries(token, selectedBranchId)
+          : (token) => listBranchCDJEntries(token)
+      )
+      const loadTargets = listTargets ?? (
+        isTafiAdmin
+          ? (token, selectedBranchId) => listTafiAdminBranchSalesTargets(token, selectedBranchId)
+          : (token) => listBranchSalesTargets(token)
+      )
+      const [salesResult, expenseResult, targetResult] = await Promise.all([
+        loadSales(sessionToken, branchId),
+        loadExpenses(sessionToken, branchId),
+        loadTargets(sessionToken, branchId)
+      ])
       if (!isCurrent) return
 
       setAnalytics({
@@ -668,7 +680,15 @@ export default function BranchOverviewAnalytics({
     return () => {
       isCurrent = false
     }
-  }, [branchId, isTafiAdmin, sessionToken])
+  }, [
+    branchId,
+    isTafiAdmin,
+    listExpenseEntries,
+    listSalesEntries,
+    listTargets,
+    sessionRoleLabel,
+    sessionToken
+  ])
 
   const months = useMemo(
     () => createMonthBuckets(analytics.sales, analytics.expenses, analytics.targets),

@@ -23,6 +23,8 @@ import BranchAdminSummaryCRJ from '../Branch_admin/Branch_admin_summary_crj'
 import BranchDeposit from '../Branch_admin/Branch_Deposit'
 import BranchTransactions from '../Branch_admin/Branch_transactions'
 
+const defaultSalesApi = {}
+
 export default function TafiSales({
   sessionToken,
   section,
@@ -33,7 +35,9 @@ export default function TafiSales({
   canManageEntries = true,
   canManageTargets = true,
   canManageDeposits = true,
-  canManageTransactions = true
+  canManageTransactions = true,
+  canManageDiscounts = true,
+  salesApi = defaultSalesApi
 }) {
   const [branches, setBranches] = useState([])
   const [isLoadingBranches, setIsLoadingBranches] = useState(true)
@@ -48,18 +52,23 @@ export default function TafiSales({
       updateTafiAdminBranchCashReceiptsJournalEntry(token, selectedBranchId, entryId, entry)
     ),
     listBranchCashReceiptsJournalEntries: (token) => (
-      listTafiAdminBranchCashReceiptsJournalEntries(token, selectedBranchId)
+      (salesApi.listBranchCashReceiptsJournalEntries ?? listTafiAdminBranchCashReceiptsJournalEntries)(
+        token,
+        selectedBranchId
+      )
     ),
     createBranchSalesDiscount: (token, discount) => (
       createTafiAdminBranchSalesDiscount(token, selectedBranchId, discount)
     ),
     listBranchSalesDiscounts: (token) => (
-      listTafiAdminBranchSalesDiscounts(token, selectedBranchId)
+      (salesApi.listBranchSalesDiscounts ?? listTafiAdminBranchSalesDiscounts)(token, selectedBranchId)
     ),
     listBranchDailySummaryCRJ: (token) => (
-      listTafiAdminBranchDailySummaryCRJ(token, selectedBranchId)
+      (salesApi.listBranchDailySummaryCRJ ?? listTafiAdminBranchDailySummaryCRJ)(token, selectedBranchId)
     ),
-    listBranchSalesTargets: (token) => listTafiAdminBranchSalesTargets(token, selectedBranchId),
+    listBranchSalesTargets: (token) => (
+      (salesApi.listBranchSalesTargets ?? listTafiAdminBranchSalesTargets)(token, selectedBranchId)
+    ),
     setBranchSalesTarget: (token, date, targetSales) => (
       setTafiAdminBranchSalesTarget(token, selectedBranchId, date, targetSales)
     ),
@@ -69,20 +78,25 @@ export default function TafiSales({
     updateBranchDeposit: (token, depositId, deposit) => (
       updateTafiAdminBranchDeposit(token, selectedBranchId, depositId, deposit)
     ),
-    listBranchDeposits: (token) => listTafiAdminBranchDeposits(token, selectedBranchId),
+    listBranchDeposits: (token) => (
+      (salesApi.listBranchDeposits ?? listTafiAdminBranchDeposits)(token, selectedBranchId)
+    ),
     createBranchGcashTransaction: (token, transaction) => (
       createTafiAdminBranchGcashTransaction(token, selectedBranchId, transaction)
     ),
     listBranchGcashTransactions: (token) => (
-      listTafiAdminBranchGcashTransactions(token, selectedBranchId)
+      (salesApi.listBranchGcashTransactions ?? listTafiAdminBranchGcashTransactions)(token, selectedBranchId)
     ),
     createBranchFoodPandaTransaction: (token, transaction) => (
       createTafiAdminBranchFoodPandaTransaction(token, selectedBranchId, transaction)
     ),
     listBranchFoodPandaTransactions: (token) => (
-      listTafiAdminBranchFoodPandaTransactions(token, selectedBranchId)
+      (salesApi.listBranchFoodPandaTransactions ?? listTafiAdminBranchFoodPandaTransactions)(
+        token,
+        selectedBranchId
+      )
     )
-  }), [selectedBranchId])
+  }), [salesApi, selectedBranchId])
 
   useEffect(() => {
     let isCurrent = true
@@ -133,6 +147,7 @@ export default function TafiSales({
           branchName={selectedBranch?.branch_name}
           branchAdmin={{ session_token: sessionToken }}
           api={api}
+          canManageDiscounts={canManageDiscounts}
         />
       : section === 'sales-summary'
         ? <BranchAdminSummaryCRJ

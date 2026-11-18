@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { CalendarDays, CircleDollarSign, LayoutDashboard, LogOut, ShieldCheck, Trophy, Users, Wallet } from 'lucide-react'
+import { CalendarDays, ChevronDown, CircleDollarSign, ClipboardList, LayoutDashboard, LogOut, Receipt, ShieldCheck, Trophy, Users, Wallet } from 'lucide-react'
 import { revokeGuestSession } from '../../lib/supabase'
 import useSessionStorageState from '../../lib/useSessionStorageState'
 import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
@@ -11,17 +11,52 @@ const GuestRankings = lazy(() => import('./Guest_Rankings'))
 const GuestCashAdvance = lazy(() => import('./Guest_Cash_Advance'))
 const GuestBranchPayroll = lazy(() => import('./Guest_Branch_Payroll'))
 const GuestMandatoryContributions = lazy(() => import('./Guest_Mandatory_Contributions'))
+const GuestSales = lazy(() => import('./Guest_Sales'))
+const GuestExpense = lazy(() => import('./Guest_Expense'))
 import logoImage from '../../images/Tafi logo transparent.png'
 
-const navigationItems = [
-	{ id: 'overview', label: 'Overview', icon: LayoutDashboard },
-	{ id: 'employee', label: 'Employee', icon: Users },
-	{ id: 'attendance', label: 'Attendance', icon: CalendarDays },
-	{ id: 'cash-advance', label: 'Cash Advance', icon: CircleDollarSign },
-	{ id: 'contributions', label: 'Mandatory Contributions', icon: CircleDollarSign },
-	{ id: 'payroll', label: 'Branch Payroll', icon: Wallet },
-	{ id: 'rankings', label: 'Employee Rankings', icon: Trophy }
+const overviewNavigationItem = { id: 'overview', label: 'Overview', icon: LayoutDashboard }
+const navigationGroups = [
+	{
+		id: 'employee-management',
+		label: 'Employee Management',
+		items: [
+			{ id: 'employee', label: 'Employee', icon: Users },
+			{ id: 'attendance', label: 'Employee Attendance', icon: CalendarDays },
+			{ id: 'rankings', label: 'Employee Rankings', icon: Trophy }
+		]
+	},
+	{
+		id: 'payroll-finance',
+		label: 'Payroll & Finance',
+		items: [
+			{ id: 'contributions', label: 'Mandatory Contributions', icon: CircleDollarSign },
+			{ id: 'cash-advance', label: 'Cash Advance', icon: CircleDollarSign },
+			{ id: 'payroll', label: 'Branch Payroll', icon: Wallet }
+		]
+	},
+	{
+		id: 'sales',
+		label: 'Sales',
+		items: [
+			{ id: 'sales-crj', label: 'Cash Receipts Journal', icon: Receipt },
+			{ id: 'sales-deposit', label: 'Deposit', icon: Wallet },
+			{ id: 'sales-transactions', label: 'Transactions', icon: ClipboardList },
+			{ id: 'sales-discounts', label: 'Discounts', icon: Receipt },
+			{ id: 'sales-summary', label: 'Summary', icon: ClipboardList }
+		]
+	},
+	{
+		id: 'expense',
+		label: 'Expense',
+		items: [
+			{ id: 'branch-cdj', label: 'Branch CDJ', icon: Receipt },
+			{ id: 'tafi-cdj', label: 'TAFI CDJ', icon: Receipt },
+			{ id: 'ap-subsidiary-ledger', label: 'AP Subsidiary Ledger', icon: ClipboardList }
+		]
+	}
 ]
+const navigationItems = [overviewNavigationItem, ...navigationGroups.flatMap((group) => group.items)]
 
 export default function GuestDashboard() {
 	const location = useLocation()
@@ -33,10 +68,26 @@ export default function GuestDashboard() {
 		'overview',
 		navigationItems.map((item) => item.id)
 	)
+	const [expandedGroups, setExpandedGroups] = useState(() => {
+		const activeGroup = navigationGroups.find((group) =>
+			group.items.some((item) => item.id === activePage)
+		)
+		return { [activeGroup?.id ?? 'employee-management']: true }
+	})
 	const [signOutError, setSignOutError] = useState('')
 	const [isSigningOut, setIsSigningOut] = useState(false)
 
 	if (!isSessionActive) return <Navigate to="/guest-login" replace />
+
+	const navigateToPage = (id) => {
+		setActivePage(id)
+		const activeGroup = navigationGroups.find((group) =>
+			group.items.some((item) => item.id === id)
+		)
+		if (activeGroup) {
+			setExpandedGroups((current) => ({ ...current, [activeGroup.id]: true }))
+		}
+	}
 
 	const handleSignOut = async (event) => {
 		event.preventDefault()
@@ -65,18 +116,57 @@ export default function GuestDashboard() {
 
 				<p className="tafi-admin-nav-label">Workspace</p>
 				<nav className="tafi-admin-nav" aria-label="Dashboard sections">
-					{navigationItems.map(({ id, label, icon: Icon }) => (
-						<button
-							key={id}
-							type="button"
-							className={`tafi-admin-nav-item${activePage === id ? ' active' : ''}`}
-							aria-current={activePage === id ? 'page' : undefined}
-							onClick={() => setActivePage(id)}
-						>
-							<Icon size={19} aria-hidden="true" />
-							<span>{label}</span>
-						</button>
-					))}
+					<button
+						type="button"
+						className={`tafi-admin-nav-item${activePage === overviewNavigationItem.id ? ' active' : ''}`}
+						aria-current={activePage === overviewNavigationItem.id ? 'page' : undefined}
+						onClick={() => navigateToPage(overviewNavigationItem.id)}
+					>
+						<LayoutDashboard size={19} aria-hidden="true" />
+						<span>{overviewNavigationItem.label}</span>
+					</button>
+					{navigationGroups.map((group) => {
+						const isExpanded = Boolean(expandedGroups[group.id])
+						const containsActivePage = group.items.some((item) => item.id === activePage)
+						const groupItemsId = `guest-nav-group-${group.id}`
+						return (
+							<div className="tafi-admin-nav-group" key={group.id}>
+								<button
+									type="button"
+									className={`tafi-admin-nav-group-toggle${containsActivePage ? ' has-active' : ''}`}
+									aria-expanded={isExpanded}
+									aria-controls={groupItemsId}
+									onClick={() => setExpandedGroups((current) => ({
+										...current,
+										[group.id]: !current[group.id]
+									}))}
+								>
+									<span>{group.label}</span>
+									<ChevronDown size={16} aria-hidden="true" />
+								</button>
+								<div
+									className="tafi-admin-nav-group-items"
+									id={groupItemsId}
+									role="group"
+									aria-label={group.label}
+									hidden={!isExpanded}
+								>
+									{group.items.map(({ id, label, icon: Icon }) => (
+										<button
+											key={id}
+											type="button"
+											className={`tafi-admin-nav-item${activePage === id ? ' active' : ''}`}
+											aria-current={activePage === id ? 'page' : undefined}
+											onClick={() => navigateToPage(id)}
+										>
+											<Icon size={19} aria-hidden="true" />
+											<span>{label}</span>
+										</button>
+									))}
+								</div>
+							</div>
+						)
+					})}
 				</nav>
 
 				<div className="tafi-admin-sidebar-footer">
@@ -108,7 +198,7 @@ export default function GuestDashboard() {
 
 				<section className="tafi-admin-content" aria-live="polite">
 					{activePage === 'overview'
-						? <GuestOverview guest={guest} />
+						? <GuestOverview sessionToken={guest.session_token} />
 						: activePage === 'employee'
 							? <GuestEmployee sessionToken={guest.session_token} />
 							: activePage === 'attendance'
@@ -131,6 +221,18 @@ export default function GuestDashboard() {
 														<GuestMandatoryContributions sessionToken={guest.session_token} />
 													</Suspense>
 												)
+												: ['sales-crj', 'sales-deposit', 'sales-transactions', 'sales-discounts', 'sales-summary'].includes(activePage)
+													? (
+														<Suspense fallback={<p className="cash-advance-message" role="status">Loading sales records…</p>}>
+															<GuestSales sessionToken={guest.session_token} section={activePage} />
+														</Suspense>
+													)
+													: ['branch-cdj', 'tafi-cdj', 'ap-subsidiary-ledger'].includes(activePage)
+														? (
+															<Suspense fallback={<p className="cash-advance-message" role="status">Loading expense records…</p>}>
+																<GuestExpense sessionToken={guest.session_token} section={activePage} />
+															</Suspense>
+														)
 												: (
 											<Suspense fallback={<p className="ranking-loading" role="status">Loading employee rankings…</p>}>
 												<GuestRankings sessionToken={guest.session_token} />

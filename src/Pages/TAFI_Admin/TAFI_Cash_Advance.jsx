@@ -39,6 +39,7 @@ export default function TafiCashAdvance({ sessionToken, readOnly = false }) {
 	const [advanceDate, setAdvanceDate] = useState(() => getLocalDateKey(today))
 	const [advanceAmount, setAdvanceAmount] = useState('')
 	const [selectedMonth, setSelectedMonth] = useState(currentMonth)
+	const [advanceStatusFilter, setAdvanceStatusFilter] = useState('all')
 	const [isLoadingDirectory, setIsLoadingDirectory] = useState(true)
 	const [status, setStatus] = useState('loading')
 	const [error, setError] = useState('')
@@ -59,6 +60,14 @@ export default function TafiCashAdvance({ sessionToken, readOnly = false }) {
 	const selectedEmployeeCode = employees.some((employee) => employee.id === employeeCode)
 		? employeeCode
 		: employees[0]?.id ?? ''
+	const visibleAdvances = useMemo(() => {
+		if (!readOnly || advanceStatusFilter === 'all') return advances
+		return advances.filter((advance) => (
+			advanceStatusFilter === 'paid'
+				? Number(advance.balance) <= 0
+				: Number(advance.balance) > 0
+		))
+	}, [advanceStatusFilter, advances, readOnly])
 
 	const fetchData = useCallback(async (branchId, monthKey) => {
 		const [year, month] = monthKey.split('-').map(Number)
@@ -341,22 +350,37 @@ export default function TafiCashAdvance({ sessionToken, readOnly = false }) {
 						? 'Review each employee’s repayment schedule for the selected month.'
 						: 'Enter each week’s amount, then save that employee’s weekly deduction schedule.'}</p>
 				</div>
-				<label className="cash-advance-month-control">
-					<span>Monitoring month</span>
-					<input
-						type="month"
-						value={selectedMonth}
-						required
-						disabled={isSaving || Boolean(savingAdvanceId)}
-						onChange={(event) => {
-							if (!event.target.value) return
-							setSelectedMonth(event.target.value)
-							setMessage('')
-							setError('')
-							setStatus('loading')
-						}}
-					/>
-				</label>
+				<div className="cash-advance-monitor-filters">
+					{readOnly && (
+						<label className="cash-advance-month-control">
+							<span>Payment status</span>
+							<select
+								value={advanceStatusFilter}
+								onChange={(event) => setAdvanceStatusFilter(event.target.value)}
+							>
+								<option value="all">All</option>
+								<option value="paid">Paid</option>
+								<option value="unpaid">Unpaid</option>
+							</select>
+						</label>
+					)}
+					<label className="cash-advance-month-control">
+						<span>Monitoring month</span>
+						<input
+							type="month"
+							value={selectedMonth}
+							required
+							disabled={isSaving || Boolean(savingAdvanceId)}
+							onChange={(event) => {
+								if (!event.target.value) return
+								setSelectedMonth(event.target.value)
+								setMessage('')
+								setError('')
+								setStatus('loading')
+							}}
+						/>
+					</label>
+				</div>
 			</div>
 			<div className="cash-advance-table-wrap" role="region" aria-label="Cash advance repayment monitoring" tabIndex="0">
 				<table className="cash-advance-table cash-advance-monitor-table">
@@ -378,7 +402,7 @@ export default function TafiCashAdvance({ sessionToken, readOnly = false }) {
 						</tr>
 					</thead>
 					<tbody>
-						{advances.map((advance) => (
+						{visibleAdvances.map((advance) => (
 							<tr key={advance.id}>
 								<td>
 									<strong>{advance.employee_name}</strong>
@@ -426,10 +450,12 @@ export default function TafiCashAdvance({ sessionToken, readOnly = false }) {
 								</td>}
 							</tr>
 						))}
-						{status === 'ready' && advances.length === 0 && (
+						{status === 'ready' && visibleAdvances.length === 0 && (
 							<tr>
 								<td className="employee-empty-state" colSpan={6 + payrollWeeks.length + (readOnly ? 0 : 1)}>
-									No cash advances have been recorded.
+									{advances.length === 0
+										? 'No cash advances have been recorded.'
+										: `No ${advanceStatusFilter} cash advances found.`}
 								</td>
 							</tr>
 						)}

@@ -59,7 +59,8 @@ export default function AccountantAPSubsidiaryLedger({
   sessionToken,
   listEntries = listAccountantAPSubsidiaryLedger,
   saveEntry = saveAccountantAPSubsidiaryLedgerEntry,
-  sessionRoleLabel = 'Accountant'
+  sessionRoleLabel = 'Accountant',
+  readOnly = false
 }) {
   const [entries, setEntries] = useState([])
   const [form, setForm] = useState(createEmptyEntry)
@@ -112,6 +113,7 @@ export default function AccountantAPSubsidiaryLedger({
   }
 
   const handleEdit = (entry) => {
+    if (readOnly) return
     setForm(Object.fromEntries(
       Object.entries(createEmptyEntry()).map(([key, defaultValue]) => [
         key,
@@ -127,6 +129,7 @@ export default function AccountantAPSubsidiaryLedger({
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    if (readOnly) return
     setError('')
     setMessage('')
 
@@ -171,7 +174,7 @@ export default function AccountantAPSubsidiaryLedger({
           <h2>AP Listing</h2>
           <p>Track supplier invoices, payments, checks, and balances due.</p>
         </div>
-        <button
+        {!readOnly && <button
           type="button"
           className="ap-ledger-primary-button"
           onClick={() => {
@@ -187,13 +190,13 @@ export default function AccountantAPSubsidiaryLedger({
           }}
         >
           {isFormOpen && !editingId ? 'Close form' : 'Add AP Entry'}
-        </button>
+        </button>}
       </header>
 
       {error && <p className="ap-ledger-alert" role="alert">{error}</p>}
       {message && <p className="ap-ledger-success" role="status">{message}</p>}
 
-      {isFormOpen && (
+      {!readOnly && isFormOpen && (
         <form className="branch-cdj-form ap-ledger-form" onSubmit={handleSubmit}>
           <div className="ap-ledger-form-heading">
             <h3>{editingId ? 'Edit AP entry' : 'New AP entry'}</h3>
@@ -332,14 +335,18 @@ export default function AccountantAPSubsidiaryLedger({
                 <th scope="col">Balance Due</th>
                 <th scope="col">Status</th>
                 <th scope="col">Remarks</th>
-                <th scope="col">Action</th>
+                {!readOnly && <th scope="col">Action</th>}
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td className="ap-ledger-table-message" colSpan="19">Loading AP entries…</td></tr>
+                <tr><td className="ap-ledger-table-message" colSpan={readOnly ? 18 : 19}>Loading AP entries…</td></tr>
               ) : entries.length === 0 ? (
-                <tr><td className="ap-ledger-table-message" colSpan="19">No AP entries yet. Add an entry to get started.</td></tr>
+                <tr>
+                  <td className="ap-ledger-table-message" colSpan={readOnly ? 18 : 19}>
+                    {readOnly ? 'No AP entries yet.' : 'No AP entries yet. Add an entry to get started.'}
+                  </td>
+                </tr>
               ) : entries.map((entry) => (
                 <tr key={entry.ledger_id}>
                   <td>{entry.delivery_date || '—'}</td>
@@ -360,7 +367,7 @@ export default function AccountantAPSubsidiaryLedger({
                   <td className="ap-ledger-amount">{formatAmount(entry.balance_due)}</td>
                   <td><span className={`ap-ledger-status ${entry.status}`}>{getStatusLabel(entry.status)}</span></td>
                   <td>{entry.remarks || '—'}</td>
-                  <td>
+                  {!readOnly && <td>
                     <button
                       type="button"
                       className="ap-ledger-edit-button"
@@ -369,7 +376,7 @@ export default function AccountantAPSubsidiaryLedger({
                     >
                       Edit
                     </button>
-                  </td>
+                  </td>}
                 </tr>
               ))}
             </tbody>

@@ -70,6 +70,25 @@ Run `supabase/guest_payroll.sql` after
 totals and employee details by branch, month, and payroll period in the Guest
 Dashboard. The guest view does not include payroll XLSX downloads.
 
+## Guest sales
+
+Run `supabase/guest_sales_read_only.sql` after
+`supabase/super_admin_guest_accounts.sql` and `supabase/tafi_admin_sales.sql`.
+Guest users can view each branch's Cash Receipts Journal, deposits, transactions,
+discounts, and summaries from the Owner Workspace without access to entry,
+update, or target-management actions.
+
+## Guest expense
+
+Run `supabase/guest_expense_read_only.sql` after
+`supabase/super_admin_guest_accounts.sql`, `supabase/branch_cdj.sql`,
+`supabase/branch_daily_summary_cdj.sql`, `supabase/tafi_cdj.sql`, and
+`supabase/accountant_ap_subsidiary_ledger.sql`. Guest users can review Branch
+CDJ entries and summaries, the TAFI CDJ, and the AP Subsidiary Ledger from the
+Owner Workspace. These views are read-only.
+The Guest Overview's Branch Analytics uses the Guest Sales and Expense
+read-only RPCs to show sales, expenses, and branch targets.
+
 ## Sick leave and emergency leave attendance
 
 Run `supabase/attendance_sick_emergency_leave.sql` after

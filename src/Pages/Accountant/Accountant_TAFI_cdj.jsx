@@ -105,7 +105,8 @@ export default function AccountantTafiCDJ({
   sessionToken,
   createEntry = createAccountantTafiCDJEntry,
   listEntries = listAccountantTafiCDJEntries,
-  sessionRoleLabel = 'Accountant'
+  sessionRoleLabel = 'Accountant',
+  readOnly = false
 }) {
   const [entries, setEntries] = useState([])
   const [form, setForm] = useState(createEmptyEntry)
@@ -181,6 +182,7 @@ export default function AccountantTafiCDJ({
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    if (readOnly) return
     setError('')
     setMessage('')
 
@@ -233,10 +235,12 @@ export default function AccountantTafiCDJ({
           <p className="employee-info-eyebrow">TAFI</p>
           <h3>Cash Disbursement Journal</h3>
           <p className="employee-info-description">
-            Record TAFI disbursements and review saved entries.
+            {readOnly
+              ? 'Review TAFI disbursements and saved entries.'
+              : 'Record TAFI disbursements and review saved entries.'}
           </p>
         </div>
-        <button
+        {!readOnly && <button
           type="button"
           className="branch-cdj-add-entry"
           disabled={isSaving}
@@ -253,10 +257,10 @@ export default function AccountantTafiCDJ({
             ? <X size={17} aria-hidden="true" />
             : <Plus size={17} aria-hidden="true" />}
           {isFormOpen ? 'Close form' : 'Add CDJ Entry'}
-        </button>
+        </button>}
       </header>
 
-      <form
+      {!readOnly && <form
         id="tafi-cdj-entry-form"
         className="branch-cdj-form"
         hidden={!isFormOpen}
@@ -344,7 +348,7 @@ export default function AccountantTafiCDJ({
         <button type="submit" disabled={isSaving || status !== 'ready'}>
           {isSaving ? 'Saving…' : 'Save Entry'}
         </button>
-      </form>
+      </form>}
 
       {status === 'loading' && (
         <p className="cash-advance-message" role="status">Loading TAFI Cash Disbursement Journal…</p>
