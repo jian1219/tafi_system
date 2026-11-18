@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { RefreshCw, Trash2 } from 'lucide-react'
+import { Download, RefreshCw, Trash2 } from 'lucide-react'
 import {
 	completeTafiAdminStockRequestPreparation,
 	deleteTafiAdminStockRequestPreparationItem,
@@ -11,6 +11,7 @@ import {
 	startTafiAdminStockRequestPreparation
 } from '../../lib/supabase'
 import { downloadTafiStockRequestHoitf } from './tafiStockRequestHoitfExport'
+import { downloadTafiAdminStockRequestXlsx } from './tafiAdminStockRequestXlsxExport'
 
 const requestDateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
 	timeZone: 'Asia/Manila',
@@ -56,6 +57,7 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 	const [isLookingUpBarcode, setIsLookingUpBarcode] = useState(false)
 	const [isSavingPreparedItem, setIsSavingPreparedItem] = useState(false)
 	const [isCompletingPreparation, setIsCompletingPreparation] = useState(false)
+	const [downloadingRequestBatchKey, setDownloadingRequestBatchKey] = useState('')
 	const [removingPreparationItemId, setRemovingPreparationItemId] = useState('')
 	const [barcodeInput, setBarcodeInput] = useState('')
 	const [scannedBarcodeItem, setScannedBarcodeItem] = useState(null)
@@ -489,6 +491,36 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 		)
 	}
 
+	const handleDownloadRequestXlsx = async (batch) => {
+		if (downloadingRequestBatchKey) return
+		setDownloadingRequestBatchKey(batch.key)
+		setErrorMessage('')
+		setNotice('')
+
+		try {
+			const fileName = await downloadTafiAdminStockRequestXlsx(
+				batch.items.map((request) => ({
+					stockNo: request.stock_no,
+					description: request.item_description,
+					unit: request.unit_of_measure,
+					quantityRequested: Number(request.quantity_requested_base ?? request.quantity_requested),
+					quantityBuffer: Number(request.quantity_buffer ?? 0),
+					quantityTotal: Number(request.quantity_requested),
+					currentStock: request.branch_current_stock
+				})),
+				batch.branchName,
+				batch.createdAt
+			)
+			setNotice(`Downloaded ${fileName}.`)
+		} catch (error) {
+			setErrorMessage(
+				error instanceof Error ? error.message : 'Unable to prepare the requisition workbook.'
+			)
+		} finally {
+			setDownloadingRequestBatchKey('')
+		}
+	}
+
 	return (
 		<section className="accountant-inventory-section">
 			<div className="accountant-inventory-tabs" role="tablist" aria-label="Stock orders">
@@ -590,7 +622,10 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 												<th scope="col">Stock no.</th>
 												<th scope="col">Description</th>
 												<th scope="col">Unit</th>
-												<th scope="col">Quantity requested</th>
+												<th scope="col">Requested</th>
+												<th scope="col">Buffer</th>
+												<th scope="col">Total</th>
+												<th scope="col">Branch current stock</th>
 												<th scope="col">Quantity delivered</th>
 												<th scope="col">Quantity received</th>
 												<th scope="col">Status</th>
@@ -602,7 +637,10 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 													<td>{request.stock_no}</td>
 													<td>{request.item_description}</td>
 													<td>{request.unit_of_measure}</td>
+													<td>{request.quantity_requested_base ?? request.quantity_requested}</td>
+													<td>{request.quantity_buffer ?? 0}</td>
 													<td>{request.quantity_requested}</td>
+													<td>{request.branch_current_stock ?? '—'}</td>
 													<td>{request.quantity_delivered ?? '—'}</td>
 													<td>{request.quantity_received ?? '—'}</td>
 													<td>{request.status}</td>
@@ -679,6 +717,9 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 														<th scope="col">Description</th>
 														<th scope="col">Unit</th>
 														<th scope="col">Requested</th>
+														<th scope="col">Buffer</th>
+														<th scope="col">Total</th>
+														<th scope="col">Branch current stock</th>
 														<th scope="col">TAFI available</th>
 													</tr>
 												</thead>
@@ -688,21 +729,35 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 															<td>{request.stock_no}</td>
 															<td>{request.item_description}</td>
 															<td>{request.unit_of_measure}</td>
+															<td>{request.quantity_requested_base ?? request.quantity_requested}</td>
+															<td>{request.quantity_buffer ?? 0}</td>
 															<td>{request.quantity_requested}</td>
+															<td>{request.branch_current_stock ?? '—'}</td>
 															<td>{request.current_available}</td>
 														</tr>
 													))}
 												</tbody>
 											</table>
 										</div>
-										<button
-											type="button"
-											className="accountant-inventory-submit"
-											disabled={Boolean(preparingBatchKey)}
-											onClick={() => handleStartPreparation(batch)}
-										>
-											{preparingBatchKey === batch.key ? 'Starting preparation...' : 'Preparing'}
-										</button>
+										<div className="tafi-stock-inventory-actions">
+											<button
+												type="button"
+												className="accountant-inventory-add-toggle"
+												disabled={Boolean(downloadingRequestBatchKey)}
+												onClick={() => handleDownloadRequestXlsx(batch)}
+											>
+												<Download size={16} aria-hidden="true" />
+												{downloadingRequestBatchKey === batch.key ? 'Preparing XLSX...' : 'Download XLSX'}
+											</button>
+											<button
+												type="button"
+												className="accountant-inventory-submit"
+												disabled={Boolean(preparingBatchKey)}
+												onClick={() => handleStartPreparation(batch)}
+											>
+												{preparingBatchKey === batch.key ? 'Starting preparation...' : 'Preparing'}
+											</button>
+										</div>
 									</section>
 								))}
 							</section>

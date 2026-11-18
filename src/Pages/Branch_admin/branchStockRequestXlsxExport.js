@@ -16,6 +16,10 @@ const requisitionTemplates = {
 	}
 }
 
+const firstDataRow = 6
+const footerStartRow = 41
+const footerEndRow = 42
+
 const escapeXmlText = (value) => String(value)
 	.replace(/&/g, '&amp;')
 	.replace(/</g, '&lt;')
@@ -99,7 +103,7 @@ const restoreTemplateDrawing = async (
 			(anchor) => anchor.replace(
 				/(<xdr:row>)(\d+)(<\/xdr:row>)/g,
 				(match, openingTag, rowNumber, closingTag) => (
-					Number(rowNumber) >= 16
+					Number(rowNumber) >= footerStartRow - 1
 						? `${openingTag}${Number(rowNumber) + extraRows}${closingTag}`
 						: match
 				)
@@ -154,17 +158,16 @@ export async function downloadBranchStockRequestWorkbook(
 		throw new Error('The stock requisition template does not contain a worksheet.')
 	}
 
-	const firstDataRow = 6
-	const initialDataRowCount = 11
+	const initialDataRowCount = footerStartRow - firstDataRow
 	const extraRows = Math.max(0, requestedItems.length - initialDataRowCount)
 	if (extraRows > 0) {
-		worksheet.unMergeCells('A17:G18')
+		worksheet.unMergeCells(`A${footerStartRow}:I${footerEndRow}`)
 		worksheet.insertRows(
-			17,
-			Array.from({ length: extraRows }, () => Array(7).fill(null)),
+			footerStartRow,
+			Array.from({ length: extraRows }, () => Array(9).fill(null)),
 			'i+'
 		)
-		worksheet.mergeCells(`A${17 + extraRows}:G${18 + extraRows}`)
+		worksheet.mergeCells(`A${footerStartRow + extraRows}:I${footerEndRow + extraRows}`)
 	}
 
 	requestedItems.forEach((item, index) => {
@@ -174,7 +177,10 @@ export async function downloadBranchStockRequestWorkbook(
 		worksheet.getCell(row, 3).value = item.description
 		worksheet.getCell(row, 4).value = item.unit
 		worksheet.getCell(row, 5).value = item.quantityRequested
-		worksheet.getCell(row, 6).value = item.currentStock
+		worksheet.getCell(row, 6).value = item.quantityBuffer
+		worksheet.getCell(row, 7).value = item.quantityTotal ?? item.quantityRequested
+		worksheet.getCell(row, 8).value = item.currentStock
+		worksheet.getCell(row, 9).value = item.remarks ?? ''
 	})
 
 	const workbookBuffer = await workbook.xlsx.writeBuffer()
@@ -282,7 +288,7 @@ export async function downloadBranchStockRequestPdf(
 			item.stockNo,
 			item.description,
 			item.unit,
-			item.quantityRequested,
+			item.quantityTotal ?? item.quantityRequested,
 			item.currentStock,
 			''
 		]

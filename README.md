@@ -30,7 +30,14 @@ afterward so received stock adds to Available.
 Then run `supabase/branch_stock_request_batches.sql` and
 `supabase/tafi_admin_deliver_stock_requests_by_branch_date.sql` so TAFI Admins
 can mark all pending requests for one branch and Manila request date delivered
-in a single transaction.
+in a single transaction. After installing the stock request, receipt, and price
+migrations, run `supabase/branch_stock_request_buffer.sql` to let Branch Admins
+enter a buffer. The submitted quantity is calculated as requested quantity plus
+buffer, and both values remain available in the Branch Admin request history.
+The migration also snapshots each branch item's current available balance when
+a request is submitted; older requests have no historical snapshot. TAFI Admins
+can review the requested quantity, buffer, total, and branch stock in the stock
+request and preparation tables.
 TAFI Admins can use the Branch Usage Log in the TAFI Dashboard to select a
 branch and review its daily usage history or monthly usage totals.
 Accountants can use the Branch Usage Log in the Accountant Dashboard to review

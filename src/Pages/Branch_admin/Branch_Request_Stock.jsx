@@ -17,7 +17,8 @@ let nextRequestLineId = 0
 const createRequestLine = () => ({
 	lineId: ++nextRequestLineId,
 	stockInventoryId: '',
-	quantityRequested: ''
+	quantityRequested: '',
+	quantityBuffer: '0'
 })
 
 const formatOrderNumber = (groupId) => groupId?.slice(0, 8).toUpperCase() ?? '—'
@@ -183,6 +184,9 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 			|| !Number.isFinite(Number(line.quantityRequested))
 			|| Number(line.quantityRequested) <= 0
 			|| !Number.isInteger(Number(line.quantityRequested))
+			|| !Number.isFinite(Number(line.quantityBuffer || 0))
+			|| Number(line.quantityBuffer || 0) < 0
+			|| !Number.isInteger(Number(line.quantityBuffer || 0))
 		))
 		if (hasDuplicateItems || hasInvalidLine) {
 			setErrorMessage(hasDuplicateItems
@@ -198,7 +202,9 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 				description: stockItem.item_description,
 				unit: stockItem.unit_of_measure,
 				quantityRequested: Number(line.quantityRequested),
-				currentStock: stockItem.available
+				quantityBuffer: Number(line.quantityBuffer || 0),
+				quantityTotal: Number(line.quantityRequested) + Number(line.quantityBuffer || 0),
+				currentStock: stockItem.branch_current_stock
 			} : null
 		})
 		if (requestedItems.some((item) => !item)) {
@@ -217,7 +223,8 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 			sessionToken,
 			requestLines.map((line) => ({
 				stockInventoryId: line.stockInventoryId,
-				quantityRequested: Number(line.quantityRequested)
+				quantityRequested: Number(line.quantityRequested),
+				quantityBuffer: Number(line.quantityBuffer || 0)
 			}))
 		)
 		if (error) {
@@ -390,7 +397,7 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 
 				<form className="accountant-inventory-form branch-stock-request-form" onSubmit={handleSubmit}>
 					{isReviewingRequest ? (
-						<>
+						<div className="branch-stock-request-review">
 							<h3>Review stock request</h3>
 							<div className="accountant-inventory-table-wrap">
 								<table className="accountant-inventory-table">
@@ -399,7 +406,10 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 											<th scope="col">Stock no.</th>
 											<th scope="col">Description</th>
 											<th scope="col">Unit</th>
-											<th scope="col">Quantity requested</th>
+											<th scope="col">Branch current stock</th>
+											<th scope="col">Requested</th>
+											<th scope="col">Buffer</th>
+											<th scope="col">Total</th>
 										</tr>
 									</thead>
 									<tbody>
@@ -412,32 +422,37 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 													<td>{item?.stock_no ?? '—'}</td>
 													<td>{item?.item_description ?? '—'}</td>
 													<td>{item?.unit_of_measure ?? '—'}</td>
+													<td>{item?.branch_current_stock ?? '—'}</td>
 													<td>{line.quantityRequested}</td>
+													<td>{Number(line.quantityBuffer || 0)}</td>
+													<td>{Number(line.quantityRequested || 0) + Number(line.quantityBuffer || 0)}</td>
 												</tr>
 											)
 										})}
 									</tbody>
 								</table>
 							</div>
-							<button
-								type="button"
-								className="accountant-inventory-add-toggle"
-								onClick={() => {
-									setIsReviewingRequest(false)
-									setErrorMessage('')
-								}}
-								disabled={isSubmitting}
-							>
-								Back to edit
-							</button>
-							<button
-								type="submit"
-								className="accountant-inventory-submit"
-								disabled={isLoading || isSubmitting}
-							>
-								{isSubmitting ? 'Submitting...' : 'Submit stock request'}
-							</button>
-						</>
+							<div className="branch-stock-request-review-actions">
+								<button
+									type="button"
+									className="accountant-inventory-add-toggle"
+									onClick={() => {
+										setIsReviewingRequest(false)
+										setErrorMessage('')
+									}}
+									disabled={isSubmitting}
+								>
+									Back to edit
+								</button>
+								<button
+									type="submit"
+									className="accountant-inventory-submit"
+									disabled={isLoading || isSubmitting}
+								>
+									{isSubmitting ? 'Submitting...' : 'Submit stock request'}
+								</button>
+							</div>
+						</div>
 					) : (
 						<>
 							<div className="branch-stock-request-filters">
@@ -501,7 +516,11 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 												<input value={selectedItem?.available ?? ''} readOnly />
 											</label>
 											<label>
-												<span>Quantity requested</span>
+												<span>Branch current stock</span>
+												<input value={selectedItem?.branch_current_stock ?? ''} readOnly />
+											</label>
+											<label>
+												<span>Requested</span>
 												<input
 													type="number"
 													min="1"
@@ -516,6 +535,32 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 														setErrorMessage('')
 													}}
 													required
+												/>
+											</label>
+											<label>
+												<span>Buffer</span>
+												<input
+													type="number"
+													min="0"
+													step="1"
+													value={line.quantityBuffer}
+													onChange={(event) => {
+														setRequestLines((current) => current.map((item) => (
+															item.lineId === line.lineId
+																? { ...item, quantityBuffer: event.target.value }
+																: item
+														)))
+														setErrorMessage('')
+													}}
+												/>
+											</label>
+											<label>
+												<span>Total</span>
+												<input
+													value={selectedItem
+														? Number(line.quantityRequested || 0) + Number(line.quantityBuffer || 0)
+														: ''}
+													readOnly
 												/>
 											</label>
 										</div>
@@ -619,7 +664,10 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 												<th scope="col">Stock no.</th>
 												<th scope="col">Description</th>
 												<th scope="col">Unit</th>
-												<th scope="col">Quantity requested</th>
+												<th scope="col">Branch current stock</th>
+												<th scope="col">Requested</th>
+												<th scope="col">Buffer</th>
+												<th scope="col">Total</th>
 												<th scope="col">Quantity delivered</th>
 												<th scope="col">Requested on</th>
 											</tr>
@@ -632,6 +680,9 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 															<td>{request.stock_no}</td>
 															<td>{request.item_description}</td>
 															<td>{request.unit_of_measure}</td>
+															<td>{request.branch_current_stock ?? '—'}</td>
+															<td>{request.quantity_requested_base}</td>
+															<td>{request.quantity_buffer}</td>
 															<td>{request.quantity_requested}</td>
 															<td>{request.quantity_delivered ?? '—'}</td>
 															<td>{new Date(request.created_at).toLocaleString()}</td>
@@ -681,6 +732,10 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 									<th scope="col">Stock no.</th>
 									<th scope="col">Description</th>
 									<th scope="col">Unit</th>
+									<th scope="col">Branch current stock</th>
+									<th scope="col">Requested</th>
+									<th scope="col">Buffer</th>
+									<th scope="col">Total</th>
 									<th scope="col">Quantity shipped</th>
 									<th scope="col">Per item price</th>
 									<th scope="col">Total</th>
@@ -694,6 +749,10 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 										<td>{request.stock_no}</td>
 										<td>{request.item_description}</td>
 										<td>{request.unit_of_measure}</td>
+										<td>{request.branch_current_stock ?? '—'}</td>
+										<td>{request.quantity_requested_base}</td>
+										<td>{request.quantity_buffer}</td>
+										<td>{request.quantity_requested}</td>
 										<td>{request.quantity_delivered}</td>
 										<td>{formatPrice(request.unit_price)}</td>
 										<td>{formatPrice(request.total_price)}</td>
@@ -738,7 +797,10 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 											<th scope="col">Stock no.</th>
 											<th scope="col">Description</th>
 											<th scope="col">Unit</th>
+											<th scope="col">Branch current stock</th>
 											<th scope="col">Requested</th>
+											<th scope="col">Buffer</th>
+											<th scope="col">Total</th>
 											<th scope="col">Shipped</th>
 											<th scope="col">Per item price</th>
 											<th scope="col">Total</th>
@@ -753,6 +815,9 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 												<td>{receipt.stock_no}</td>
 												<td>{receipt.item_description}</td>
 												<td>{receipt.unit_of_measure}</td>
+												<td>{receipt.branch_current_stock ?? '—'}</td>
+												<td>{receipt.quantity_requested_base}</td>
+												<td>{receipt.quantity_buffer}</td>
 												<td>{receipt.quantity_requested}</td>
 												<td>{receipt.quantity_delivered}</td>
 												<td>{formatPrice(receipt.unit_price)}</td>

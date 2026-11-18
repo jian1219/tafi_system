@@ -7414,6 +7414,26 @@ fieldset.employee-emergency-contact-box {
   font-weight: 750;
 }
 
+.branch-stock-request-review {
+  grid-column: 1 / -1;
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.branch-stock-request-review h3 {
+  margin: 0;
+}
+
+.branch-stock-request-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
 .branch-stock-request-filters {
   grid-column: 1 / -1;
   display: grid;

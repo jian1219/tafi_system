@@ -2935,13 +2935,14 @@ export async function createBranchStockRequest(sessionToken, stockInventoryId, q
 export async function createBranchStockRequestBatch(sessionToken, items) {
   try {
   	const supabaseClient = await getSupabaseClient()
-  	return await supabaseClient.rpc('branch_admin_create_stock_request_batch', {
-  		p_session_token: sessionToken,
-  		p_items: items.map((item) => ({
-  			stock_inventory_id: item.stockInventoryId,
-  			quantity_requested: item.quantityRequested
-  		}))
-  	})
+    return await supabaseClient.rpc('branch_admin_create_stock_request_batch', {
+      p_session_token: sessionToken,
+      p_items: items.map((item) => ({
+        stock_inventory_id: item.stockInventoryId,
+        quantity_requested: item.quantityRequested,
+        quantity_buffer: item.quantityBuffer
+      }))
+    })
   } catch (error) {
   	return {
   		data: null,
