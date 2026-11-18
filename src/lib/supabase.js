@@ -2655,6 +2655,34 @@ export async function listAccountantInventoryStockCardRecords(sessionToken) {
   }
 }
 
+export async function updateAccountantInventoryStockCardMetadata(
+  sessionToken,
+  stockCardRecordIds,
+  stockInRecordKeys,
+  stockOutRecordKeys,
+  reference,
+  description
+) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_update_inventory_stock_card_metadata', {
+      p_session_token: sessionToken,
+      p_stock_card_record_ids: stockCardRecordIds,
+      p_stock_in_barcodes: stockInRecordKeys.map((record) => record.barcode),
+      p_stock_in_dates: stockInRecordKeys.map((record) => record.date),
+      p_stock_out_barcodes: stockOutRecordKeys.map((record) => record.barcode),
+      p_stock_out_dates: stockOutRecordKeys.map((record) => record.date),
+      p_reference: reference,
+      p_description: description
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the Inventory Stock Card reference and description.')
+    }
+  }
+}
+
 export async function listAccountantBranchStockInventory(sessionToken) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -3169,6 +3197,21 @@ export async function receiveBranchStockRequest(sessionToken, requestId, quantit
   		data: null,
   		error: error instanceof Error ? error : new Error('Unable to receive the stock order.')
   	}
+  }
+}
+
+export async function receiveBranchStockRequestBatch(sessionToken, requestIds) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_receive_stock_requests_batch', {
+      p_session_token: sessionToken,
+      p_request_ids: requestIds
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to receive the delivered stock orders.')
+    }
   }
 }
 

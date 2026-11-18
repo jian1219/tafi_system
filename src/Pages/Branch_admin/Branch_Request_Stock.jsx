@@ -5,7 +5,7 @@ import {
 	listBranchStockReceiptHistory,
 	listBranchStockRequests,
 	listBranchTafiStockItems,
-	receiveBranchStockRequest
+	receiveBranchStockRequestBatch
 } from '../../lib/supabase'
 import {
 	downloadBranchStockRequestWorkbook,
@@ -72,7 +72,7 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 	const [selectedRequestMonth, setSelectedRequestMonth] = useState('')
 	const [isLoading, setIsLoading] = useState(Boolean(sessionToken))
 	const [isSubmitting, setIsSubmitting] = useState(false)
-	const [receivingRequestId, setReceivingRequestId] = useState('')
+	const [receivingDeliveryDate, setReceivingDeliveryDate] = useState('')
 	const [errorMessage, setErrorMessage] = useState('')
 	const [notice, setNotice] = useState('')
 	const [pendingRequestExport, setPendingRequestExport] = useState(null)
@@ -127,7 +127,21 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 		})
 	}), [categoryFilter, itemSearch, requestLines, stockItems])
 
-	const deliveredRequests = requests.filter((request) => request.status === 'delivered')
+	const deliveredRequests = useMemo(
+		() => requests.filter((request) => request.status === 'delivered'),
+		[requests]
+	)
+	const deliveredRequestDateGroups = useMemo(() => {
+		const groups = new Map()
+		deliveredRequests.forEach((request) => {
+			const dateKey = getRequestDateKey(request.created_at)
+			if (!groups.has(dateKey)) {
+				groups.set(dateKey, { dateKey, createdAt: request.created_at, requests: [] })
+			}
+			groups.get(dateKey).requests.push(request)
+		})
+		return [...groups.values()].sort((first, second) => second.dateKey.localeCompare(first.dateKey))
+	}, [deliveredRequests])
 	const requestGroups = useMemo(() => {
 		const groups = new Map()
 		requests.forEach((request) => {
@@ -300,44 +314,36 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 		setRequestExportError('')
 	}
 
-	const handleReceive = async (request) => {
-		const quantityReceived = Number(request.quantity_delivered)
-		if (!Number.isFinite(quantityReceived) || quantityReceived < 0 || !Number.isInteger(quantityReceived)) {
-			setReceiptError('The delivered quantity is invalid, so this order cannot be received.')
-			setReceiptNotice('')
-			return
-		}
-
-		setReceivingRequestId(request.request_id)
+	const handleReceiveDateGroup = async ({ dateKey, createdAt, requests: dateRequests }) => {
+		setReceivingDeliveryDate(dateKey)
 		setReceiptError('')
 		setReceiptNotice('')
 
-		const { error } = await receiveBranchStockRequest(
+		const { data: receivedCount, error } = await receiveBranchStockRequestBatch(
 			sessionToken,
-			request.request_id,
-			quantityReceived
+			dateRequests.map((request) => request.request_id)
 		)
 		if (error) {
-			setReceivingRequestId('')
+			setReceivingDeliveryDate('')
 			setReceiptError(error.message)
 			return
 		}
 
-		setRequests((current) => current.map((item) => item.request_id === request.request_id
-			? { ...item, status: 'received', quantity_received: quantityReceived }
-			: item))
 		const result = await loadRequestData(sessionToken)
-		setReceivingRequestId('')
+		setReceivingDeliveryDate('')
 		if (result.error) {
 			setReceiptError(result.error.message)
-			setReceiptNotice('Receipt saved and branch stock updated, but the history could not be refreshed.')
+			setReceiptNotice('Receipts confirmed and branch stock updated, but the order list could not be refreshed.')
 			return
 		}
 
 		setStockItems(result.stockItems)
 		setRequests(result.requests)
 		setReceiptHistory(result.history)
-		setReceiptNotice('Receipt confirmed. Delivered quantity added to branch inventory.')
+		const dateLabel = requestDateLabelFormatter.format(new Date(createdAt))
+		setReceiptNotice(
+			`${receivedCount} item${receivedCount === 1 ? '' : 's'} received for ${dateLabel}. Full shipped quantities added to branch inventory.`
+		)
 	}
 
 	return (
@@ -715,7 +721,7 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 				<div className="accountant-inventory-heading">
 					<div>
 						<h2>Orders delivered to {branchName}</h2>
-						<p>Confirm receipt to add the full shipped quantity to branch inventory.</p>
+						<p>Orders are grouped by request date. Confirm all delivered items for a day to add their full shipped quantities to branch inventory.</p>
 					</div>
 				</div>
 				{receiptError && <p className="accountant-inventory-error" role="alert">{receiptError}</p>}
@@ -725,51 +731,60 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 					<p className="accountant-inventory-empty" role="status">Loading delivered orders...</p>
 				) : deliveredRequests.length ? (
 					<div className="accountant-inventory-table-wrap">
-						<table className="accountant-inventory-table">
-							<thead>
-								<tr>
-									<th scope="col">Order no.</th>
-									<th scope="col">Stock no.</th>
-									<th scope="col">Description</th>
-									<th scope="col">Unit</th>
-									<th scope="col">Branch current stock</th>
-									<th scope="col">Requested</th>
-									<th scope="col">Buffer</th>
-									<th scope="col">Total</th>
-									<th scope="col">Quantity shipped</th>
-									<th scope="col">Per item price</th>
-									<th scope="col">Total</th>
-									<th scope="col">Action</th>
-								</tr>
-							</thead>
-							<tbody>
-								{deliveredRequests.map((request) => (
-									<tr key={request.request_id}>
-										<td>{formatOrderNumber(request.request_group_id)}</td>
-										<td>{request.stock_no}</td>
-										<td>{request.item_description}</td>
-										<td>{request.unit_of_measure}</td>
-										<td>{request.branch_current_stock ?? '—'}</td>
-										<td>{request.quantity_requested_base}</td>
-										<td>{request.quantity_buffer}</td>
-										<td>{request.quantity_requested}</td>
-										<td>{request.quantity_delivered}</td>
-										<td>{formatPrice(request.unit_price)}</td>
-										<td>{formatPrice(request.total_price)}</td>
-										<td>
-											<button
-												type="button"
-												className="accountant-inventory-submit"
-												disabled={Boolean(receivingRequestId)}
-												onClick={() => handleReceive(request)}
-											>
-												{receivingRequestId === request.request_id ? 'Receiving...' : 'Confirm receive'}
-											</button>
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
+						{deliveredRequestDateGroups.map((group) => (
+							<section className="branch-stock-receipt-date-group" key={group.dateKey}>
+								<div className="branch-stock-receipt-date-heading">
+									<div>
+										<strong>{requestDateLabelFormatter.format(new Date(group.createdAt))}</strong>
+										<span>{group.requests.length} item{group.requests.length === 1 ? '' : 's'}</span>
+									</div>
+									<button
+										type="button"
+										className="accountant-inventory-submit"
+										disabled={Boolean(receivingDeliveryDate)}
+										onClick={() => handleReceiveDateGroup(group)}
+									>
+										{receivingDeliveryDate === group.dateKey
+											? 'Receiving all...'
+											: 'Confirm receive all'}
+									</button>
+								</div>
+								<table className="accountant-inventory-table">
+									<thead>
+										<tr>
+											<th scope="col">Order no.</th>
+											<th scope="col">Stock no.</th>
+											<th scope="col">Description</th>
+											<th scope="col">Unit</th>
+											<th scope="col">Branch current stock</th>
+											<th scope="col">Requested</th>
+											<th scope="col">Buffer</th>
+											<th scope="col">Total</th>
+											<th scope="col">Quantity shipped</th>
+											<th scope="col">Per item price</th>
+											<th scope="col">Total</th>
+										</tr>
+									</thead>
+									<tbody>
+										{group.requests.map((request) => (
+											<tr key={request.request_id}>
+												<td>{formatOrderNumber(request.request_group_id)}</td>
+												<td>{request.stock_no}</td>
+												<td>{request.item_description}</td>
+												<td>{request.unit_of_measure}</td>
+												<td>{request.branch_current_stock ?? '—'}</td>
+												<td>{request.quantity_requested_base}</td>
+												<td>{request.quantity_buffer}</td>
+												<td>{request.quantity_requested}</td>
+												<td>{request.quantity_delivered}</td>
+												<td>{formatPrice(request.unit_price)}</td>
+												<td>{formatPrice(request.total_price)}</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</section>
+						))}
 					</div>
 				) : (
 					<p className="accountant-inventory-empty">No delivered orders are waiting to be received.</p>

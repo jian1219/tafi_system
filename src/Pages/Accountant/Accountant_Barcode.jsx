@@ -5,7 +5,8 @@ import {
 	listAccountantTafiStockOutRecords,
 	listAccountantTafiSummaryStockRecords,
 	listAccountantInventoryStockCardRecords,
-	listAccountantInventoryInformation
+	listAccountantInventoryInformation,
+	updateAccountantInventoryStockCardMetadata
 } from '../../lib/supabase'
 
 function getLocalMonthInputValue() {
@@ -46,18 +47,111 @@ function formatStockCardQuantity(value) {
 	return Number(value).toLocaleString(undefined, { maximumFractionDigits: 3 })
 }
 
+function hasStockCardOutQuantity(record) {
+	return record.out_qty !== null && record.out_qty !== undefined && record.out_qty !== ''
+}
+
+function calculateStockCardBalances(record) {
+	const balanceQty = Number(record.in_qty ?? 0) - Number(record.out_qty ?? 0)
+	const balanceUnitCost = record.in_unit_cost === '' ? null : record.in_unit_cost
+	const runningBalance = balanceUnitCost === null || balanceUnitCost === undefined
+		? null
+		: balanceQty * Number(balanceUnitCost)
+
+	return {
+		...record,
+		balance_qty: balanceQty,
+		balance_unit_cost: balanceUnitCost,
+		running_balance: runningBalance
+	}
+}
+
+function getStockCardCostKey(value) {
+	if (value === null || value === undefined || value === '') return ''
+	const cost = Number(value)
+	return Number.isFinite(cost) ? cost.toFixed(2) : String(value).trim()
+}
+
+function sumStockCardField(records, field) {
+	const values = records
+		.map((record) => record[field])
+		.filter((value) => value !== null && value !== undefined && value !== '')
+		.map(Number)
+		.filter(Number.isFinite)
+
+	return values.length ? values.reduce((total, value) => total + value, 0) : null
+}
+
+function combineStockCardText(records, field) {
+	const values = [...new Set(records
+		.map((record) => String(record[field] ?? '').trim())
+		.filter(Boolean))]
+
+	return values.length ? values.join(' · ') : null
+}
+
+function groupStockCardRecords(records) {
+	const groups = new Map()
+
+	records.forEach((record) => {
+		const inCost = getStockCardCostKey(record.in_unit_cost)
+		const outCost = getStockCardCostKey(record.out_unit_cost)
+		const costKey = inCost && outCost && inCost !== outCost
+			? `in:${inCost}|out:${outCost}`
+			: `unit:${inCost || outCost}`
+		const groupKey = JSON.stringify([String(record.date ?? '').slice(0, 10), costKey])
+		if (!groups.has(groupKey)) groups.set(groupKey, [])
+		groups.get(groupKey).push(record)
+	})
+
+	return [...groups.entries()].map(([groupKey, group]) => {
+		const stockOutRecords = group.filter((record) => record.source === 'stock-out')
+		const outRecords = stockOutRecords.length ? stockOutRecords : group
+
+		return {
+			...group[0],
+			id: JSON.stringify([group[0].stock_no, groupKey]),
+			reference: combineStockCardText(group, 'reference'),
+			description: combineStockCardText(group, 'description'),
+			stockCardRecordIds: [...new Set(group.flatMap((record) => record.stockCardRecordIds ?? []))],
+			stockInRecordKeys: [...new Map(
+				group
+					.flatMap((record) => record.stockInRecordKeys ?? [])
+					.map((record) => [`${record.barcode}|${record.date}`, record])
+			).values()],
+			stockOutRecordKeys: [...new Map(
+				group
+					.flatMap((record) => record.stockOutRecordKeys ?? [])
+					.map((record) => [`${record.barcode}|${record.date}`, record])
+			).values()],
+			in_qty: sumStockCardField(group, 'in_qty'),
+			in_unit_cost: group.find((record) => getStockCardCostKey(record.in_unit_cost))?.in_unit_cost ?? null,
+			in_total: sumStockCardField(group, 'in_total'),
+			out_qty: sumStockCardField(outRecords, 'out_qty'),
+			out_unit_cost: outRecords.find((record) => getStockCardCostKey(record.out_unit_cost))?.out_unit_cost ?? null,
+			out_total: sumStockCardField(outRecords, 'out_total')
+		}
+	})
+}
+
 export default function AccountantBarcode({ sessionToken }) {
 	const [activeTab, setActiveTab] = useState('barcodes')
 	const [activeRecordTab, setActiveRecordTab] = useState('stockIn')
 	const [stockCardRecords, setStockCardRecords] = useState([])
 	const [stockInStockCardRecords, setStockInStockCardRecords] = useState([])
+	const [stockOutStockCardRecords, setStockOutStockCardRecords] = useState([])
 	const [tritonInventoryItems, setTritonInventoryItems] = useState([])
 	const [selectedStockNo, setSelectedStockNo] = useState('')
 	const [stockCardReloadVersion, setStockCardReloadVersion] = useState(0)
 	const [isStockCardLoading, setIsStockCardLoading] = useState(false)
 	const [stockCardError, setStockCardError] = useState('')
 	const [stockInStockCardError, setStockInStockCardError] = useState('')
+	const [stockOutStockCardError, setStockOutStockCardError] = useState('')
 	const [tritonInventoryError, setTritonInventoryError] = useState('')
+	const [editingStockCardRecordId, setEditingStockCardRecordId] = useState('')
+	const [stockCardMetadataDraft, setStockCardMetadataDraft] = useState({ reference: '', description: '' })
+	const [isSavingStockCardMetadata, setIsSavingStockCardMetadata] = useState(false)
+	const [stockCardMetadataError, setStockCardMetadataError] = useState('')
 	const [barcodeItems, setBarcodeItems] = useState([])
 	const [barcodeSearch, setBarcodeSearch] = useState('')
 	const [isBarcodeLoading, setIsBarcodeLoading] = useState(true)
@@ -69,11 +163,11 @@ export default function AccountantBarcode({ sessionToken }) {
 	const [stockInError, setStockInError] = useState('')
 	const [stockOutRecords, setStockOutRecords] = useState([])
 	const [stockOutMonth, setStockOutMonth] = useState(getLocalMonthInputValue)
-	const [stockOutBranch, setStockOutBranch] = useState('')
 	const [isStockOutLoading, setIsStockOutLoading] = useState(true)
 	const [stockOutError, setStockOutError] = useState('')
 	const [summaryStockRecords, setSummaryStockRecords] = useState([])
 	const [summaryMonth, setSummaryMonth] = useState(getLocalMonthInputValue)
+	const [selectedCogsStockNo, setSelectedCogsStockNo] = useState('')
 	const [isSummaryLoading, setIsSummaryLoading] = useState(true)
 	const [summaryError, setSummaryError] = useState('')
 
@@ -91,21 +185,9 @@ export default function AccountantBarcode({ sessionToken }) {
 			item.total_price
 		].some((value) => String(value ?? '').toLocaleLowerCase().includes(query)))
 	}, [barcodeItems, barcodeSearch])
-	const stockOutBranches = useMemo(
-		() => [...new Set([
-			...stockOutRecords.map((record) => record.branch),
-			stockOutBranch
-		].filter(Boolean))]
-			.sort((left, right) => left.localeCompare(right)),
-		[stockOutBranch, stockOutRecords]
-	)
-	const filteredStockOutRecords = useMemo(
-		() => stockOutRecords.filter((record) => record.branch === stockOutBranch),
-		[stockOutBranch, stockOutRecords]
-	)
 	const stockOutRecordsByDate = useMemo(() => {
 		const groups = new Map()
-		filteredStockOutRecords.forEach((record) => {
+		stockOutRecords.forEach((record) => {
 			const dateKey = String(record.date ?? '').slice(0, 10)
 			if (!groups.has(dateKey)) groups.set(dateKey, [])
 			groups.get(dateKey).push(record)
@@ -113,7 +195,7 @@ export default function AccountantBarcode({ sessionToken }) {
 		return [...groups.entries()]
 			.sort(([firstDate], [secondDate]) => secondDate.localeCompare(firstDate))
 			.map(([dateKey, records]) => ({ dateKey, records }))
-	}, [filteredStockOutRecords])
+	}, [stockOutRecords])
 	const stockCardGroups = useMemo(() => {
 		const groups = new Map()
 
@@ -139,7 +221,12 @@ export default function AccountantBarcode({ sessionToken }) {
 					records: []
 				})
 			}
-			groups.get(record.stock_no).records.push(record)
+			groups.get(record.stock_no).records.push({
+				...record,
+				stockCardRecordIds: [record.id],
+				stockInRecordKeys: [],
+				stockOutRecordKeys: []
+			})
 		})
 		stockInStockCardRecords.forEach((record) => {
 			if (!groups.has(record.stock_no)) {
@@ -154,21 +241,82 @@ export default function AccountantBarcode({ sessionToken }) {
 			groups.get(record.stock_no).records.push({
 				id: `stock-in-${record.barcode}-${record.date}`,
 				date: record.date,
+				reference: record.reference,
+				description: record.description,
+				stockCardRecordIds: [],
+				stockInRecordKeys: [{ barcode: record.barcode, date: record.date }],
+				stockOutRecordKeys: [],
 				in_qty: record.stock_in_count,
 				in_unit_cost: record.price,
 				in_total: record.total_price
 			})
 		})
+		stockOutStockCardRecords.forEach((record) => {
+			if (!groups.has(record.stock_no)) {
+				groups.set(record.stock_no, {
+					stockNo: record.stock_no,
+					itemDescription: record.item_description,
+					category: '',
+					unitOfMeasure: record.unit_of_measure,
+					records: []
+				})
+			}
+			const quantity = Number(record.stock_out_count)
+			const unitCost = Number(record.price)
+			groups.get(record.stock_no).records.push({
+				id: `stock-out-${record.barcode}-${record.date}`,
+				date: record.date,
+				reference: record.reference,
+				description: record.description,
+				source: 'stock-out',
+				stockCardRecordIds: [],
+				stockInRecordKeys: [],
+				stockOutRecordKeys: [{ barcode: record.barcode, date: record.date }],
+				out_qty: record.stock_out_count,
+				out_unit_cost: record.price,
+				out_total: Number.isFinite(quantity * unitCost) ? quantity * unitCost : null
+			})
+		})
 		groups.forEach((stockCard) => {
-			stockCard.records.sort((first, second) => (
+			stockCard.records = groupStockCardRecords(stockCard.records)
+				.map(calculateStockCardBalances)
+				.sort((first, second) => (
 				String(first.date ?? '').localeCompare(String(second.date ?? ''))
-			))
+				))
 		})
 		return [...groups.values()].sort((first, second) => first.stockNo.localeCompare(second.stockNo))
-	}, [stockCardRecords, stockInStockCardRecords, tritonInventoryItems])
+	}, [stockCardRecords, stockInStockCardRecords, stockOutStockCardRecords, tritonInventoryItems])
 	const selectedStockCard = stockCardGroups.find((stockCard) => (
 		stockCard.stockNo === selectedStockNo
 	)) ?? stockCardGroups[0] ?? null
+	const startStockCardMetadataEdit = (record) => {
+		setEditingStockCardRecordId(record.id)
+		setStockCardMetadataDraft({
+			reference: record.reference ?? '',
+			description: record.description ?? ''
+		})
+		setStockCardMetadataError('')
+	}
+	const saveStockCardMetadata = async (record) => {
+		setIsSavingStockCardMetadata(true)
+		setStockCardMetadataError('')
+		const { error } = await updateAccountantInventoryStockCardMetadata(
+			sessionToken,
+			record.stockCardRecordIds,
+			record.stockInRecordKeys,
+			record.stockOutRecordKeys,
+			stockCardMetadataDraft.reference,
+			stockCardMetadataDraft.description
+		)
+		setIsSavingStockCardMetadata(false)
+		if (error) {
+			setStockCardMetadataError(error.message)
+			return
+		}
+
+		setEditingStockCardRecordId('')
+		setStockCardReloadVersion((version) => version + 1)
+	}
 
 	useEffect(() => {
 		if (activeTab !== 'barcodes') return
@@ -309,6 +457,7 @@ export default function AccountantBarcode({ sessionToken }) {
 				setIsStockCardLoading(false)
 				setStockCardError('Accountant session is unavailable. Please sign in again.')
 				setStockInStockCardError('Accountant session is unavailable. Please sign in again.')
+				setStockOutStockCardError('Accountant session is unavailable. Please sign in again.')
 				setTritonInventoryError('Accountant session is unavailable. Please sign in again.')
 				return
 			}
@@ -316,11 +465,13 @@ export default function AccountantBarcode({ sessionToken }) {
 			setIsStockCardLoading(true)
 			setStockCardError('')
 			setStockInStockCardError('')
+			setStockOutStockCardError('')
 			setTritonInventoryError('')
-			const [stockCardResult, inventoryResult, stockInResult] = await Promise.all([
+			const [stockCardResult, inventoryResult, stockInResult, stockOutResult] = await Promise.all([
 				listAccountantInventoryStockCardRecords(sessionToken),
 				listAccountantInventoryInformation(sessionToken),
-				listAccountantTafiStockInRecords(sessionToken, null, null)
+				listAccountantTafiStockInRecords(sessionToken, null, null),
+				listAccountantTafiStockOutRecords(sessionToken, null, null)
 			])
 			if (!isCurrent) return
 			setIsStockCardLoading(false)
@@ -336,6 +487,12 @@ export default function AccountantBarcode({ sessionToken }) {
 				setStockInStockCardRecords([])
 			} else {
 				setStockInStockCardRecords(stockInResult.data ?? [])
+			}
+			if (stockOutResult.error) {
+				setStockOutStockCardError(stockOutResult.error.message)
+				setStockOutStockCardRecords([])
+			} else {
+				setStockOutStockCardRecords(stockOutResult.data ?? [])
 			}
 			if (inventoryResult.error) {
 				setTritonInventoryError(inventoryResult.error.message)
@@ -677,9 +834,7 @@ export default function AccountantBarcode({ sessionToken }) {
 						<div>
 							<h2>Stock Out Records</h2>
 							<p>
-								{stockOutBranch
-									? `${filteredStockOutRecords.length} record${filteredStockOutRecords.length === 1 ? '' : 's'} for ${stockOutBranch} in ${formatRecordMonth(stockOutMonth)}`
-									: `Select a branch to view stock-out records for ${formatRecordMonth(stockOutMonth)}`}
+								{`${stockOutRecords.length} record${stockOutRecords.length === 1 ? '' : 's'} in ${formatRecordMonth(stockOutMonth)}`}
 							</p>
 						</div>
 						<button
@@ -704,28 +859,11 @@ export default function AccountantBarcode({ sessionToken }) {
 								}}
 							/>
 						</label>
-						<label htmlFor="accountant-tafi-stock-out-branch">
-							<span>Filter by branch</span>
-							<select
-								id="accountant-tafi-stock-out-branch"
-								value={stockOutBranch}
-								onChange={(event) => setStockOutBranch(event.target.value)}
-							>
-								<option value="" disabled>Select a branch</option>
-								{stockOutBranches.map((branch) => (
-									<option key={branch} value={branch}>{branch}</option>
-								))}
-							</select>
-						</label>
 					</div>
 					{stockOutError && <p className="accountant-inventory-error" role="alert">{stockOutError}</p>}
 					{isStockOutLoading ? (
 						<p className="accountant-inventory-empty" role="status">Loading stock-out records...</p>
-					) : stockOutError ? null : !stockOutBranch ? (
-						<p className="accountant-inventory-empty" role="status">
-							Select a branch to view its stock-out records.
-						</p>
-					) : filteredStockOutRecords.length ? (
+					) : stockOutError ? null : stockOutRecords.length ? (
 						stockOutRecordsByDate.map(({ dateKey, records }) => (
 							<div className="tafi-stock-delivery-date-group" key={dateKey || 'date-unavailable'}>
 								<h3 className="tafi-stock-delivery-date-heading">{formatRecordDate(dateKey)}</h3>
@@ -737,7 +875,6 @@ export default function AccountantBarcode({ sessionToken }) {
 												<th scope="col">Stock no.</th>
 												<th scope="col">Item description</th>
 												<th scope="col">Unit of measure</th>
-												<th scope="col">Branch</th>
 												<th scope="col">Stock out count</th>
 												<th scope="col">Per Item Price</th>
 												<th scope="col">Total Price</th>
@@ -750,7 +887,6 @@ export default function AccountantBarcode({ sessionToken }) {
 													<td>{record.stock_no}</td>
 													<td>{record.item_description}</td>
 													<td>{record.unit_of_measure}</td>
-													<td>{record.branch || '—'}</td>
 													<td>{record.stock_out_count}</td>
 													<td>{formatPrice(record.price)}</td>
 													<td>{formatPrice(record.total_price)}</td>
@@ -800,6 +936,7 @@ export default function AccountantBarcode({ sessionToken }) {
 								required
 								onChange={(event) => {
 									if (event.target.value) setSummaryMonth(event.target.value)
+									setSelectedCogsStockNo('')
 								}}
 							/>
 						</label>
@@ -820,36 +957,52 @@ export default function AccountantBarcode({ sessionToken }) {
 										<th scope="col" rowSpan="2">Stock no.</th>
 										<th scope="col" rowSpan="2">Item description</th>
 										<th scope="col" rowSpan="2">Unit of measure</th>
-										<th scope="colgroup" colSpan="2">Beginning Inventory</th>
-										<th scope="colgroup" colSpan="2">Stock in</th>
-										<th scope="colgroup" colSpan="2">Stock out</th>
-										<th scope="colgroup" colSpan="2">Ending Inventory</th>
+										<th scope="colgroup" colSpan="2" className="tafi-summary-stock-beginning tafi-summary-stock-start tafi-summary-stock-end">Beginning Inventory</th>
+										<th scope="colgroup" colSpan="2" className="tafi-summary-stock-in tafi-summary-stock-start tafi-summary-stock-end">Stock in</th>
+										<th scope="colgroup" colSpan="2" className="tafi-summary-stock-out tafi-summary-stock-start tafi-summary-stock-end">Stock out</th>
+										<th scope="colgroup" colSpan="2" className="tafi-summary-stock-ending tafi-summary-stock-start tafi-summary-stock-end">Ending Inventory</th>
 									</tr>
 									<tr>
-										<th scope="col">Quantity</th>
-										<th scope="col">Total</th>
-										<th scope="col">Quantity</th>
-										<th scope="col">Total</th>
-										<th scope="col">Quantity</th>
-										<th scope="col">Total</th>
-										<th scope="col">Quantity</th>
-										<th scope="col">Total</th>
+										<th scope="col" className="tafi-summary-stock-beginning tafi-summary-stock-start">Quantity</th>
+										<th scope="col" className="tafi-summary-stock-beginning tafi-summary-stock-end">Total</th>
+										<th scope="col" className="tafi-summary-stock-in tafi-summary-stock-start">Quantity</th>
+										<th scope="col" className="tafi-summary-stock-in tafi-summary-stock-end">Total</th>
+										<th scope="col" className="tafi-summary-stock-out tafi-summary-stock-start">Quantity</th>
+										<th scope="col" className="tafi-summary-stock-out tafi-summary-stock-end">Total</th>
+										<th scope="col" className="tafi-summary-stock-ending tafi-summary-stock-start">Quantity</th>
+										<th scope="col" className="tafi-summary-stock-ending tafi-summary-stock-end">Total</th>
 									</tr>
 								</thead>
 								<tbody>
 									{summaryStockRecords.map((record) => (
-										<tr key={record.stock_no}>
+										<tr
+											key={record.stock_no}
+											className={`tafi-summary-stock-row${selectedCogsStockNo === record.stock_no ? ' selected' : ''}`}
+											tabIndex={0}
+											aria-selected={selectedCogsStockNo === record.stock_no}
+											onClick={() => setSelectedCogsStockNo((current) => (
+												current === record.stock_no ? '' : record.stock_no
+											))}
+											onKeyDown={(event) => {
+												if (event.key === 'Enter' || event.key === ' ') {
+													event.preventDefault()
+													setSelectedCogsStockNo((current) => (
+														current === record.stock_no ? '' : record.stock_no
+													))
+												}
+											}}
+										>
 											<td>{record.stock_no}</td>
 											<td>{record.item_description}</td>
 											<td>{record.unit_of_measure}</td>
-											<td>{Number(record.beginning_inventory_quantity).toLocaleString()}</td>
-											<td>{formatPrice(record.beginning_inventory_total)}</td>
-											<td>{Number(record.stock_in_quantity).toLocaleString()}</td>
-											<td>{formatPrice(record.stock_in_total)}</td>
-											<td>{Number(record.stock_out_quantity).toLocaleString()}</td>
-											<td>{formatPrice(record.stock_out_total)}</td>
-											<td>{Number(record.ending_inventory_quantity).toLocaleString()}</td>
-											<td>{formatPrice(record.ending_inventory_total)}</td>
+											<td className="tafi-summary-stock-beginning tafi-summary-stock-start">{Number(record.beginning_inventory_quantity).toLocaleString()}</td>
+											<td className="tafi-summary-stock-beginning tafi-summary-stock-end">{formatPrice(record.beginning_inventory_total)}</td>
+											<td className="tafi-summary-stock-in tafi-summary-stock-start">{Number(record.stock_in_quantity).toLocaleString()}</td>
+											<td className="tafi-summary-stock-in tafi-summary-stock-end">{formatPrice(record.stock_in_total)}</td>
+											<td className="tafi-summary-stock-out tafi-summary-stock-start">{Number(record.stock_out_quantity).toLocaleString()}</td>
+											<td className="tafi-summary-stock-out tafi-summary-stock-end">{formatPrice(record.stock_out_total)}</td>
+											<td className="tafi-summary-stock-ending tafi-summary-stock-start">{Number(record.ending_inventory_quantity).toLocaleString()}</td>
+											<td className="tafi-summary-stock-ending tafi-summary-stock-end">{formatPrice(record.ending_inventory_total)}</td>
 										</tr>
 									))}
 								</tbody>
@@ -892,7 +1045,11 @@ export default function AccountantBarcode({ sessionToken }) {
 							<span>Stock No.</span>
 							<select
 								value={selectedStockCard?.stockNo ?? ''}
-								onChange={(event) => setSelectedStockNo(event.target.value)}
+								onChange={(event) => {
+									setSelectedStockNo(event.target.value)
+									setEditingStockCardRecordId('')
+									setStockCardMetadataError('')
+								}}
 								aria-label="Select a stock card by stock number"
 							>
 								{stockCardGroups.map((stockCard) => (
@@ -917,6 +1074,16 @@ export default function AccountantBarcode({ sessionToken }) {
 				{stockInStockCardError && (
 					<p className="accountant-inventory-error" role="alert">
 						Stock In records could not be loaded: {stockInStockCardError}
+					</p>
+				)}
+				{stockOutStockCardError && (
+					<p className="accountant-inventory-error" role="alert">
+						Stock Out records could not be loaded: {stockOutStockCardError}
+					</p>
+				)}
+				{stockCardMetadataError && (
+					<p className="accountant-inventory-error" role="alert">
+						Stock card details could not be saved: {stockCardMetadataError}
 					</p>
 				)}
 				{isStockCardLoading ? (
@@ -964,40 +1131,99 @@ export default function AccountantBarcode({ sessionToken }) {
 												<th scope="col" rowSpan="2">Date</th>
 												<th scope="col" rowSpan="2">Reference</th>
 												<th scope="col" rowSpan="2">Description</th>
-												<th scope="colgroup" colSpan="3">In (Purchase)</th>
-												<th scope="colgroup" colSpan="3">Out</th>
-												<th scope="col" rowSpan="2">Balance Qty</th>
-												<th scope="col" rowSpan="2">Balance Unit Cost</th>
-												<th scope="col" rowSpan="2">Running Balance</th>
+												<th scope="colgroup" colSpan="3" className="accountant-stock-card-in accountant-stock-card-group-start accountant-stock-card-group-end">In (Purchase)</th>
+												<th scope="colgroup" colSpan="3" className="accountant-stock-card-out accountant-stock-card-group-start accountant-stock-card-group-end">Out</th>
+												<th scope="col" rowSpan="2" className="accountant-stock-card-balance accountant-stock-card-group-start">Balance Qty</th>
+												<th scope="col" rowSpan="2" className="accountant-stock-card-balance">Balance Unit Cost</th>
+												<th scope="col" rowSpan="2" className="accountant-stock-card-balance accountant-stock-card-group-end">Running Balance</th>
+												<th scope="col" rowSpan="2">Actions</th>
 											</tr>
 											<tr>
-												<th scope="col">QTY</th>
-												<th scope="col">Unit Cost</th>
-												<th scope="col">Total</th>
-												<th scope="col">QTY</th>
-												<th scope="col">Unit Cost</th>
-												<th scope="col">Total</th>
+												<th scope="col" className="accountant-stock-card-in accountant-stock-card-group-start">QTY</th>
+												<th scope="col" className="accountant-stock-card-in">Unit Cost</th>
+												<th scope="col" className="accountant-stock-card-in accountant-stock-card-group-end">Total</th>
+												<th scope="col" className="accountant-stock-card-out accountant-stock-card-group-start">QTY</th>
+												<th scope="col" className="accountant-stock-card-out">Unit Cost</th>
+												<th scope="col" className="accountant-stock-card-out accountant-stock-card-group-end">Total</th>
 											</tr>
 										</thead>
 										<tbody>
 											{stockCard.records.length ? stockCard.records.map((record) => (
 												<tr key={record.id}>
 													<td>{formatRecordDate(record.date)}</td>
-													<td>{record.reference || '—'}</td>
-													<td>{record.description || '—'}</td>
-													<td>{formatStockCardQuantity(record.in_qty)}</td>
-													<td>{formatPrice(record.in_unit_cost)}</td>
-													<td>{formatPrice(record.in_total)}</td>
-													<td>{formatStockCardQuantity(record.out_qty)}</td>
-													<td>{formatPrice(record.out_unit_cost)}</td>
-													<td>{formatPrice(record.out_total)}</td>
-													<td>{formatStockCardQuantity(record.balance_qty)}</td>
-													<td>{formatPrice(record.balance_unit_cost)}</td>
-													<td>{formatPrice(record.running_balance)}</td>
+													<td>
+														{editingStockCardRecordId === record.id ? (
+															<input
+																className="accountant-stock-card-edit-field"
+																value={stockCardMetadataDraft.reference}
+																onChange={(event) => setStockCardMetadataDraft((draft) => ({
+																	...draft,
+																	reference: event.target.value
+																}))}
+																aria-label={`Reference for ${stockCard.stockNo} on ${formatRecordDate(record.date)}`}
+															/>
+														) : record.reference || '—'}
+													</td>
+													<td>
+														{editingStockCardRecordId === record.id ? (
+															<textarea
+																className="accountant-stock-card-edit-field"
+																rows="2"
+																value={stockCardMetadataDraft.description}
+																onChange={(event) => setStockCardMetadataDraft((draft) => ({
+																	...draft,
+																	description: event.target.value
+																}))}
+																aria-label={`Description for ${stockCard.stockNo} on ${formatRecordDate(record.date)}`}
+															/>
+														) : record.description || '—'}
+													</td>
+													<td className="accountant-stock-card-in accountant-stock-card-group-start">{formatStockCardQuantity(record.in_qty)}</td>
+													<td className="accountant-stock-card-in">{formatPrice(record.in_unit_cost)}</td>
+													<td className="accountant-stock-card-in accountant-stock-card-group-end">{formatPrice(record.in_total)}</td>
+													<td className="accountant-stock-card-out accountant-stock-card-group-start">{hasStockCardOutQuantity(record) ? formatStockCardQuantity(record.out_qty) : ''}</td>
+													<td className="accountant-stock-card-out">{hasStockCardOutQuantity(record) ? formatPrice(record.out_unit_cost) : ''}</td>
+													<td className="accountant-stock-card-out accountant-stock-card-group-end">{hasStockCardOutQuantity(record) ? formatPrice(record.out_total) : ''}</td>
+													<td className="accountant-stock-card-balance accountant-stock-card-group-start">{formatStockCardQuantity(record.balance_qty)}</td>
+													<td className="accountant-stock-card-balance">{formatPrice(record.balance_unit_cost)}</td>
+													<td className="accountant-stock-card-balance accountant-stock-card-group-end">{formatPrice(record.running_balance)}</td>
+													<td className="accountant-stock-card-row-actions">
+														{editingStockCardRecordId === record.id ? (
+															<>
+																<button
+																	type="button"
+																	className="accountant-stock-card-action accountant-stock-card-action-primary"
+																	onClick={() => saveStockCardMetadata(record)}
+																	disabled={isSavingStockCardMetadata}
+																>
+																	{isSavingStockCardMetadata ? 'Saving...' : 'Save'}
+																</button>
+																<button
+																	type="button"
+																	className="accountant-stock-card-action"
+																	onClick={() => {
+																		setEditingStockCardRecordId('')
+																		setStockCardMetadataError('')
+																	}}
+																	disabled={isSavingStockCardMetadata}
+																>
+																	Cancel
+																</button>
+															</>
+														) : (
+															<button
+																type="button"
+																className="accountant-stock-card-action"
+																onClick={() => startStockCardMetadataEdit(record)}
+															>
+																Edit
+															</button>
+														)}
+													</td>
 												</tr>
 											)) : (
 												<tr>
-													<td colSpan="12" className="accountant-inventory-empty">
+													<td colSpan="13" className="accountant-inventory-empty">
 														{stockCardError || stockInStockCardError
 															? 'Some stock card records are unavailable.'
 															: 'No inventory stock card records have been added yet.'}

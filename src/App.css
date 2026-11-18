@@ -6728,6 +6728,99 @@ fieldset.employee-emergency-contact-box {
   min-width: 1500px;
 }
 
+.accountant-stock-card-edit-field {
+  width: 100%;
+  min-width: 130px;
+  padding: 7px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #0f172a;
+  background: #fff;
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.accountant-stock-card-edit-field:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.accountant-stock-card-row-actions {
+  min-width: 130px;
+  white-space: normal;
+}
+
+.accountant-stock-card-action {
+  margin: 0 4px 4px 0;
+  padding: 6px 9px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #334155;
+  background: #fff;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.accountant-stock-card-action:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.accountant-stock-card-action-primary {
+  border-color: #1d4ed8;
+  color: #fff;
+  background: #1d4ed8;
+}
+
+.accountant-stock-card-action-primary:hover:not(:disabled) {
+  background: #1e40af;
+}
+
+.accountant-stock-card-action:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.accountant-stock-card-table .accountant-stock-card-in {
+  color: #065f46;
+  background-color: #ecfdf5;
+}
+
+.accountant-stock-card-table .accountant-stock-card-out {
+  color: #9a3412;
+  background-color: #fff7ed;
+}
+
+.accountant-stock-card-table .accountant-stock-card-balance {
+  color: #1e40af;
+  background-color: #eff6ff;
+}
+
+.accountant-stock-card-table .accountant-stock-card-in.accountant-stock-card-group-start {
+  border-left: 2px solid #6ee7b7;
+}
+
+.accountant-stock-card-table .accountant-stock-card-in.accountant-stock-card-group-end {
+  border-right: 2px solid #6ee7b7;
+}
+
+.accountant-stock-card-table .accountant-stock-card-out.accountant-stock-card-group-start {
+  border-left: 2px solid #fdba74;
+}
+
+.accountant-stock-card-table .accountant-stock-card-out.accountant-stock-card-group-end {
+  border-right: 2px solid #fdba74;
+}
+
+.accountant-stock-card-table .accountant-stock-card-balance.accountant-stock-card-group-start {
+  border-left: 2px solid #93c5fd;
+}
+
+.accountant-stock-card-table .accountant-stock-card-balance.accountant-stock-card-group-end {
+  border-right: 2px solid #93c5fd;
+}
+
 .accountant-inventory-heading,
 .accountant-inventory-list-heading {
   display: flex;
@@ -7317,6 +7410,48 @@ fieldset.employee-emergency-contact-box {
 
 .tafi-summary-stock-record-table {
   min-width: 1280px;
+}
+
+.tafi-summary-stock-record-table .tafi-summary-stock-beginning {
+  color: #1e40af;
+  background-color: #eff6ff;
+}
+
+.tafi-summary-stock-record-table .tafi-summary-stock-in {
+  color: #065f46;
+  background-color: #ecfdf5;
+}
+
+.tafi-summary-stock-record-table .tafi-summary-stock-out {
+  color: #9a3412;
+  background-color: #fff7ed;
+}
+
+.tafi-summary-stock-record-table .tafi-summary-stock-ending {
+  color: #5b21b6;
+  background-color: #f5f3ff;
+}
+
+.tafi-summary-stock-record-table .tafi-summary-stock-start {
+  border-left: 1px solid #94a3b8;
+}
+
+.tafi-summary-stock-record-table .tafi-summary-stock-end {
+  border-right: 1px solid #94a3b8;
+}
+
+.tafi-summary-stock-record-table tbody .tafi-summary-stock-row {
+  cursor: pointer;
+}
+
+.tafi-summary-stock-record-table tbody .tafi-summary-stock-row:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+.tafi-summary-stock-record-table tbody .tafi-summary-stock-row.selected td {
+  color: #1e3a8a;
+  background-color: #dbeafe;
 }
 
 .accountant-inventory-table {

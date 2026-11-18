@@ -1,9 +1,9 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Barcode, Calculator, ChevronDown, ClipboardList, LayoutDashboard, LogOut, Package, Receipt, Wallet } from 'lucide-react'
 import {
-	listAccountantPendingStockRequestBranches,
-	listAccountantTafiStockInventory,
+	listAccountantBranchCDJEntries,
+	listAccountantInventoryBranches,
 	revokeAccountantSession
 } from '../../lib/supabase'
 import useSessionStorageState from '../../lib/useSessionStorageState'
@@ -17,7 +17,7 @@ import AccountantInventoryLog from './Accountant_Inventory_log'
 import AccountantInventoryTransferForm from './Accountant_Inventory_Transfer_Form'
 import AccountantBranchCDJ from './Accountant_Branch_cdj'
 import AccountantAPSubsidiaryLedger from './Accountant_AP_Subsidiary_ledger'
-import DashboardOverview from '../Dashboard_Overview'
+import TafiOverviewAnalytics from '../TAFI_Admin/TAFI_Overview_Analytics'
 const AccountantSales = lazy(() => import('./Accountant_Sales'))
 
 const overviewNavigationItem = { id: 'overview', label: 'Overview', icon: LayoutDashboard }
@@ -81,12 +81,6 @@ export default function AccountantDashboard() {
 		salesNavigationGroup.items.some((item) => item.id === activePage)
 	))
 	const [selectedSalesBranchId, setSelectedSalesBranchId] = useState('')
-	const [noAvailableStockCount, setNoAvailableStockCount] = useState(null)
-	const [isLoadingNoAvailableStockCount, setIsLoadingNoAvailableStockCount] = useState(false)
-	const [noAvailableStockCountError, setNoAvailableStockCountError] = useState('')
-	const [pendingStockRequestBranches, setPendingStockRequestBranches] = useState([])
-	const [isLoadingPendingStockRequests, setIsLoadingPendingStockRequests] = useState(false)
-	const [pendingStockRequestsError, setPendingStockRequestsError] = useState('')
 
 	const navigateToPage = (page) => {
 		setActivePage(page)
@@ -100,46 +94,6 @@ export default function AccountantDashboard() {
 			setIsSalesExpanded(true)
 		}
 	}
-
-	useEffect(() => {
-		if (activePage !== 'overview' || !sessionToken) return undefined
-
-		let isCurrent = true
-		const loadOverviewData = async () => {
-			setIsLoadingNoAvailableStockCount(true)
-			setNoAvailableStockCountError('')
-			setIsLoadingPendingStockRequests(true)
-			setPendingStockRequestsError('')
-			const [stockResult, requestResult] = await Promise.all([
-				listAccountantTafiStockInventory(sessionToken),
-				listAccountantPendingStockRequestBranches(sessionToken)
-			])
-			if (!isCurrent) return
-
-			setIsLoadingNoAvailableStockCount(false)
-			setIsLoadingPendingStockRequests(false)
-			if (stockResult.error) {
-				setNoAvailableStockCount(null)
-				setNoAvailableStockCountError(stockResult.error.message)
-			} else {
-				setNoAvailableStockCount(
-					(stockResult.data ?? []).filter((item) => Number(item.available) === 0).length
-				)
-			}
-
-			if (requestResult.error) {
-				setPendingStockRequestBranches([])
-				setPendingStockRequestsError(requestResult.error.message)
-			} else {
-				setPendingStockRequestBranches(requestResult.data ?? [])
-			}
-		}
-
-		loadOverviewData()
-		return () => {
-			isCurrent = false
-		}
-	}, [sessionToken, activePage])
 
 	if (!isSessionActive) return <Navigate to="/accountant-login" replace />
 
@@ -325,15 +279,12 @@ export default function AccountantDashboard() {
 
 				<section className="tafi-admin-content" aria-live="polite">
 					{activePage === 'overview' && (
-						<DashboardOverview
-							roleName="Accountant"
-							noAvailableStockCount={noAvailableStockCount}
-							isLoadingNoAvailableStockCount={isLoadingNoAvailableStockCount}
-							noAvailableStockCountError={noAvailableStockCountError}
-							showPendingStockRequests
-							pendingStockRequestBranches={pendingStockRequestBranches}
-							isLoadingPendingStockRequests={isLoadingPendingStockRequests}
-							pendingStockRequestsError={pendingStockRequestsError}
+						<TafiOverviewAnalytics
+							sessionToken={sessionToken}
+							roleLabel="Accountant"
+							hideTafiHeadOffice
+							listBranches={listAccountantInventoryBranches}
+							listExpenseEntries={listAccountantBranchCDJEntries}
 						/>
 					)}
 					{activePage === 'inventory' && (

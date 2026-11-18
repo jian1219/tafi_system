@@ -53,18 +53,22 @@ export default function AccountantInventoryInformation({ sessionToken }) {
 	const [errorMessage, setErrorMessage] = useState('')
 	const [notice, setNotice] = useState('')
 
-	const branchNames = useMemo(
-		() => [...new Set(branchStockItems.map((item) => item.branch_name).filter(Boolean))]
-			.sort((a, b) => a.localeCompare(b)),
+	const selectableBranchStockItems = useMemo(
+		() => branchStockItems.filter((item) => item.branch_name !== 'TAFI - HO'),
 		[branchStockItems]
 	)
+	const branchNames = useMemo(
+		() => [...new Set(selectableBranchStockItems.map((item) => item.branch_name).filter(Boolean))]
+			.sort((a, b) => a.localeCompare(b)),
+		[selectableBranchStockItems]
+	)
 	const branchStockCategories = useMemo(
-		() => [...new Set(branchStockItems
+		() => [...new Set(selectableBranchStockItems
 			.filter((item) => item.branch_name === branchStockBranch)
 			.map((item) => item.category)
 			.filter(Boolean))]
 			.sort((a, b) => a.localeCompare(b)),
-		[branchStockBranch, branchStockItems]
+		[branchStockBranch, selectableBranchStockItems]
 	)
 	const tafiStockCategories = useMemo(
 		() => [...new Set(tafiStockItems.map((item) => item.category).filter(Boolean))]
@@ -85,12 +89,12 @@ export default function AccountantInventoryInformation({ sessionToken }) {
 		))
 	}, [tafiStockCategory, tafiStockItems, tafiStockSearch])
 	const filteredBranchStockItems = useMemo(
-		() => branchStockItems.filter((item) => (
+		() => selectableBranchStockItems.filter((item) => (
 			branchStockBranch
 			&& item.branch_name === branchStockBranch
 			&& (!branchStockCategory || item.category === branchStockCategory)
 		)),
-		[branchStockBranch, branchStockCategory, branchStockItems]
+		[branchStockBranch, branchStockCategory, selectableBranchStockItems]
 	)
 
 	useEffect(() => {
@@ -575,7 +579,7 @@ export default function AccountantInventoryInformation({ sessionToken }) {
 					{branchStockLoadError && <p className="accountant-inventory-error" role="alert">{branchStockLoadError}</p>}
 					{isBranchStockLoading ? (
 						<p className="accountant-inventory-empty" role="status">Loading branch inventory...</p>
-					) : branchStockItems.length ? (
+					) : selectableBranchStockItems.length ? (
 						<>
 							<div className="tafi-stock-inventory-filters" aria-label="Filter branch inventory">
 								<label>

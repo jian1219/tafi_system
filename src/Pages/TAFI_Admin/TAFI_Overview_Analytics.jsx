@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react'
 import { listTafiAdminBranches } from '../../lib/supabase'
 import BranchOverviewAnalytics from '../Branch_admin/Branch_Overview_Analytics'
 
-export default function TafiOverviewAnalytics({ sessionToken }) {
+export default function TafiOverviewAnalytics({
+  sessionToken,
+  roleLabel = 'TAFI Admin',
+  hideTafiHeadOffice = false,
+  listBranches = listTafiAdminBranches,
+  listExpenseEntries
+}) {
   const [branches, setBranches] = useState([])
   const [selectedBranchId, setSelectedBranchId] = useState('')
   const [isLoadingBranches, setIsLoadingBranches] = useState(true)
@@ -18,12 +24,12 @@ export default function TafiOverviewAnalytics({ sessionToken }) {
       if (!sessionToken) {
         setBranches([])
         setSelectedBranchId('')
-        setBranchError('TAFI Admin session is unavailable. Please sign in again.')
+        setBranchError(`${roleLabel} session is unavailable. Please sign in again.`)
         setIsLoadingBranches(false)
         return
       }
 
-      const { data, error } = await listTafiAdminBranches(sessionToken)
+      const { data, error } = await listBranches(sessionToken)
       if (!isCurrent) return
       if (error) {
         setBranches([])
@@ -33,7 +39,9 @@ export default function TafiOverviewAnalytics({ sessionToken }) {
         return
       }
 
-      const branchList = data ?? []
+      const branchList = (data ?? []).filter((branch) => (
+        !hideTafiHeadOffice || branch.branch_name !== 'TAFI - HO'
+      ))
       setBranches(branchList)
       setSelectedBranchId((current) => (
         branchList.some((branch) => branch.branch_id === current)
@@ -47,13 +55,13 @@ export default function TafiOverviewAnalytics({ sessionToken }) {
     return () => {
       isCurrent = false
     }
-  }, [sessionToken])
+  }, [hideTafiHeadOffice, listBranches, roleLabel, sessionToken])
 
   return (
     <section>
       <header className="branch-analytics-page-header">
         <div>
-          <p className="branch-overview-heading-label">TAFI ADMIN ANALYTICS</p>
+          <p className="branch-overview-heading-label">{roleLabel.toUpperCase()} ANALYTICS</p>
           <h2>Branch Analytics</h2>
           <p className="branch-analytics-page-description">
             Review sales, expenses, and targets for a selected branch.
@@ -87,6 +95,8 @@ export default function TafiOverviewAnalytics({ sessionToken }) {
           branchId={selectedBranchId}
           branchName={selectedBranch.branch_name}
           isTafiAdmin
+          sessionRoleLabel={roleLabel}
+          listExpenseEntries={listExpenseEntries}
         />
       )}
     </section>

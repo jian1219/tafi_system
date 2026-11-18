@@ -81,6 +81,7 @@ export default function TafiStockInventory({ sessionToken }) {
 	const [stockOutMonth, setStockOutMonth] = useState(getLocalMonthInputValue)
 	const [stockOutBranch, setStockOutBranch] = useState('')
 	const [summaryMonth, setSummaryMonth] = useState(getLocalMonthInputValue)
+	const [selectedCogsStockNo, setSelectedCogsStockNo] = useState('')
 	const [isManualStockFormOpen, setIsManualStockFormOpen] = useState(false)
 	const [isManualStockHistoryOpen, setIsManualStockHistoryOpen] = useState(false)
 	const [isExportingStock, setIsExportingStock] = useState(false)
@@ -1527,6 +1528,7 @@ export default function TafiStockInventory({ sessionToken }) {
 							required
 							onChange={(event) => {
 								if (event.target.value) setSummaryMonth(event.target.value)
+								setSelectedCogsStockNo('')
 							}}
 						/>
 					</label>
@@ -1549,36 +1551,52 @@ export default function TafiStockInventory({ sessionToken }) {
 									<th scope="col" rowSpan="2">Stock no.</th>
 									<th scope="col" rowSpan="2">Item description</th>
 									<th scope="col" rowSpan="2">Unit of measure</th>
-									<th scope="colgroup" colSpan="2">Beginning Inventory</th>
-									<th scope="colgroup" colSpan="2">Stock in</th>
-									<th scope="colgroup" colSpan="2">Stock out</th>
-									<th scope="colgroup" colSpan="2">Ending Inventory</th>
+									<th scope="colgroup" colSpan="2" className="tafi-summary-stock-beginning tafi-summary-stock-start tafi-summary-stock-end">Beginning Inventory</th>
+									<th scope="colgroup" colSpan="2" className="tafi-summary-stock-in tafi-summary-stock-start tafi-summary-stock-end">Stock in</th>
+									<th scope="colgroup" colSpan="2" className="tafi-summary-stock-out tafi-summary-stock-start tafi-summary-stock-end">Stock out</th>
+									<th scope="colgroup" colSpan="2" className="tafi-summary-stock-ending tafi-summary-stock-start tafi-summary-stock-end">Ending Inventory</th>
 								</tr>
 								<tr>
-									<th scope="col">Quantity</th>
-									<th scope="col">Total</th>
-									<th scope="col">Quantity</th>
-									<th scope="col">Total</th>
-									<th scope="col">Quantity</th>
-									<th scope="col">Total</th>
-									<th scope="col">Quantity</th>
-									<th scope="col">Total</th>
+									<th scope="col" className="tafi-summary-stock-beginning tafi-summary-stock-start">Quantity</th>
+									<th scope="col" className="tafi-summary-stock-beginning tafi-summary-stock-end">Total</th>
+									<th scope="col" className="tafi-summary-stock-in tafi-summary-stock-start">Quantity</th>
+									<th scope="col" className="tafi-summary-stock-in tafi-summary-stock-end">Total</th>
+									<th scope="col" className="tafi-summary-stock-out tafi-summary-stock-start">Quantity</th>
+									<th scope="col" className="tafi-summary-stock-out tafi-summary-stock-end">Total</th>
+									<th scope="col" className="tafi-summary-stock-ending tafi-summary-stock-start">Quantity</th>
+									<th scope="col" className="tafi-summary-stock-ending tafi-summary-stock-end">Total</th>
 								</tr>
 							</thead>
 							<tbody>
 								{summaryStockRecords.map((record) => (
-									<tr key={record.stock_no}>
+									<tr
+										key={record.stock_no}
+										className={`tafi-summary-stock-row${selectedCogsStockNo === record.stock_no ? ' selected' : ''}`}
+										tabIndex={0}
+										aria-selected={selectedCogsStockNo === record.stock_no}
+										onClick={() => setSelectedCogsStockNo((current) => (
+											current === record.stock_no ? '' : record.stock_no
+										))}
+										onKeyDown={(event) => {
+											if (event.key === 'Enter' || event.key === ' ') {
+												event.preventDefault()
+												setSelectedCogsStockNo((current) => (
+													current === record.stock_no ? '' : record.stock_no
+												))
+											}
+										}}
+									>
 										<td>{record.stock_no}</td>
 										<td>{record.item_description}</td>
 										<td>{record.unit_of_measure}</td>
-										<td>{Number(record.beginning_inventory_quantity).toLocaleString()}</td>
-										<td>{formatBarcodePrice(record.beginning_inventory_total)}</td>
-										<td>{Number(record.stock_in_quantity).toLocaleString()}</td>
-										<td>{formatBarcodePrice(record.stock_in_total)}</td>
-										<td>{Number(record.stock_out_quantity).toLocaleString()}</td>
-										<td>{formatBarcodePrice(record.stock_out_total)}</td>
-										<td>{Number(record.ending_inventory_quantity).toLocaleString()}</td>
-										<td>{formatBarcodePrice(record.ending_inventory_total)}</td>
+										<td className="tafi-summary-stock-beginning tafi-summary-stock-start">{Number(record.beginning_inventory_quantity).toLocaleString()}</td>
+										<td className="tafi-summary-stock-beginning tafi-summary-stock-end">{formatBarcodePrice(record.beginning_inventory_total)}</td>
+										<td className="tafi-summary-stock-in tafi-summary-stock-start">{Number(record.stock_in_quantity).toLocaleString()}</td>
+										<td className="tafi-summary-stock-in tafi-summary-stock-end">{formatBarcodePrice(record.stock_in_total)}</td>
+										<td className="tafi-summary-stock-out tafi-summary-stock-start">{Number(record.stock_out_quantity).toLocaleString()}</td>
+										<td className="tafi-summary-stock-out tafi-summary-stock-end">{formatBarcodePrice(record.stock_out_total)}</td>
+										<td className="tafi-summary-stock-ending tafi-summary-stock-start">{Number(record.ending_inventory_quantity).toLocaleString()}</td>
+										<td className="tafi-summary-stock-ending tafi-summary-stock-end">{formatBarcodePrice(record.ending_inventory_total)}</td>
 									</tr>
 								))}
 							</tbody>
