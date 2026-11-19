@@ -72,6 +72,7 @@ export default function BranchDeposit({
   const [receiptEntries, setReceiptEntries] = useState([])
   const [form, setForm] = useState(createEmptyDeposit)
   const [editingDepositId, setEditingDepositId] = useState('')
+  const [selectedDepositId, setSelectedDepositId] = useState('')
   const [activeSection, setActiveSection] = useState(
     canManageDeposits ? 'entry' : 'records'
   )
@@ -368,7 +369,20 @@ export default function BranchDeposit({
             </thead>
             <tbody>
               {visibleDeposits.map((deposit) => (
-                <tr key={deposit.id}>
+                <tr
+                  key={deposit.id}
+                  className={`branch-deposit-row${selectedDepositId === deposit.id ? ' is-selected' : ''}`}
+                  aria-selected={selectedDepositId === deposit.id}
+                  tabIndex={0}
+                  onClick={() => setSelectedDepositId(deposit.id)}
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      setSelectedDepositId(deposit.id)
+                    }
+                  }}
+                >
                   <td>{formatDate(deposit.date_deposit)}</td>
                   <td>{formatCurrency(deposit.deposit_am)}</td>
                   <td>{formatCurrency(deposit.deposit_pm)}</td>

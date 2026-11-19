@@ -4104,6 +4104,24 @@ fieldset.employee-emergency-contact-box {
   min-width: 860px;
 }
 
+.branch-deposit-table tbody tr.branch-deposit-row {
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.branch-deposit-table tbody tr.branch-deposit-row:hover td {
+  background-color: #eff6ff;
+}
+
+.branch-deposit-table tbody tr.branch-deposit-row.is-selected td {
+  background-color: #dbeafe;
+}
+
+.branch-deposit-table tbody tr.branch-deposit-row:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
 .crj-target-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
@@ -4139,6 +4157,24 @@ fieldset.employee-emergency-contact-box {
 
 .crj-target-table {
   min-width: 1420px;
+}
+
+.crj-target-table tbody tr.crj-target-row {
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.crj-target-table tbody tr.crj-target-row:hover td {
+  background-color: #eff6ff;
+}
+
+.crj-target-table tbody tr.crj-target-row.is-selected td {
+  background-color: #dbeafe;
+}
+
+.crj-target-table tbody tr.crj-target-row:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
 }
 
 .branch-transaction-form-toggle {
@@ -4413,6 +4449,24 @@ fieldset.employee-emergency-contact-box {
   min-width: 2600px;
 }
 
+.branch-crj-table tbody tr.branch-crj-journal-row {
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.branch-crj-table tbody tr.branch-crj-journal-row:hover td {
+  background-color: #eff6ff;
+}
+
+.branch-crj-table tbody tr.branch-crj-journal-row.is-selected td {
+  background-color: #dbeafe;
+}
+
+.branch-crj-table tbody tr.branch-crj-journal-row:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
 .branch-cdj-table:not(.branch-daily-summary-cdj-table) td:nth-child(4) {
   min-width: 190px;
   max-width: 280px;
@@ -4522,6 +4576,28 @@ fieldset.employee-emergency-contact-box {
 }
 
 .branch-daily-summary-cdj-table tbody tr:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+.branch-crj-summary-table tbody tr.branch-crj-summary-row {
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.branch-crj-summary-table tbody tr.branch-crj-summary-row:hover > td {
+  background: #eff6ff;
+}
+
+.branch-crj-summary-table tbody tr.branch-crj-summary-row.is-selected > td {
+  background: #dbeafe;
+}
+
+.branch-crj-summary-table tbody tr.branch-crj-summary-row.is-selected:hover > td {
+  background: #bfdbfe;
+}
+
+.branch-crj-summary-table tbody tr.branch-crj-summary-row:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: -2px;
 }

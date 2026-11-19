@@ -247,6 +247,8 @@ export default function BranchCashReceiptsJournal({
   const [targetDate, setTargetDate] = useState(getManilaDateKey)
   const [targetSalesDraft, setTargetSalesDraft] = useState(null)
   const [editingEntryId, setEditingEntryId] = useState('')
+  const [selectedEntryId, setSelectedEntryId] = useState('')
+  const [selectedTargetId, setSelectedTargetId] = useState('')
   const [activePageSection, setActivePageSection] = useState(
     canManageEntries ? 'entry' : 'journal'
   )
@@ -685,7 +687,20 @@ export default function BranchCashReceiptsJournal({
             </thead>
             <tbody>
               {visibleEntries.map((entry) => (
-                <tr key={entry.id}>
+                <tr
+                  key={entry.id}
+                  className={`branch-crj-journal-row${selectedEntryId === entry.id ? ' is-selected' : ''}`}
+                  aria-selected={selectedEntryId === entry.id}
+                  tabIndex={0}
+                  onClick={() => setSelectedEntryId(entry.id)}
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      setSelectedEntryId(entry.id)
+                    }
+                  }}
+                >
                   {journalColumns.map(({ key, isText }) => (
                     <td key={key}>
                       {isText ? entry[key] : formatCurrency(entry[key])}
@@ -794,7 +809,20 @@ export default function BranchCashReceiptsJournal({
             </thead>
             <tbody>
               {visibleTargets.map((target) => (
-                <tr key={target.id}>
+                <tr
+                  key={target.id}
+                  className={`crj-target-row${selectedTargetId === target.id ? ' is-selected' : ''}`}
+                  aria-selected={selectedTargetId === target.id}
+                  tabIndex={0}
+                  onClick={() => setSelectedTargetId(target.id)}
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      setSelectedTargetId(target.id)
+                    }
+                  }}
+                >
                   <td>{formatDate(target.date)}</td>
                   <td>
                     {target.target_sales === null || target.target_sales === undefined

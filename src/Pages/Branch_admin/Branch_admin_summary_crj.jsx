@@ -32,6 +32,7 @@ export default function BranchAdminSummaryCRJ({ branchName = 'Branch', branchAdm
   const listSummaries = api?.listBranchDailySummaryCRJ ?? listBranchDailySummaryCRJ
   const [activeSection, setActiveSection] = useState('daily')
   const [summaries, setSummaries] = useState([])
+  const [selectedSummaryId, setSelectedSummaryId] = useState('')
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
 
@@ -130,7 +131,20 @@ export default function BranchAdminSummaryCRJ({ branchName = 'Branch', branchAdm
             </thead>
             <tbody>
               {summaries.map((summary) => (
-                <tr key={summary.id}>
+                <tr
+                  key={summary.id}
+                  className={`branch-crj-summary-row${selectedSummaryId === summary.id ? ' is-selected' : ''}`}
+                  aria-selected={selectedSummaryId === summary.id}
+                  tabIndex={0}
+                  onClick={() => setSelectedSummaryId(summary.id)}
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) return
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      setSelectedSummaryId(summary.id)
+                    }
+                  }}
+                >
                   {summaryColumns.map(({ key, isDate, isAmount }) => (
                     <td key={key}>
                       {isDate
