@@ -31,7 +31,9 @@ export default function TafiBranchInventoryStock({ sessionToken }) {
 	}, [sessionToken])
 
 	const branchNames = useMemo(
-		() => [...new Set(branchStockItems.map((item) => item.branch_name).filter(Boolean))]
+		() => [...new Set(branchStockItems
+			.map((item) => item.branch_name)
+			.filter((branchName) => branchName && branchName !== 'TAFI - HO'))]
 			.sort((left, right) => left.localeCompare(right)),
 		[branchStockItems]
 	)

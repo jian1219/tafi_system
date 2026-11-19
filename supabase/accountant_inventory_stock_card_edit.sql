@@ -16,6 +16,7 @@ alter table public.stock_in_records
   add column if not exists description text;
 
 alter table public.stock_out_records
+  add column if not exists branch text not null default '',
   add column if not exists reference text,
   add column if not exists description text;
 
@@ -91,6 +92,7 @@ returns table (
   stock_no text,
   item_description text,
   unit_of_measure text,
+  branch text,
   stock_out_count bigint,
   price numeric,
   total_price numeric,
@@ -117,6 +119,7 @@ begin
          saved.stock_no,
          saved.item_description,
          saved.unit_of_measure,
+         saved.branch,
          saved.stock_out_count,
          saved.price,
          saved.total_price,

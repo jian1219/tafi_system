@@ -4717,6 +4717,39 @@ fieldset.employee-emergency-contact-box {
   color: #64748b;
 }
 
+.cash-advance-amount-display,
+.cash-advance-amount-editor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cash-advance-amount-editor .cash-advance-week-input {
+  width: 130px;
+}
+
+.cash-advance-amount-icon {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #1d4ed8;
+  background: #fff;
+  cursor: pointer;
+}
+
+.cash-advance-amount-icon:hover:not(:disabled) {
+  background: #eff6ff;
+}
+
+.cash-advance-amount-icon:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .cash-advance-save-button {
   min-height: 36px;
   padding: 7px 10px;
@@ -6821,6 +6854,12 @@ fieldset.employee-emergency-contact-box {
   border-right: 2px solid #93c5fd;
 }
 
+.accountant-stock-card-table tfoot th,
+.accountant-stock-card-table tfoot td {
+  border-top: 2px solid #94a3b8;
+  font-weight: 750;
+}
+
 .accountant-inventory-heading,
 .accountant-inventory-list-heading {
   display: flex;
@@ -7195,6 +7234,54 @@ fieldset.employee-emergency-contact-box {
   grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr);
   gap: 14px;
   margin-bottom: 16px;
+}
+
+.tafi-barcode-inventory-filters {
+  grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr) auto;
+  align-items: end;
+}
+
+.tafi-barcode-bulk-price-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr)) auto;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.tafi-barcode-bulk-price-form > p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.tafi-barcode-bulk-price-form label {
+  display: grid;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.tafi-barcode-bulk-price-form input,
+.tafi-barcode-bulk-price-form select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #0f172a;
+  background: white;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.tafi-barcode-bulk-price-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .tafi-stock-inventory-filters label {
@@ -7783,6 +7870,11 @@ fieldset.employee-emergency-contact-box {
   }
 
   .tafi-stock-inventory-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .tafi-barcode-inventory-filters,
+  .tafi-barcode-bulk-price-form {
     grid-template-columns: 1fr;
   }
 

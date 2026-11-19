@@ -675,6 +675,22 @@ export async function updateTafiAdminStockBarcodeTotalPrice(sessionToken, barcod
   }
 }
 
+export async function updateTafiAdminStockBarcodePricesByStockNo(sessionToken, stockNo, unitPrice) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_update_stock_in_scan_prices_by_stock_no', {
+      p_session_token: sessionToken,
+      p_stock_no: stockNo,
+      p_unit_price: unitPrice
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update barcode prices for this stock number.')
+    }
+  }
+}
+
 export async function listTafiAdminStockInRecords(sessionToken, month = null, day = null) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -4053,6 +4069,22 @@ export async function listBranchCashAdvanceLoans(sessionToken) {
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to load cash advance records.')
+    }
+  }
+}
+
+export async function updateBranchCashAdvanceLoanAmount(sessionToken, advanceId, advanceAmount) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_update_cash_advance_loan_amount', {
+      p_session_token: sessionToken,
+      p_advance_id: advanceId,
+      p_advance_amount: advanceAmount
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the cash advance amount.')
     }
   }
 }

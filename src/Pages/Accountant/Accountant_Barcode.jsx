@@ -42,8 +42,13 @@ function formatPrice(value) {
 	}).format(Number(value))
 }
 
+function formatStockCardPrice(value) {
+	if (value === null || value === undefined || value === '') return ''
+	return formatPrice(value)
+}
+
 function formatStockCardQuantity(value) {
-	if (value === null || value === undefined || value === '') return '—'
+	if (value === null || value === undefined || value === '') return ''
 	return Number(value).toLocaleString(undefined, { maximumFractionDigits: 3 })
 }
 
@@ -51,19 +56,62 @@ function hasStockCardOutQuantity(record) {
 	return record.out_qty !== null && record.out_qty !== undefined && record.out_qty !== ''
 }
 
-function calculateStockCardBalances(record) {
-	const balanceQty = Number(record.in_qty ?? 0) - Number(record.out_qty ?? 0)
-	const balanceUnitCost = record.in_unit_cost === '' ? null : record.in_unit_cost
-	const runningBalance = balanceUnitCost === null || balanceUnitCost === undefined
-		? null
-		: balanceQty * Number(balanceUnitCost)
-
-	return {
-		...record,
-		balance_qty: balanceQty,
-		balance_unit_cost: balanceUnitCost,
-		running_balance: runningBalance
+function getStockCardMovementTotal(total, quantity, unitCost) {
+	if (total !== null && total !== undefined && total !== '') {
+		const numericTotal = Number(total)
+		return Number.isFinite(numericTotal) ? numericTotal : null
 	}
+
+	const numericQuantity = Number(quantity ?? 0)
+	if (!Number.isFinite(numericQuantity)) return null
+	if (numericQuantity === 0) return 0
+
+	const numericUnitCost = Number(unitCost)
+	return unitCost !== null && unitCost !== undefined && unitCost !== ''
+		&& Number.isFinite(numericUnitCost)
+		? numericQuantity * numericUnitCost
+		: null
+}
+
+function calculateStockCardBalances(records) {
+	let balanceQty = 0
+	let balanceUnitCost = null
+	let runningBalance = 0
+
+	return records.map((record) => {
+		const previousBalanceQty = balanceQty
+		const inQty = Number(record.in_qty ?? 0)
+		const outQty = Number(record.out_qty ?? 0)
+		balanceQty += inQty - outQty
+
+		const inUnitCostKey = getStockCardCostKey(record.in_unit_cost)
+		if (inQty > 0) {
+			if (previousBalanceQty === 0) {
+				balanceUnitCost = inUnitCostKey ? record.in_unit_cost : null
+			} else if (
+				inUnitCostKey
+				&& balanceUnitCost !== null
+				&& getStockCardCostKey(balanceUnitCost) !== inUnitCostKey
+			) {
+				balanceUnitCost = null
+			}
+		}
+
+		const inTotal = getStockCardMovementTotal(record.in_total, record.in_qty, record.in_unit_cost)
+		const outTotal = getStockCardMovementTotal(record.out_total, record.out_qty, record.out_unit_cost)
+		if (runningBalance !== null) {
+			runningBalance = inTotal === null || outTotal === null
+				? null
+				: runningBalance + inTotal - outTotal
+		}
+
+		return {
+			...record,
+			balance_qty: balanceQty,
+			balance_unit_cost: balanceUnitCost,
+			running_balance: runningBalance
+		}
+	})
 }
 
 function getStockCardCostKey(value) {
@@ -99,7 +147,11 @@ function groupStockCardRecords(records) {
 		const costKey = inCost && outCost && inCost !== outCost
 			? `in:${inCost}|out:${outCost}`
 			: `unit:${inCost || outCost}`
-		const groupKey = JSON.stringify([String(record.date ?? '').slice(0, 10), costKey])
+		const groupKey = JSON.stringify([
+			String(record.date ?? '').slice(0, 10),
+			costKey,
+			String(record.branch ?? '').trim()
+		])
 		if (!groups.has(groupKey)) groups.set(groupKey, [])
 		groups.get(groupKey).push(record)
 	})
@@ -142,6 +194,7 @@ export default function AccountantBarcode({ sessionToken }) {
 	const [stockOutStockCardRecords, setStockOutStockCardRecords] = useState([])
 	const [tritonInventoryItems, setTritonInventoryItems] = useState([])
 	const [selectedStockNo, setSelectedStockNo] = useState('')
+	const [stockCardMonth, setStockCardMonth] = useState(getLocalMonthInputValue)
 	const [stockCardReloadVersion, setStockCardReloadVersion] = useState(0)
 	const [isStockCardLoading, setIsStockCardLoading] = useState(false)
 	const [stockCardError, setStockCardError] = useState('')
@@ -262,11 +315,14 @@ export default function AccountantBarcode({ sessionToken }) {
 				})
 			}
 			const quantity = Number(record.stock_out_count)
+			const hasUnitCost = record.price !== null && record.price !== undefined && record.price !== ''
 			const unitCost = Number(record.price)
+			const branchName = String(record.branch ?? '').trim()
 			groups.get(record.stock_no).records.push({
 				id: `stock-out-${record.barcode}-${record.date}`,
 				date: record.date,
-				reference: record.reference,
+				branch: branchName,
+				reference: record.reference || (branchName ? `HO ITF - ${branchName}` : ''),
 				description: record.description,
 				source: 'stock-out',
 				stockCardRecordIds: [],
@@ -274,21 +330,34 @@ export default function AccountantBarcode({ sessionToken }) {
 				stockOutRecordKeys: [{ barcode: record.barcode, date: record.date }],
 				out_qty: record.stock_out_count,
 				out_unit_cost: record.price,
-				out_total: Number.isFinite(quantity * unitCost) ? quantity * unitCost : null
+				out_total: hasUnitCost && Number.isFinite(quantity * unitCost)
+					? quantity * unitCost
+					: null
 			})
 		})
 		groups.forEach((stockCard) => {
-			stockCard.records = groupStockCardRecords(stockCard.records)
-				.map(calculateStockCardBalances)
+			stockCard.records = calculateStockCardBalances(groupStockCardRecords(stockCard.records)
 				.sort((first, second) => (
 				String(first.date ?? '').localeCompare(String(second.date ?? ''))
-				))
+				)))
 		})
 		return [...groups.values()].sort((first, second) => first.stockNo.localeCompare(second.stockNo))
 	}, [stockCardRecords, stockInStockCardRecords, stockOutStockCardRecords, tritonInventoryItems])
 	const selectedStockCard = stockCardGroups.find((stockCard) => (
 		stockCard.stockNo === selectedStockNo
 	)) ?? stockCardGroups[0] ?? null
+	const displayedStockCardRecords = selectedStockCard?.records.filter((record) => (
+		String(record.date ?? '').slice(0, 7) === stockCardMonth
+	)) ?? []
+	const lastDisplayedStockCardRecord = displayedStockCardRecords[displayedStockCardRecords.length - 1]
+	const stockCardTotals = {
+		inQty: sumStockCardField(displayedStockCardRecords, 'in_qty') ?? 0,
+		inTotal: sumStockCardField(displayedStockCardRecords, 'in_total') ?? 0,
+		outQty: sumStockCardField(displayedStockCardRecords, 'out_qty') ?? 0,
+		outTotal: sumStockCardField(displayedStockCardRecords, 'out_total') ?? 0,
+		balanceQty: lastDisplayedStockCardRecord?.balance_qty ?? null,
+		runningBalance: lastDisplayedStockCardRecord?.running_balance ?? null
+	}
 	const startStockCardMetadataEdit = (record) => {
 		setEditingStockCardRecordId(record.id)
 		setStockCardMetadataDraft({
@@ -1025,8 +1094,9 @@ export default function AccountantBarcode({ sessionToken }) {
 					<div>
 						<h2>Inventory Stock Card</h2>
 						<p>
-							{stockCardRecords.length + stockInStockCardRecords.length} ledger record
-							{stockCardRecords.length + stockInStockCardRecords.length === 1 ? '' : 's'}
+							{displayedStockCardRecords.length} record
+							{displayedStockCardRecords.length === 1 ? '' : 's'}
+							{' for '}{formatRecordMonth(stockCardMonth)}
 							{' · '}{stockCardGroups.length} stock card{stockCardGroups.length === 1 ? '' : 's'}
 						</p>
 					</div>
@@ -1058,6 +1128,18 @@ export default function AccountantBarcode({ sessionToken }) {
 									</option>
 								))}
 							</select>
+						</label>
+						<label htmlFor="accountant-tafi-stock-card-month">
+							<span>Filter by month</span>
+							<input
+									id="accountant-tafi-stock-card-month"
+									type="month"
+									value={stockCardMonth}
+									required
+									onChange={(event) => {
+										if (event.target.value) setStockCardMonth(event.target.value)
+									}}
+							/>
 						</label>
 					</div>
 				)}
@@ -1131,8 +1213,8 @@ export default function AccountantBarcode({ sessionToken }) {
 												<th scope="col" rowSpan="2">Date</th>
 												<th scope="col" rowSpan="2">Reference</th>
 												<th scope="col" rowSpan="2">Description</th>
-												<th scope="colgroup" colSpan="3" className="accountant-stock-card-in accountant-stock-card-group-start accountant-stock-card-group-end">In (Purchase)</th>
-												<th scope="colgroup" colSpan="3" className="accountant-stock-card-out accountant-stock-card-group-start accountant-stock-card-group-end">Out</th>
+												<th scope="colgroup" colSpan="3" className="accountant-stock-card-in accountant-stock-card-group-start accountant-stock-card-group-end">IN (Purchase)</th>
+												<th scope="colgroup" colSpan="3" className="accountant-stock-card-out accountant-stock-card-group-start accountant-stock-card-group-end">OUT (Interbranch Transfer)</th>
 												<th scope="col" rowSpan="2" className="accountant-stock-card-balance accountant-stock-card-group-start">Balance Qty</th>
 												<th scope="col" rowSpan="2" className="accountant-stock-card-balance">Balance Unit Cost</th>
 												<th scope="col" rowSpan="2" className="accountant-stock-card-balance accountant-stock-card-group-end">Running Balance</th>
@@ -1148,7 +1230,7 @@ export default function AccountantBarcode({ sessionToken }) {
 											</tr>
 										</thead>
 										<tbody>
-											{stockCard.records.length ? stockCard.records.map((record) => (
+											{displayedStockCardRecords.length ? displayedStockCardRecords.map((record) => (
 												<tr key={record.id}>
 													<td>{formatRecordDate(record.date)}</td>
 													<td>
@@ -1162,7 +1244,7 @@ export default function AccountantBarcode({ sessionToken }) {
 																}))}
 																aria-label={`Reference for ${stockCard.stockNo} on ${formatRecordDate(record.date)}`}
 															/>
-														) : record.reference || '—'}
+														) : record.reference || ''}
 													</td>
 													<td>
 														{editingStockCardRecordId === record.id ? (
@@ -1176,17 +1258,17 @@ export default function AccountantBarcode({ sessionToken }) {
 																}))}
 																aria-label={`Description for ${stockCard.stockNo} on ${formatRecordDate(record.date)}`}
 															/>
-														) : record.description || '—'}
+														) : record.description || ''}
 													</td>
 													<td className="accountant-stock-card-in accountant-stock-card-group-start">{formatStockCardQuantity(record.in_qty)}</td>
-													<td className="accountant-stock-card-in">{formatPrice(record.in_unit_cost)}</td>
-													<td className="accountant-stock-card-in accountant-stock-card-group-end">{formatPrice(record.in_total)}</td>
+													<td className="accountant-stock-card-in">{formatStockCardPrice(record.in_unit_cost)}</td>
+													<td className="accountant-stock-card-in accountant-stock-card-group-end">{formatStockCardPrice(record.in_total)}</td>
 													<td className="accountant-stock-card-out accountant-stock-card-group-start">{hasStockCardOutQuantity(record) ? formatStockCardQuantity(record.out_qty) : ''}</td>
-													<td className="accountant-stock-card-out">{hasStockCardOutQuantity(record) ? formatPrice(record.out_unit_cost) : ''}</td>
-													<td className="accountant-stock-card-out accountant-stock-card-group-end">{hasStockCardOutQuantity(record) ? formatPrice(record.out_total) : ''}</td>
+													<td className="accountant-stock-card-out">{hasStockCardOutQuantity(record) ? formatStockCardPrice(record.out_unit_cost) : ''}</td>
+													<td className="accountant-stock-card-out accountant-stock-card-group-end">{hasStockCardOutQuantity(record) ? formatStockCardPrice(record.out_total) : ''}</td>
 													<td className="accountant-stock-card-balance accountant-stock-card-group-start">{formatStockCardQuantity(record.balance_qty)}</td>
-													<td className="accountant-stock-card-balance">{formatPrice(record.balance_unit_cost)}</td>
-													<td className="accountant-stock-card-balance accountant-stock-card-group-end">{formatPrice(record.running_balance)}</td>
+													<td className="accountant-stock-card-balance">{formatStockCardPrice(record.balance_unit_cost)}</td>
+													<td className="accountant-stock-card-balance accountant-stock-card-group-end">{formatStockCardPrice(record.running_balance)}</td>
 													<td className="accountant-stock-card-row-actions">
 														{editingStockCardRecordId === record.id ? (
 															<>
@@ -1226,11 +1308,28 @@ export default function AccountantBarcode({ sessionToken }) {
 													<td colSpan="13" className="accountant-inventory-empty">
 														{stockCardError || stockInStockCardError
 															? 'Some stock card records are unavailable.'
-															: 'No inventory stock card records have been added yet.'}
+															: `No stock records found for ${formatRecordMonth(stockCardMonth)}.`}
 													</td>
 												</tr>
 											)}
 										</tbody>
+										{displayedStockCardRecords.length > 0 && (
+											<tfoot>
+												<tr>
+													<th scope="row" colSpan="3">TOTAL</th>
+													<td className="accountant-stock-card-in accountant-stock-card-group-start">{formatStockCardQuantity(stockCardTotals.inQty)}</td>
+													<td className="accountant-stock-card-in"></td>
+													<td className="accountant-stock-card-in accountant-stock-card-group-end">{formatStockCardPrice(stockCardTotals.inTotal)}</td>
+													<td className="accountant-stock-card-out accountant-stock-card-group-start">{formatStockCardQuantity(stockCardTotals.outQty)}</td>
+													<td className="accountant-stock-card-out"></td>
+													<td className="accountant-stock-card-out accountant-stock-card-group-end">{formatStockCardPrice(stockCardTotals.outTotal)}</td>
+													<td className="accountant-stock-card-balance accountant-stock-card-group-start">{formatStockCardQuantity(stockCardTotals.balanceQty)}</td>
+													<td className="accountant-stock-card-balance"></td>
+													<td className="accountant-stock-card-balance accountant-stock-card-group-end">{formatStockCardPrice(stockCardTotals.runningBalance)}</td>
+													<td></td>
+												</tr>
+											</tfoot>
+										)}
 									</table>
 								</div>
 							</section>

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Check, Pencil, X } from 'lucide-react'
 import {
   createBranchCashAdvanceLoan,
   listBranchCashAdvanceLoans,
   listBranchCashAdvancePayments,
-  saveBranchCashAdvanceWeeklyDeductions
+  saveBranchCashAdvanceWeeklyDeductions,
+  updateBranchCashAdvanceLoanAmount
 } from '../../lib/supabase'
 import { getBranchEmployees } from './branchEmployees'
 import { getLocalDateKey } from './branchAttendanceRecords'
@@ -40,6 +42,9 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
   const [message, setMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [savingAdvanceId, setSavingAdvanceId] = useState('')
+  const [editingAdvanceId, setEditingAdvanceId] = useState('')
+  const [editingAdvanceAmount, setEditingAdvanceAmount] = useState('')
+  const [updatingAdvanceId, setUpdatingAdvanceId] = useState('')
   const sessionToken = branchAdmin?.session_token
   const payrollWeeks = useMemo(() => getPayrollPeriods(selectedMonth), [selectedMonth])
   const openPayrollWeeks = payrollWeeks.filter((week) => week.endDate >= todayDateKey)
@@ -171,6 +176,52 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
     setIsSaving(false)
   }
 
+  const canEditAdvanceToday = (advance) => (
+    Boolean(advance.created_at)
+    && getLocalDateKey(new Date(advance.created_at)) === todayDateKey
+  )
+
+  const startEditingAdvance = (advance) => {
+    setEditingAdvanceId(advance.id)
+    setEditingAdvanceAmount(String(advance.advance_amount))
+    setError('')
+    setMessage('')
+  }
+
+  const saveAdvanceAmount = async (event, advance) => {
+    event.preventDefault()
+    setError('')
+    setMessage('')
+
+    const amountText = editingAdvanceAmount.trim()
+    const amount = Number(amountText)
+    if (!/^\d{1,10}(?:\.\d{1,2})?$/.test(amountText) || !Number.isFinite(amount)
+      || amount <= 0 || amount > 9999999999.99) {
+      setError('Enter an amount greater than zero with no more than two decimal places.')
+      return
+    }
+
+    setUpdatingAdvanceId(advance.id)
+    const { error: updateError } = await updateBranchCashAdvanceLoanAmount(
+      sessionToken,
+      advance.id,
+      amount
+    )
+    setUpdatingAdvanceId('')
+    if (updateError) {
+      setError(updateError.message)
+      return
+    }
+
+    setEditingAdvanceId('')
+    setStatus('loading')
+    const refreshed = await refreshData()
+    if (refreshed) {
+      setMessage('Cash advance amount updated.')
+      setStatus('ready')
+    }
+  }
+
   const saveWeeklyDeductions = async (advance) => {
     setError('')
     setMessage('')
@@ -278,7 +329,7 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
               type="month"
               value={selectedMonth}
               required
-              disabled={isSaving || Boolean(savingAdvanceId)}
+              disabled={isSaving || Boolean(savingAdvanceId) || Boolean(updatingAdvanceId)}
               onChange={(event) => {
                 if (!event.target.value) return
                 setSelectedMonth(event.target.value)
@@ -325,7 +376,56 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
                   <span className="payroll-employee-id">{advance.employee_code}</span>
                 </td>
                 <td>{formatDate(advance.advance_date)}</td>
-                <td>{formatCurrency(advance.advance_amount)}</td>
+                <td>
+                  {editingAdvanceId === advance.id && canEditAdvanceToday(advance) ? (
+                    <form className="cash-advance-amount-editor" onSubmit={(event) => saveAdvanceAmount(event, advance)}>
+                      <input
+                        className="cash-advance-week-input"
+                        type="number"
+                        min="0.01"
+                        max="9999999999.99"
+                        step="0.01"
+                        value={editingAdvanceAmount}
+                        onChange={(event) => setEditingAdvanceAmount(event.target.value)}
+                        aria-label={`Cash advance amount for ${advance.employee_name}`}
+                        disabled={updatingAdvanceId === advance.id}
+                      />
+                      <button
+                        type="submit"
+                        className="cash-advance-amount-icon"
+                        aria-label={`Save cash advance amount for ${advance.employee_name}`}
+                        disabled={updatingAdvanceId === advance.id}
+                      >
+                        <Check size={16} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className="cash-advance-amount-icon"
+                        aria-label={`Cancel cash advance amount edit for ${advance.employee_name}`}
+                        onClick={() => setEditingAdvanceId('')}
+                        disabled={updatingAdvanceId === advance.id}
+                      >
+                        <X size={16} aria-hidden="true" />
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="cash-advance-amount-display">
+                      <span>{formatCurrency(advance.advance_amount)}</span>
+                      {canEditAdvanceToday(advance) && (
+                        <button
+                          type="button"
+                          className="cash-advance-amount-icon"
+                          aria-label={`Edit cash advance amount for ${advance.employee_name}`}
+                          title="Edit cash advance amount"
+                          onClick={() => startEditingAdvance(advance)}
+                          disabled={status !== 'ready' || Boolean(updatingAdvanceId) || Boolean(savingAdvanceId)}
+                        >
+                          <Pencil size={15} aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </td>
                 {payrollWeeks.map((week) => {
                   const key = getPaymentKey(advance.id, week.startDate)
                   return (
@@ -341,7 +441,7 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
                           [key]: event.target.value
                         }))}
                         aria-label={`${week.label} cash advance deduction for ${advance.employee_name}`}
-                        disabled={week.endDate < todayDateKey || Number(advance.balance) <= 0 || Boolean(savingAdvanceId)}
+                        disabled={week.endDate < todayDateKey || Number(advance.balance) <= 0 || Boolean(savingAdvanceId) || Boolean(updatingAdvanceId)}
                       />
                     </td>
                   )
@@ -358,7 +458,7 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
                     type="button"
                     className="cash-advance-save-button"
                     onClick={() => saveWeeklyDeductions(advance)}
-                    disabled={status !== 'ready' || isSaving || Boolean(savingAdvanceId) || openPayrollWeeks.length === 0}
+                    disabled={status !== 'ready' || isSaving || Boolean(savingAdvanceId) || Boolean(updatingAdvanceId) || openPayrollWeeks.length === 0}
                   >
                     {savingAdvanceId === advance.id ? 'Saving…' : 'Save weeks'}
                   </button>

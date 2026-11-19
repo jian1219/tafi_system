@@ -10,6 +10,7 @@ import {
 	listTafiAdminSummaryStockRecords,
 	deleteTafiAdminStockInScan,
 	updateTafiAdminStockBarcodeTotalPrice,
+	updateTafiAdminStockBarcodePricesByStockNo,
 	updateTafiAdminStockInScanCount,
 	updateTafiAdminStockReorderLevel
 } from '../../lib/supabase'
@@ -56,6 +57,10 @@ function formatBarcodePrice(value) {
 	}).format(Number(value))
 }
 
+function hasBarcodeUnitPrice(item) {
+	return item.price !== null && item.price !== undefined && item.price !== ''
+}
+
 function parsePriceCents(value) {
 	const [whole, fraction = ''] = value.split('.')
 	return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0'))
@@ -92,12 +97,18 @@ export default function TafiStockInventory({ sessionToken }) {
 	const [manualStockError, setManualStockError] = useState('')
 	const [manualStockNotice, setManualStockNotice] = useState('')
 	const [barcodeSearch, setBarcodeSearch] = useState('')
+	const [barcodePriceFilter, setBarcodePriceFilter] = useState('all')
 	const [editingBarcodePrice, setEditingBarcodePrice] = useState('')
 	const [editingBarcodePriceMode, setEditingBarcodePriceMode] = useState('total')
 	const [barcodePriceDraft, setBarcodePriceDraft] = useState('')
 	const [isSavingBarcodePrice, setIsSavingBarcodePrice] = useState(false)
 	const [barcodePriceError, setBarcodePriceError] = useState('')
 	const [barcodePriceNotice, setBarcodePriceNotice] = useState('')
+	const [isBulkBarcodePriceFormOpen, setIsBulkBarcodePriceFormOpen] = useState(false)
+	const [bulkBarcodeStockNo, setBulkBarcodeStockNo] = useState('')
+	const [bulkBarcodePriceDraft, setBulkBarcodePriceDraft] = useState('')
+	const [isSavingBulkBarcodePrice, setIsSavingBulkBarcodePrice] = useState(false)
+	const [bulkBarcodePriceError, setBulkBarcodePriceError] = useState('')
 	const [editingBarcodeCount, setEditingBarcodeCount] = useState('')
 	const [barcodeCountDraft, setBarcodeCountDraft] = useState('')
 	const [isSavingBarcodeCount, setIsSavingBarcodeCount] = useState(false)
@@ -258,8 +269,13 @@ export default function TafiStockInventory({ sessionToken }) {
 
 	const filteredBarcodeScans = useMemo(() => {
 		const query = barcodeSearch.trim().toLocaleLowerCase()
-		const matchingItems = query
-			? barcodeScans.filter((item) => [
+		const matchingItems = barcodeScans.filter((item) => {
+			const hasPrice = hasBarcodeUnitPrice(item)
+			if (barcodePriceFilter === 'priced' && !hasPrice) return false
+			if (barcodePriceFilter === 'no-price' && hasPrice) return false
+			if (!query) return true
+
+			return [
 				item.barcode,
 				item.stock_no,
 				item.item_description,
@@ -267,15 +283,26 @@ export default function TafiStockInventory({ sessionToken }) {
 				item.scan_count,
 				item.price,
 				item.total_price
-			].some((value) => String(value ?? '').toLocaleLowerCase().includes(query)))
-			: barcodeScans
+			].some((value) => String(value ?? '').toLocaleLowerCase().includes(query))
+		})
 
 		return [...matchingItems].sort((left, right) => {
 			const leftIsZero = Number(left.scan_count) === 0
 			const rightIsZero = Number(right.scan_count) === 0
 			return Number(leftIsZero) - Number(rightIsZero)
 		})
-	}, [barcodeScans, barcodeSearch])
+	}, [barcodePriceFilter, barcodeScans, barcodeSearch])
+
+	const barcodeStockNumbers = useMemo(
+		() => [...new Set(barcodeScans
+			.map((item) => String(item.stock_no ?? '').trim())
+			.filter(Boolean))]
+			.sort((left, right) => left.localeCompare(right)),
+		[barcodeScans]
+	)
+	const unpricedBulkBarcodeCount = barcodeScans.filter(
+		(item) => String(item.stock_no ?? '').trim() === bulkBarcodeStockNo && !hasBarcodeUnitPrice(item)
+	).length
 
 	const stockOutBranches = useMemo(
 		() => [...new Set(stockOutRecords.map((record) => record.branch).filter(Boolean))]
@@ -530,6 +557,76 @@ export default function TafiStockInventory({ sessionToken }) {
 		setBarcodePriceNotice(`${editingBarcodePriceMode === 'per-item' ? 'Per item price' : 'Total price'} saved for barcode ${item.barcode}.`)
 	}
 
+	const saveBulkBarcodePrice = async (event) => {
+		event.preventDefault()
+		setBulkBarcodePriceError('')
+		setBarcodePriceNotice('')
+
+		const stockNo = bulkBarcodeStockNo.trim()
+		const priceText = bulkBarcodePriceDraft.trim()
+		if (!stockNo) {
+			setBulkBarcodePriceError('Select a stock number.')
+			return
+		}
+		if (!priceText || !/^\d{1,29}(?:\.\d{1,2})?$/.test(priceText)) {
+			setBulkBarcodePriceError('Enter a per item price with up to 29 digits before the decimal and two decimal places.')
+			return
+		}
+
+		const matchingScans = barcodeScans.filter(
+			(item) => String(item.stock_no ?? '').trim() === stockNo && !hasBarcodeUnitPrice(item)
+		)
+		if (!matchingScans.length) {
+			setBulkBarcodePriceError(`All barcode items for stock number ${stockNo} already have a per item price.`)
+			return
+		}
+
+		const priceCents = parsePriceCents(priceText)
+		const invalidScan = matchingScans.find((item) => {
+			const countText = String(item.scan_count ?? '')
+			if (!/^\d+$/.test(countText) || BigInt(countText) <= 0n) return true
+			return priceCents * BigInt(countText) > maximumBarcodeTotalPriceCents
+		})
+		if (invalidScan) {
+			setBulkBarcodePriceError(
+				`Barcode ${invalidScan.barcode} must have a positive item count and a total price within the supported limit.`
+			)
+			return
+		}
+
+		setIsSavingBulkBarcodePrice(true)
+		const { data, error } = await updateTafiAdminStockBarcodePricesByStockNo(
+			sessionToken,
+			stockNo,
+			formatPriceCents(priceCents)
+		)
+		setIsSavingBulkBarcodePrice(false)
+		if (error) {
+			setBulkBarcodePriceError(error.message)
+			return
+		}
+
+		const updatedCount = Array.isArray(data) ? Number(data[0]?.updated_count) : NaN
+		if (updatedCount !== matchingScans.length) {
+			setBulkBarcodePriceError('The bulk price update could not be confirmed. Refresh Barcode Inventory to verify it.')
+			return
+		}
+
+		const unitPrice = formatPriceCents(priceCents)
+		setBarcodeScans((items) => items.map((item) => (
+			String(item.stock_no ?? '').trim() === stockNo && !hasBarcodeUnitPrice(item)
+				? {
+					...item,
+					price: unitPrice,
+					total_price: formatPriceCents(priceCents * BigInt(item.scan_count))
+				}
+				: item
+		)))
+		setIsBulkBarcodePriceFormOpen(false)
+		setBulkBarcodePriceDraft('')
+		setBarcodePriceNotice(`Per item price updated for ${updatedCount} barcodes with stock number ${stockNo}.`)
+	}
+
 	const refreshManualStockHistory = async () => {
 		setIsManualStockHistoryLoading(true)
 		setManualStockHistoryError('')
@@ -676,6 +773,10 @@ export default function TafiStockInventory({ sessionToken }) {
 		const isPerItemPrice = mode === 'per-item'
 		const priceLabel = isPerItemPrice ? 'Per item price' : 'Total price'
 		const price = isPerItemPrice ? item.price : item.total_price
+
+		if (!isPerItemPrice) {
+			return <td className="tafi-barcode-price-cell">{formatBarcodePrice(price)}</td>
+		}
 
 		return (
 			<td className="tafi-barcode-price-cell">
@@ -1184,7 +1285,7 @@ export default function TafiStockInventory({ sessionToken }) {
 					<p className="accountant-inventory-empty" role="status">Loading barcode inventory...</p>
 				) : barcodeLoadError ? null : barcodeScans.length ? (
 					<>
-						<div className="tafi-stock-inventory-filters" role="search" aria-label="Filter barcode inventory">
+						<div className="tafi-stock-inventory-filters tafi-barcode-inventory-filters" role="search" aria-label="Filter barcode inventory">
 							<label>
 								<span>Search barcode inventory</span>
 								<input
@@ -1194,7 +1295,81 @@ export default function TafiStockInventory({ sessionToken }) {
 									placeholder="Search barcode, stock no., description, unit, or price"
 								/>
 							</label>
+							<label htmlFor="tafi-barcode-price-filter">
+								<span>Price</span>
+								<select
+									id="tafi-barcode-price-filter"
+									value={barcodePriceFilter}
+									onChange={(event) => setBarcodePriceFilter(event.target.value)}
+								>
+									<option value="no-price">No price</option>
+									<option value="priced">Price</option>
+									<option value="all">All</option>
+								</select>
+							</label>
+							<button
+								type="button"
+								className="accountant-inventory-add-toggle"
+								onClick={() => {
+									const shouldOpen = !isBulkBarcodePriceFormOpen
+									setIsBulkBarcodePriceFormOpen(shouldOpen)
+									setBulkBarcodePriceError('')
+									if (shouldOpen) {
+										setBulkBarcodeStockNo(barcodeStockNumbers[0] ?? '')
+										setBulkBarcodePriceDraft('')
+									}
+								}}
+								disabled={isSavingBulkBarcodePrice}
+							>
+								{isBulkBarcodePriceFormOpen ? 'Cancel bulk price' : 'Set price by stock no.'}
+							</button>
 						</div>
+						{isBulkBarcodePriceFormOpen && (
+							<form className="tafi-barcode-bulk-price-form" onSubmit={saveBulkBarcodePrice}>
+								<p>
+									Apply one per item price to the {unpricedBulkBarcodeCount} unpriced barcode
+									{unpricedBulkBarcodeCount === 1 ? '' : 's'} with this stock number. Existing prices will not change.
+								</p>
+								<label htmlFor="tafi-barcode-bulk-stock-no">
+									<span>Stock no.</span>
+									<select
+										id="tafi-barcode-bulk-stock-no"
+										value={bulkBarcodeStockNo}
+										onChange={(event) => setBulkBarcodeStockNo(event.target.value)}
+										required
+									>
+										{barcodeStockNumbers.map((stockNo) => (
+											<option key={stockNo} value={stockNo}>{stockNo}</option>
+										))}
+									</select>
+								</label>
+								<label htmlFor="tafi-barcode-bulk-price">
+									<span>Per item price</span>
+									<input
+										id="tafi-barcode-bulk-price"
+										type="text"
+										inputMode="decimal"
+										maxLength={32}
+										value={bulkBarcodePriceDraft}
+										onChange={(event) => setBulkBarcodePriceDraft(event.target.value)}
+										placeholder="Enter price"
+										required
+									/>
+								</label>
+								<div className="tafi-barcode-bulk-price-actions">
+									<button
+										type="submit"
+										className="accountant-inventory-add-toggle"
+										disabled={isSavingBulkBarcodePrice}
+									>
+										{isSavingBulkBarcodePrice ? 'Saving...' : 'Apply to unpriced'}
+									</button>
+								</div>
+								{bulkBarcodePriceError && (
+									<p className="accountant-inventory-error" role="alert">{bulkBarcodePriceError}</p>
+								)}
+							</form>
+						)}
 						{barcodePriceError && (
 							<p className="accountant-inventory-error" role="alert">{barcodePriceError}</p>
 						)}
@@ -1261,7 +1436,7 @@ export default function TafiStockInventory({ sessionToken }) {
 								</table>
 							</div>
 						) : (
-							<p className="accountant-inventory-empty">No barcode inventory items match your search.</p>
+							<p className="accountant-inventory-empty">No barcode inventory items match the selected filters.</p>
 						)}
 					</>
 				) : (
