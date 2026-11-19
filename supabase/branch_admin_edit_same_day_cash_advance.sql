@@ -49,12 +49,12 @@ begin
   from public.branch_employee_cash_advance_loan as loan
   where loan.id = p_advance_id
     and loan.branch_id = v_branch_id
-    and (loan.created_at at time zone 'Asia/Manila')::date
-      = (now() at time zone 'Asia/Manila')::date
+    and loan.advance_date <= (now() at time zone 'Asia/Manila')::date
+    and loan.advance_date >= (now() at time zone 'Asia/Manila')::date - 3
   for update;
 
   if not found then
-    raise exception 'Cash advance amounts can only be edited on the day they were created.';
+    raise exception 'Cash advance amounts can only be edited within three days of the cash advance date.';
   end if;
 
   select coalesce(sum(payment.amount), 0)

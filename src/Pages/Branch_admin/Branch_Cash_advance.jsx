@@ -26,6 +26,15 @@ const formatDate = (dateKey) => new Date(`${dateKey}T12:00:00`).toLocaleDateStri
 })
 
 const getPaymentKey = (loanId, periodStart) => `${loanId}:${periodStart}`
+const cashAdvanceEditWindowDays = 3
+const canEditCashAdvanceOnDate = (advanceDate, todayDateKey) => {
+  const advanceDay = Date.parse(`${advanceDate}T00:00:00Z`)
+  const todayDay = Date.parse(`${todayDateKey}T00:00:00Z`)
+  const daysSinceAdvance = (todayDay - advanceDay) / 86400000
+  return Number.isInteger(daysSinceAdvance)
+    && daysSinceAdvance >= 0
+    && daysSinceAdvance <= cashAdvanceEditWindowDays
+}
 
 export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branchAdmin }) {
   const [employees, setEmployees] = useState([])
@@ -176,10 +185,7 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
     setIsSaving(false)
   }
 
-  const canEditAdvanceToday = (advance) => (
-    Boolean(advance.created_at)
-    && getLocalDateKey(new Date(advance.created_at)) === todayDateKey
-  )
+  const canEditAdvance = (advance) => canEditCashAdvanceOnDate(advance.advance_date, todayDateKey)
 
   const startEditingAdvance = (advance) => {
     setEditingAdvanceId(advance.id)
@@ -377,7 +383,7 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
                 </td>
                 <td>{formatDate(advance.advance_date)}</td>
                 <td>
-                  {editingAdvanceId === advance.id && canEditAdvanceToday(advance) ? (
+                  {editingAdvanceId === advance.id && canEditAdvance(advance) ? (
                     <form className="cash-advance-amount-editor" onSubmit={(event) => saveAdvanceAmount(event, advance)}>
                       <input
                         className="cash-advance-week-input"
@@ -411,7 +417,7 @@ export default function BranchCashAdvance({ branchName = 'Bansasi Branch', branc
                   ) : (
                     <div className="cash-advance-amount-display">
                       <span>{formatCurrency(advance.advance_amount)}</span>
-                      {canEditAdvanceToday(advance) && (
+                      {canEditAdvance(advance) && (
                         <button
                           type="button"
                           className="cash-advance-amount-icon"
