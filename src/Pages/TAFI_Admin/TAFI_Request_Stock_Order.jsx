@@ -39,6 +39,16 @@ const formatPreparationTotalPrice = (quantity, unitPrice) => {
 	const totalPrice = Number(quantity) * Number(unitPrice)
 	return Number.isFinite(totalPrice) ? preparationPriceFormatter.format(totalPrice) : '—'
 }
+const getPreparationItemsTotalPrice = (items) => {
+	let totalPrice = 0
+	for (const item of items) {
+		if (item.unit_price === null || item.unit_price === undefined || item.unit_price === '') return null
+		const lineTotal = Number(item.quantity) * Number(item.unit_price)
+		if (!Number.isFinite(lineTotal)) return null
+		totalPrice += lineTotal
+	}
+	return Number.isFinite(totalPrice) ? totalPrice : null
+}
 
 export default function TafiRequestStockOrder({ sessionToken }) {
 	const [requests, setRequests] = useState([])
@@ -268,6 +278,25 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 		})
 		return [...grouped.values()].sort((first, second) => first.stockNo.localeCompare(second.stockNo))
 	}, [activePreparationRequests, preparationItems])
+	const preparationTotals = useMemo(() => {
+		let quantity = 0
+		let totalPrice = 0
+		let hasUnpricedItem = false
+
+		preparationItems.forEach((item) => {
+			quantity += Number(item.quantity)
+			if (item.unit_price === null || item.unit_price === undefined || item.unit_price === '') {
+				hasUnpricedItem = true
+				return
+			}
+
+			const lineTotal = Number(item.quantity) * Number(item.unit_price)
+			if (Number.isFinite(lineTotal)) totalPrice += lineTotal
+			else hasUnpricedItem = true
+		})
+
+		return { quantity, totalPrice: hasUnpricedItem ? null : totalPrice }
+	}, [preparationItems])
 	const isPreparationComplete = activePreparationRequests.length > 0
 		&& requiredPreparationByStock.every((item) => item.prepared === item.requested)
 
@@ -907,11 +936,12 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 									const dateLabel = date && !Number.isNaN(date.getTime())
 										? requestDateLabelFormatter.format(date)
 										: 'Date unavailable'
+									const totalPrice = getPreparationItemsTotalPrice(items)
 									return (
 										<div className="tafi-stock-delivery-date-group" key={dateKey || 'date-unavailable'}>
 											<h4 className="tafi-stock-delivery-date-heading">{dateLabel}</h4>
 											<div className="accountant-inventory-table-wrap">
-												<table className="accountant-inventory-table">
+												<table className="accountant-inventory-table tafi-stock-preparation-items-table">
 													<thead>
 														<tr>
 															<th scope="col">Branch</th>
@@ -940,6 +970,17 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 															</tr>
 														))}
 													</tbody>
+													<tfoot>
+														<tr>
+															<td colSpan="7"></td>
+															<td>
+																{totalPrice === null
+																	? '—'
+																	: preparationPriceFormatter.format(totalPrice)}
+															</td>
+															<td></td>
+														</tr>
+													</tfoot>
 												</table>
 											</div>
 										</div>
@@ -1076,7 +1117,7 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 								<p className="accountant-inventory-empty" role="status">Loading prepared items...</p>
 							) : preparationItems.length ? (
 								<div className="accountant-inventory-table-wrap">
-									<table className="accountant-inventory-table">
+									<table className="accountant-inventory-table tafi-stock-preparation-items-table">
 										<thead>
 											<tr>
 												<th scope="col">Stock no.</th>
@@ -1116,6 +1157,18 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 												</tr>
 											))}
 										</tbody>
+										<tfoot>
+											<tr>
+												<td colSpan="6"></td>
+												<td>
+													{preparationTotals.totalPrice === null
+														? '—'
+														: preparationPriceFormatter.format(preparationTotals.totalPrice)}
+												</td>
+												<td></td>
+												<td></td>
+											</tr>
+										</tfoot>
 									</table>
 								</div>
 							) : (

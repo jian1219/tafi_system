@@ -7567,6 +7567,12 @@ fieldset.employee-emergency-contact-box {
   color: #1e293b;
 }
 
+.tafi-stock-preparation-items-table tfoot th,
+.tafi-stock-preparation-items-table tfoot td {
+  border-top: 2px solid #94a3b8;
+  font-weight: 750;
+}
+
 .branch-inventory-table tbody tr {
   cursor: pointer;
   transition: background-color 120ms ease;

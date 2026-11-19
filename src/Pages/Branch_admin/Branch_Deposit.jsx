@@ -40,9 +40,14 @@ const toCents = (amount) => Math.round(Number(amount) * 100)
 
 const createEmptyDeposit = () => ({
   dateDeposit: getManilaDateKey(),
-  depositAm: '0.00',
-  depositPm: '0.00'
+  depositAm: '',
+  depositPm: ''
 })
+
+const formatEditableAmount = (value) => {
+  const amount = Number(value)
+  return Number.isFinite(amount) && amount !== 0 ? amount.toFixed(2) : ''
+}
 
 const loadDepositData = async (sessionToken, api) => {
   const [depositResult, receiptResult] = await Promise.all([
@@ -182,8 +187,8 @@ export default function BranchDeposit({
     setEditingDepositId(deposit.id)
     setForm({
       dateDeposit: deposit.date_deposit,
-      depositAm: Number(deposit.deposit_am).toFixed(2),
-      depositPm: Number(deposit.deposit_pm).toFixed(2)
+      depositAm: formatEditableAmount(deposit.deposit_am),
+      depositPm: formatEditableAmount(deposit.deposit_pm)
     })
     setSelectedMonth(deposit.date_deposit.slice(0, 7))
     setActiveSection('entry')
@@ -278,7 +283,6 @@ export default function BranchDeposit({
                 ...current,
                 depositAm: event.target.value
               }))}
-              required
             />
           </label>
           <label>
@@ -293,7 +297,6 @@ export default function BranchDeposit({
                 ...current,
                 depositPm: event.target.value
               }))}
-              required
             />
           </label>
           <div className="deposit-calculated-field">

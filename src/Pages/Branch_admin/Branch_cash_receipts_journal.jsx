@@ -128,42 +128,47 @@ const formatDate = (dateKey) => new Date(`${dateKey}T12:00:00`).toLocaleDateStri
 const createEmptyEntry = () => ({
   siNo: '',
   date: getManilaDateKey(),
-  totalSales: '0.00',
-  consigmentSales: '0.00',
-  discount: '0.00',
-  returns: '0.00',
-  foodPanda: '0.00',
-  gcash: '0.00',
-  creditableWithholdingTax: '0.00',
-  cashFloat: '0.00',
-  expense: '0.00',
-  cashCount: '0.00'
+  totalSales: '',
+  consigmentSales: '',
+  discount: '',
+  returns: '',
+  foodPanda: '',
+  gcash: '',
+  creditableWithholdingTax: '',
+  cashFloat: '',
+  expense: '',
+  cashCount: ''
 })
+
+const formatEditableAmount = (value) => {
+  const amount = Number(value)
+  return Number.isFinite(amount) && amount !== 0 ? amount.toFixed(2) : ''
+}
 
 const createFormFromEntry = (entry) => ({
   siNo: entry.si_no,
   date: entry.date,
-  totalSales: Number(entry.total_sales).toFixed(2),
-  consigmentSales: Number(entry.consigment_sales).toFixed(2),
-  discount: Number(entry.discount).toFixed(2),
-  returns: Number(entry.returns).toFixed(2),
-  foodPanda: Number(entry.food_panda).toFixed(2),
-  gcash: Number(entry.gcash).toFixed(2),
-  creditableWithholdingTax: Number(entry.creditable_withholding_tax).toFixed(2),
-  cashFloat: Number(entry.cash_float).toFixed(2),
-  expense: Number(entry.expense).toFixed(2),
-  cashCount: Number(entry.cash_count).toFixed(2)
+  totalSales: formatEditableAmount(entry.total_sales),
+  consigmentSales: formatEditableAmount(entry.consigment_sales),
+  discount: formatEditableAmount(entry.discount),
+  returns: formatEditableAmount(entry.returns),
+  foodPanda: formatEditableAmount(entry.food_panda),
+  gcash: formatEditableAmount(entry.gcash),
+  creditableWithholdingTax: formatEditableAmount(entry.creditable_withholding_tax),
+  cashFloat: formatEditableAmount(entry.cash_float),
+  expense: formatEditableAmount(entry.expense),
+  cashCount: formatEditableAmount(entry.cash_count)
 })
 
 const getPreviousDayDepositCashFloat = (date, deposits) => {
-  if (!date) return '0.00'
+  if (!date) return ''
   const previousDate = new Date(`${date}T00:00:00.000Z`)
-  if (!Number.isFinite(previousDate.getTime())) return '0.00'
+  if (!Number.isFinite(previousDate.getTime())) return ''
   previousDate.setUTCDate(previousDate.getUTCDate() - 1)
   const previousDateKey = previousDate.toISOString().slice(0, 10)
   const deposit = deposits.find((item) => item.date_deposit === previousDateKey)
   const amount = Number(deposit?.deposit_vs_cash_sales)
-  return Number.isFinite(amount) && amount >= 0 ? amount.toFixed(2) : '0.00'
+  return Number.isFinite(amount) && amount > 0 ? amount.toFixed(2) : ''
 }
 
 const listDepositEntries = (api, sessionToken) => {
@@ -340,7 +345,7 @@ export default function BranchCashReceiptsJournal({
       editableAmountFields.map(({ key }) => [key, Number(form[key])])
     )
     if (Object.values(amounts).some((amount) => !Number.isFinite(amount) || amount < 0)) {
-      setError('Enter valid amounts of zero or greater for each amount field.')
+      setError('Enter valid amounts of zero or greater.')
       return
     }
     if (Object.values(amounts).some((amount) =>
@@ -620,7 +625,6 @@ export default function BranchCashReceiptsJournal({
                         [field.key]: event.target.value
                       }))
                     }}
-                    required
                   />
                 </label>
               )
