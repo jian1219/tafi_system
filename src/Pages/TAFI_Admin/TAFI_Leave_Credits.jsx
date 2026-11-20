@@ -111,6 +111,7 @@ export default function TafiLeaveCredits({ sessionToken }) {
 	const [activeTab, setActiveTab] = useState('credits')
 	const [employees, setEmployees] = useState([])
 	const [requests, setRequests] = useState([])
+	const [recordsEmployeeCode, setRecordsEmployeeCode] = useState('')
 	const [isLoadingBranches, setIsLoadingBranches] = useState(Boolean(sessionToken))
 	const [isLoadingCredits, setIsLoadingCredits] = useState(false)
 	const [isSubmitting, setIsSubmitting] = useState(false)
@@ -216,6 +217,11 @@ export default function TafiLeaveCredits({ sessionToken }) {
 			const loadedEmployees = creditsResult.data ?? []
 			setEmployees(loadedEmployees)
 			setRequests(requestsResult.data ?? [])
+			setRecordsEmployeeCode((current) =>
+				loadedEmployees.some((employee) => employee.employee_code === current)
+					? current
+					: loadedEmployees[0]?.employee_code ?? ''
+			)
 			setEmployeeCode((current) =>
 				loadedEmployees.some((employee) =>
 					employee.employee_code === current
@@ -263,6 +269,12 @@ export default function TafiLeaveCredits({ sessionToken }) {
 	)
 	const selectedLeaveEmployee = requestableEmployees.find((employee) =>
 		employee.employee_code === leaveEmployeeCode
+	)
+	const selectedRecordsEmployee = employees.find((employee) =>
+		employee.employee_code === recordsEmployeeCode
+	)
+	const selectedEmployeeLeaveRecords = requests.filter((request) =>
+		request.employee_code === recordsEmployeeCode && request.status === 'approved'
 	)
 	const selectedBranch = branches.find((branch) => branch.branch_id === selectedBranchId)
 	const leaveAvailableCredits = Math.max(
@@ -540,6 +552,7 @@ export default function TafiLeaveCredits({ sessionToken }) {
 							setMessage('')
 							setError('')
 							setLeaveEmployeeCode('')
+							setRecordsEmployeeCode('')
 							setLeaveStartDate('')
 							setLeaveEndDate('')
 							setLeaveReason('')
@@ -591,6 +604,15 @@ export default function TafiLeaveCredits({ sessionToken }) {
 					onClick={() => setActiveTab('records')}
 				>
 					Filed Leaves Records
+				</button>
+				<button
+					type="button"
+					role="tab"
+					aria-selected={activeTab === 'employeeHistory'}
+					className={activeTab === 'employeeHistory' ? 'monitoring-tab active' : 'monitoring-tab'}
+					onClick={() => setActiveTab('employeeHistory')}
+				>
+					Employee Leave History
 				</button>
 			</div>
 
@@ -858,7 +880,7 @@ export default function TafiLeaveCredits({ sessionToken }) {
 						)}
 					</form>
 				</div>
-			) : (
+			) : activeTab === 'records' ? (
 				<section className="leave-requests-list">
 					<div className="leave-requests-heading">
 						<div>
@@ -1001,6 +1023,77 @@ export default function TafiLeaveCredits({ sessionToken }) {
 								))}
 								{!isLoadingCredits && requests.length === 0 && (
 									<tr><td colSpan="9" className="leave-credit-empty">No leave requests have been filed for this branch.</td></tr>
+								)}
+							</tbody>
+						</table>
+					</div>
+				</section>
+			) : (
+				<section className="leave-requests-list">
+					<div className="leave-requests-heading">
+						<div>
+							<h4>Employee leave history</h4>
+							<p>Review filed leave dates, leave type, days, and credits deducted for one employee.</p>
+						</div>
+					</div>
+					<div className="leave-records-toolbar">
+						<label className="leave-records-employee">
+							<span>Employee</span>
+							<select
+								value={recordsEmployeeCode}
+								onChange={(event) => setRecordsEmployeeCode(event.target.value)}
+								disabled={isLoadingCredits || employees.length === 0}
+							>
+								<option value="">Select an employee</option>
+								{employees.map((employee) => (
+									<option key={employee.employee_code} value={employee.employee_code}>
+										{employee.name} — {employee.employee_code}
+									</option>
+								))}
+							</select>
+						</label>
+						{selectedRecordsEmployee && (
+							<div className="leave-records-balance">
+								<span>Current leave balance</span>
+								<strong>{formatCredits(selectedRecordsEmployee.balance)}</strong>
+							</div>
+						)}
+					</div>
+					<div className="employee-table-wrap">
+						<table className="employee-info-table leave-requests-table">
+							<thead>
+								<tr>
+									<th>Type of leave</th>
+									<th>No. days</th>
+									<th>Credits deducted</th>
+									<th>Reason</th>
+									<th>Leave dates</th>
+								</tr>
+							</thead>
+							<tbody>
+								{!isLoadingCredits && selectedEmployeeLeaveRecords.map((request) => (
+									<tr key={request.id}>
+										<td>
+											{leaveTypes.find((type) => type.value === request.leave_type)?.label
+												?? request.leave_type}
+										</td>
+										<td>{getInclusiveDayCount(request.start_date, request.end_date)}</td>
+										<td>{formatCredits(request.credit_days)}</td>
+										<td className="leave-request-reason-cell">{request.reason}</td>
+										<td>{formatDate(request.start_date)} – {formatDate(request.end_date)}</td>
+									</tr>
+								))}
+								{!isLoadingCredits && recordsEmployeeCode && selectedEmployeeLeaveRecords.length === 0 && (
+									<tr><td colSpan="5" className="leave-credit-empty">No filed leave records found for this employee.</td></tr>
+								)}
+								{!isLoadingCredits && !recordsEmployeeCode && (
+									<tr>
+										<td colSpan="5" className="leave-credit-empty">
+											{employees.length
+												? 'Select an employee to view their filed leave records.'
+												: 'No employees are available in this branch.'}
+										</td>
+									</tr>
 								)}
 							</tbody>
 						</table>
