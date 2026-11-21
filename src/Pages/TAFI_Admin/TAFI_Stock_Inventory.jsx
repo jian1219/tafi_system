@@ -98,6 +98,8 @@ export default function TafiStockInventory({ sessionToken }) {
 	const [manualStockNotice, setManualStockNotice] = useState('')
 	const [barcodeSearch, setBarcodeSearch] = useState('')
 	const [barcodePriceFilter, setBarcodePriceFilter] = useState('all')
+	const [isExportingBarcodeInventory, setIsExportingBarcodeInventory] = useState(false)
+	const [barcodeExportError, setBarcodeExportError] = useState('')
 	const [editingBarcodePrice, setEditingBarcodePrice] = useState('')
 	const [editingBarcodePriceMode, setEditingBarcodePriceMode] = useState('total')
 	const [barcodePriceDraft, setBarcodePriceDraft] = useState('')
@@ -769,6 +771,55 @@ export default function TafiStockInventory({ sessionToken }) {
 		}
 	}
 
+	const exportBarcodeInventory = async () => {
+		setIsExportingBarcodeInventory(true)
+		setBarcodeExportError('')
+		try {
+			const { default: ExcelJS } = await import('exceljs')
+			const workbook = new ExcelJS.Workbook()
+			const worksheet = workbook.addWorksheet('Barcode Inventory')
+			worksheet.columns = [
+				{ header: 'Barcode', key: 'barcode', width: 24 },
+				{ header: 'Stock no.', key: 'stockNo', width: 18 },
+				{ header: 'Item description', key: 'description', width: 48 },
+				{ header: 'Unit of measure', key: 'unit', width: 22 },
+				{ header: 'Per item price', key: 'price', width: 18 }
+			]
+			worksheet.addRows(barcodeScans.map((item) => ({
+				barcode: item.barcode ?? '',
+				stockNo: item.stock_no ?? '',
+				description: item.item_description ?? '',
+				unit: item.unit_of_measure ?? '',
+				price: hasBarcodeUnitPrice(item) ? Number(item.price) : null
+			})))
+			worksheet.getRow(1).font = { bold: true }
+			worksheet.getColumn(5).numFmt = '#,##0.00'
+			worksheet.autoFilter = 'A1:E1'
+			worksheet.views = [{ state: 'frozen', ySplit: 1 }]
+
+			const workbookBuffer = await workbook.xlsx.writeBuffer()
+			const fileName = `tafi-barcode-inventory-${getLocalDateInputValue()}.xlsx`
+			const downloadUrl = URL.createObjectURL(new Blob([workbookBuffer], {
+				type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+			}))
+			const link = document.createElement('a')
+			link.href = downloadUrl
+			link.download = fileName
+			document.body.appendChild(link)
+			link.click()
+			link.remove()
+			URL.revokeObjectURL(downloadUrl)
+		} catch (error) {
+			setBarcodeExportError(
+				error instanceof Error
+					? `Could not export barcode inventory: ${error.message}`
+					: 'Could not export barcode inventory.'
+			)
+		} finally {
+			setIsExportingBarcodeInventory(false)
+		}
+	}
+
 	const renderBarcodePriceCell = (item, mode) => {
 		const isPerItemPrice = mode === 'per-item'
 		const priceLabel = isPerItemPrice ? 'Per item price' : 'Total price'
@@ -1269,17 +1320,36 @@ export default function TafiStockInventory({ sessionToken }) {
 								: `${filteredBarcodeScans.length} of ${barcodeScans.length} barcode items`}
 						</p>
 					</div>
-					<button
-						type="button"
-						className="accountant-inventory-add-toggle"
-						onClick={refreshBarcodeScans}
-						disabled={isBarcodeLoading}
-					>
-						{isBarcodeLoading ? 'Refreshing...' : 'Refresh'}
-					</button>
+					<div className="tafi-stock-inventory-actions">
+						<button
+							type="button"
+							className="accountant-inventory-add-toggle"
+							onClick={exportBarcodeInventory}
+							disabled={
+								isExportingBarcodeInventory
+								|| isBarcodeLoading
+								|| Boolean(barcodeLoadError)
+								|| !barcodeScans.length
+							}
+						>
+							<Download size={16} aria-hidden="true" />
+							{isExportingBarcodeInventory ? 'Preparing Excel...' : 'Download Excel (.xlsx)'}
+						</button>
+						<button
+							type="button"
+							className="accountant-inventory-add-toggle"
+							onClick={refreshBarcodeScans}
+							disabled={isBarcodeLoading}
+						>
+							{isBarcodeLoading ? 'Refreshing...' : 'Refresh'}
+						</button>
+					</div>
 				</div>
 				{barcodeLoadError && (
 					<p className="accountant-inventory-error" role="alert">{barcodeLoadError}</p>
+				)}
+				{barcodeExportError && (
+					<p className="accountant-inventory-error" role="alert">{barcodeExportError}</p>
 				)}
 				{isBarcodeLoading ? (
 					<p className="accountant-inventory-empty" role="status">Loading barcode inventory...</p>

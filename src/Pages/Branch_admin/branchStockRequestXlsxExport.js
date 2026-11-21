@@ -17,8 +17,24 @@ const requisitionTemplates = {
 }
 
 const firstDataRow = 6
-const footerStartRow = 41
-const footerEndRow = 42
+
+const getFooterRows = (worksheet) => {
+	let footerRows = null
+	worksheet.model.merges.forEach((merge) => {
+		const match = merge.match(/^A(\d+):I(\d+)$/i)
+		if (!match) return
+
+		const startRow = Number(match[1])
+		const endRow = Number(match[2])
+		if (startRow > firstDataRow && (!footerRows || startRow > footerRows.startRow)) {
+			footerRows = { startRow, endRow }
+		}
+	})
+	if (!footerRows) {
+		throw new Error('The stock requisition template is missing its merged footer row.')
+	}
+	return footerRows
+}
 
 const escapeXmlText = (value) => String(value)
 	.replace(/&/g, '&amp;')
@@ -56,6 +72,7 @@ const restoreTemplateDrawing = async (
 	templateBuffer,
 	workbookBuffer,
 	extraRows,
+	footerStartRow,
 	branchName,
 	requestDate
 ) => {
@@ -158,6 +175,7 @@ export async function downloadBranchStockRequestWorkbook(
 		throw new Error('The stock requisition template does not contain a worksheet.')
 	}
 
+	const { startRow: footerStartRow, endRow: footerEndRow } = getFooterRows(worksheet)
 	const initialDataRowCount = footerStartRow - firstDataRow
 	const extraRows = Math.max(0, requestedItems.length - initialDataRowCount)
 	if (extraRows > 0) {
@@ -188,6 +206,7 @@ export async function downloadBranchStockRequestWorkbook(
 		templateBuffer,
 		workbookBuffer,
 		extraRows,
+		footerStartRow,
 		branchName,
 		requestDate
 	)

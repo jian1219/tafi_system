@@ -3033,6 +3033,51 @@ export async function listBranchInventory(sessionToken) {
   }
 }
 
+export async function listBranchInventoryRef(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_list_inventory_ref', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load branch reference inventory.')
+    }
+  }
+}
+
+export async function addBranchInventoryRefItem(sessionToken, stockInventoryId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_add_inventory_ref_item', {
+      p_session_token: sessionToken,
+      p_stock_inventory_id: stockInventoryId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to add stock to branch reference inventory.')
+    }
+  }
+}
+
+export async function updateBranchInventoryRefBarcode(sessionToken, stockInventoryId, barcode) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_update_inventory_ref_barcode', {
+      p_session_token: sessionToken,
+      p_stock_inventory_id: stockInventoryId,
+      p_barcode: barcode
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the reference inventory barcode.')
+    }
+  }
+}
+
 export async function addBranchInventoryItem(sessionToken, stockInventoryId, available) {
   try {
   	const supabaseClient = await getSupabaseClient()

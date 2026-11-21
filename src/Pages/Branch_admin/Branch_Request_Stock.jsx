@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronDown, Plus, Trash2 } from 'lucide-react'
 import {
 	createBranchStockRequestBatch,
 	listBranchStockReceiptHistory,
@@ -20,6 +20,55 @@ const createRequestLine = () => ({
 	quantityRequested: '',
 	quantityBuffer: '0'
 })
+
+const getRequestDraftStorageKey = (branchId) => (
+	branchId ? `tafi-branch-stock-request-draft:${branchId}` : null
+)
+
+const readRequestDraft = (storageKey) => {
+	const emptyDraft = () => [createRequestLine()]
+	if (!storageKey) {
+		return {
+			requestLines: emptyDraft(),
+			error: 'This branch could not be identified, so draft saving is unavailable.'
+		}
+	}
+
+	try {
+		const serializedDraft = window.localStorage.getItem(storageKey)
+		if (!serializedDraft) return { requestLines: emptyDraft(), error: '' }
+
+		const parsedDraft = JSON.parse(serializedDraft)
+		if (!Array.isArray(parsedDraft)) throw new Error('Saved request draft must be a list.')
+		if (parsedDraft.length === 0) return { requestLines: emptyDraft(), error: '' }
+
+		const requestLines = parsedDraft.map((line) => {
+			if (
+				!line
+				|| !Number.isInteger(line.lineId)
+				|| line.lineId < 1
+				|| typeof line.stockInventoryId !== 'string'
+				|| typeof line.quantityRequested !== 'string'
+				|| typeof line.quantityBuffer !== 'string'
+			) {
+				throw new Error('Saved request draft contains an invalid item.')
+			}
+			return line
+		})
+		if (new Set(requestLines.map((line) => line.lineId)).size !== requestLines.length) {
+			throw new Error('Saved request draft contains duplicate item IDs.')
+		}
+
+		nextRequestLineId = Math.max(nextRequestLineId, ...requestLines.map((line) => line.lineId))
+		return { requestLines, error: '' }
+	} catch (error) {
+		console.error('Unable to load the saved Branch Admin stock request draft.', error)
+		return {
+			requestLines: emptyDraft(),
+			error: 'The saved request draft could not be loaded. Use Clear all draft items to reset it.'
+		}
+	}
+}
 
 const formatOrderNumber = (groupId) => groupId?.slice(0, 8).toUpperCase() ?? '—'
 const formatPrice = (value) => value === null || value === undefined
@@ -45,6 +94,101 @@ const getRequestDateKey = (createdAt) => {
 		.join('-')
 }
 
+function SearchableStockItemSelect({ items, value, onChange, lineId, lineNumber }) {
+	const [isOpen, setIsOpen] = useState(false)
+	const [searchTerm, setSearchTerm] = useState('')
+	const selectRef = useRef(null)
+	const listboxId = `branch-stock-request-items-${lineId}`
+	const selectedItem = items.find((item) => item.stock_inventory_id === value)
+	const query = searchTerm.trim().toLocaleLowerCase()
+	const filteredItems = items.filter((item) => (
+		!query
+		|| [item.stock_no, item.item_description, item.unit_of_measure]
+			.some((text) => text?.toLocaleLowerCase().includes(query))
+	))
+
+	useEffect(() => {
+		if (!isOpen) return undefined
+
+		const closeOnOutsideClick = (event) => {
+			if (!selectRef.current?.contains(event.target)) {
+				setIsOpen(false)
+				setSearchTerm('')
+			}
+		}
+
+		document.addEventListener('mousedown', closeOnOutsideClick)
+		return () => document.removeEventListener('mousedown', closeOnOutsideClick)
+	}, [isOpen])
+
+	const chooseItem = (item) => {
+		onChange(item.stock_inventory_id)
+		setIsOpen(false)
+		setSearchTerm('')
+	}
+
+	return (
+		<div className="branch-stock-request-item-select" ref={selectRef}>
+			<button
+				type="button"
+				className="branch-stock-request-item-select-trigger"
+				aria-label={`Select an item for request line ${lineNumber}`}
+				aria-haspopup="listbox"
+				aria-expanded={isOpen}
+				aria-controls={listboxId}
+				onClick={() => {
+					setIsOpen((open) => !open)
+					setSearchTerm('')
+				}}
+			>
+				<span>{selectedItem?.item_description ?? 'Select an item'}</span>
+				<ChevronDown size={16} aria-hidden="true" />
+			</button>
+			{isOpen && (
+				<div className="branch-stock-request-item-select-menu">
+					<input
+						type="search"
+						className="branch-stock-request-item-select-search"
+						autoFocus
+						aria-label={`Search items for request line ${lineNumber}`}
+						aria-controls={listboxId}
+						placeholder="Search stock no., description, or unit"
+						value={searchTerm}
+						onChange={(event) => setSearchTerm(event.target.value)}
+						onKeyDown={(event) => {
+							if (event.key === 'Escape') {
+								event.preventDefault()
+								setIsOpen(false)
+								setSearchTerm('')
+							} else if (event.key === 'Enter') {
+								event.preventDefault()
+								if (filteredItems[0]) chooseItem(filteredItems[0])
+							}
+						}}
+					/>
+					<div id={listboxId} role="listbox" aria-label="Stock items">
+						{filteredItems.length ? filteredItems.map((item) => (
+							<button
+								type="button"
+								role="option"
+								aria-selected={item.stock_inventory_id === value}
+								className="branch-stock-request-item-select-option"
+								key={item.stock_inventory_id}
+								onClick={() => chooseItem(item)}
+							>
+								<span>{item.item_description}</span>
+								<small>{item.stock_no} · {item.unit_of_measure}</small>
+							</button>
+						)) : (
+							<p className="branch-stock-request-item-select-empty">No matching stock items.</p>
+						)}
+					</div>
+				</div>
+			)}
+		</div>
+	)
+}
+
 const loadRequestData = async (sessionToken) => {
 	const [stockResult, requestResult, historyResult] = await Promise.all([
 		listBranchTafiStockItems(sessionToken),
@@ -61,13 +205,17 @@ const loadRequestData = async (sessionToken) => {
 
 export default function BranchRequestStock({ branchName = 'Branch', branchAdmin }) {
 	const sessionToken = branchAdmin?.session_token
+	const requestDraftStorageKey = getRequestDraftStorageKey(branchAdmin?.branch_id)
+	const [initialDraft] = useState(() => readRequestDraft(requestDraftStorageKey))
 	const [stockItems, setStockItems] = useState([])
 	const [requests, setRequests] = useState([])
 	const [receiptHistory, setReceiptHistory] = useState([])
-	const [requestLines, setRequestLines] = useState(() => [createRequestLine()])
+	const [requestLines, setRequestLines] = useState(() => initialDraft.requestLines)
+	const requestLinesRef = useRef(requestLines)
+	const [draftLoadError, setDraftLoadError] = useState(initialDraft.error)
+	const [draftSaveError, setDraftSaveError] = useState('')
 	const [isReviewingRequest, setIsReviewingRequest] = useState(false)
-	const [categoryFilter, setCategoryFilter] = useState('')
-	const [itemSearch, setItemSearch] = useState('')
+	const [showRequestValidation, setShowRequestValidation] = useState(false)
 	const [activeTab, setActiveTab] = useState('request')
 	const [selectedRequestMonth, setSelectedRequestMonth] = useState('')
 	const [isLoading, setIsLoading] = useState(Boolean(sessionToken))
@@ -80,6 +228,34 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 	const [requestExportError, setRequestExportError] = useState('')
 	const [receiptError, setReceiptError] = useState('')
 	const [receiptNotice, setReceiptNotice] = useState('')
+
+	const saveRequestDraft = (lines) => {
+		if (!requestDraftStorageKey || draftLoadError) return
+		try {
+			const hasDraftContent = lines.length > 1 || lines.some((line) => (
+				line.stockInventoryId
+				|| line.quantityRequested
+				|| line.quantityBuffer !== '0'
+			))
+			if (hasDraftContent) {
+				window.localStorage.setItem(requestDraftStorageKey, JSON.stringify(lines))
+			} else {
+				window.localStorage.removeItem(requestDraftStorageKey)
+			}
+			setDraftSaveError('')
+		} catch (error) {
+			console.error('Unable to save the Branch Admin stock request draft.', error)
+			setDraftSaveError('Your draft could not be saved on this device. Keep this page open until you submit it.')
+		}
+	}
+
+	const updateRequestLines = (update) => {
+		const currentLines = requestLinesRef.current
+		const nextLines = typeof update === 'function' ? update(currentLines) : update
+		requestLinesRef.current = nextLines
+		setRequestLines(nextLines)
+		saveRequestDraft(nextLines)
+	}
 
 	useEffect(() => {
 		let isCurrent = true
@@ -104,28 +280,17 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 		}
 	}, [sessionToken])
 
-	const categories = useMemo(
-		() => [...new Set(stockItems.map((item) => item.category).filter(Boolean))]
-			.sort((a, b) => a.localeCompare(b)),
-		[stockItems]
-	)
-
 	const availableItemsByLine = useMemo(() => requestLines.map((line) => {
-		const query = itemSearch.trim().toLocaleLowerCase()
 		const selectedElsewhere = new Set(requestLines
 			.filter((otherLine) => otherLine.lineId !== line.lineId)
 			.map((otherLine) => otherLine.stockInventoryId)
 			.filter(Boolean))
 
-		return stockItems.filter((item) => {
-			if (selectedElsewhere.has(item.stock_inventory_id)) return false
-			if (item.stock_inventory_id === line.stockInventoryId) return true
-			if (categoryFilter && item.category !== categoryFilter) return false
-			if (!query) return true
-			return [item.stock_no, item.item_description, item.unit_of_measure]
-				.some((value) => value?.toLocaleLowerCase().includes(query))
-		})
-	}), [categoryFilter, itemSearch, requestLines, stockItems])
+		return stockItems.filter((item) => (
+			!selectedElsewhere.has(item.stock_inventory_id)
+			|| item.stock_inventory_id === line.stockInventoryId
+		))
+	}), [requestLines, stockItems])
 
 	const deliveredRequests = useMemo(
 		() => requests.filter((request) => request.status === 'delivered'),
@@ -203,11 +368,13 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 			|| !Number.isInteger(Number(line.quantityBuffer || 0))
 		))
 		if (hasDuplicateItems || hasInvalidLine) {
+			setShowRequestValidation(true)
 			setErrorMessage(hasDuplicateItems
 				? 'Choose a different stock item for each request line.'
 				: 'Select an item and enter a whole-number quantity greater than zero for every line.')
 			return
 		}
+		setShowRequestValidation(false)
 
 		const requestedItems = requestLines.map((line) => {
 			const stockItem = stockItems.find((item) => item.stock_inventory_id === line.stockInventoryId)
@@ -248,7 +415,7 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 		}
 
 		const submittedItemCount = requestLines.length
-		setRequestLines([createRequestLine()])
+		updateRequestLines([createRequestLine()])
 		setIsReviewingRequest(false)
 		const exportDetails = { branchName, requestedItems, requestDate, submittedItemCount }
 		let fileName = ''
@@ -303,6 +470,29 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 		} finally {
 			setRequestExportFormat('')
 		}
+	}
+
+	const handleClearAllDraft = () => {
+		if (!window.confirm('Clear all unsent stock request items for this branch?')) return
+
+		try {
+			if (!requestDraftStorageKey) {
+				throw new Error('This branch could not be identified.')
+			}
+			window.localStorage.removeItem(requestDraftStorageKey)
+			setDraftLoadError('')
+			setDraftSaveError('')
+		} catch (error) {
+			console.error('Unable to clear the Branch Admin stock request draft.', error)
+			setDraftSaveError('Unable to clear the saved draft on this device.')
+		}
+
+		const emptyDraft = [createRequestLine()]
+		requestLinesRef.current = emptyDraft
+		setRequestLines(emptyDraft)
+		setShowRequestValidation(false)
+		setIsReviewingRequest(false)
+		setErrorMessage('')
 	}
 
 	const cancelRequestExport = () => {
@@ -400,8 +590,19 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 
 				{errorMessage && <p className="accountant-inventory-error" role="alert">{errorMessage}</p>}
 				{notice && <p className="accountant-inventory-notice" role="status">{notice}</p>}
+				{draftLoadError && <p className="accountant-inventory-error" role="alert">{draftLoadError}</p>}
+				{draftSaveError && <p className="accountant-inventory-error" role="alert">{draftSaveError}</p>}
+				{!draftLoadError && !draftSaveError && (
+					<p className="accountant-inventory-field-note" role="status">
+						Unsent request items save automatically on this device until submitted or cleared.
+					</p>
+				)}
 
-				<form className="accountant-inventory-form branch-stock-request-form" onSubmit={handleSubmit}>
+				<form
+					className="accountant-inventory-form branch-stock-request-form"
+					onSubmit={handleSubmit}
+					onInvalidCapture={() => setShowRequestValidation(true)}
+				>
 					{isReviewingRequest ? (
 						<div className="branch-stock-request-review">
 							<h3>Review stock request</h3>
@@ -461,54 +662,36 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 						</div>
 					) : (
 						<>
-							<div className="branch-stock-request-filters">
-								<label>
-									<span>Filter by category</span>
-									<select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
-										<option value="">All categories</option>
-										{categories.map((category) => (
-											<option key={category} value={category}>{category}</option>
-										))}
-									</select>
-								</label>
-								<label>
-									<span>Search inventory</span>
-									<input
-										type="search"
-										value={itemSearch}
-										onChange={(event) => setItemSearch(event.target.value)}
-										placeholder="Search stock number or description"
-									/>
-								</label>
-							</div>
 							{requestLines.map((line, index) => {
 								const selectedItem = stockItems.find((item) => item.stock_inventory_id === line.stockInventoryId)
+								const isRequestedQuantityMissing = showRequestValidation && !line.quantityRequested
 								return (
-									<fieldset className="branch-stock-request-line" key={line.lineId}>
+									<fieldset
+										className={[
+											'branch-stock-request-line',
+											isRequestedQuantityMissing && 'branch-stock-request-line-missing-requested'
+										].filter(Boolean).join(' ')}
+										key={line.lineId}
+									>
 										<legend>Request item {index + 1}</legend>
 										<div className="branch-stock-request-fields">
-											<label>
+											<div className="branch-stock-request-item-field">
 												<span>Description</span>
-												<select
+												<SearchableStockItemSelect
+													items={availableItemsByLine[index]}
 													value={line.stockInventoryId}
-													onChange={(event) => {
-														setRequestLines((current) => current.map((item) => (
+													lineId={line.lineId}
+													lineNumber={index + 1}
+													onChange={(stockInventoryId) => {
+														updateRequestLines((current) => current.map((item) => (
 															item.lineId === line.lineId
-																? { ...item, stockInventoryId: event.target.value }
+																? { ...item, stockInventoryId }
 																: item
 														)))
 														setErrorMessage('')
 													}}
-													required
-												>
-													<option value="">Select an item</option>
-													{availableItemsByLine[index].map((item) => (
-														<option key={item.stock_inventory_id} value={item.stock_inventory_id}>
-															{item.item_description}
-														</option>
-													))}
-												</select>
-											</label>
+												/>
+											</div>
 											<label>
 												<span>Stock no.</span>
 												<input value={selectedItem?.stock_no ?? ''} readOnly />
@@ -532,8 +715,10 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 													min="1"
 													step="1"
 													value={line.quantityRequested}
+													className={isRequestedQuantityMissing ? 'branch-stock-request-quantity-missing' : undefined}
+													aria-invalid={isRequestedQuantityMissing || undefined}
 													onChange={(event) => {
-														setRequestLines((current) => current.map((item) => (
+														updateRequestLines((current) => current.map((item) => (
 															item.lineId === line.lineId
 																? { ...item, quantityRequested: event.target.value }
 																: item
@@ -551,7 +736,7 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 													step="1"
 													value={line.quantityBuffer}
 													onChange={(event) => {
-														setRequestLines((current) => current.map((item) => (
+														updateRequestLines((current) => current.map((item) => (
 															item.lineId === line.lineId
 																? { ...item, quantityBuffer: event.target.value }
 																: item
@@ -575,7 +760,7 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 												type="button"
 												className="branch-stock-remove-line"
 												onClick={() => {
-													setRequestLines((current) => current.filter((item) => item.lineId !== line.lineId))
+													updateRequestLines((current) => current.filter((item) => item.lineId !== line.lineId))
 													setErrorMessage('')
 												}}
 												disabled={isSubmitting}
@@ -587,18 +772,29 @@ export default function BranchRequestStock({ branchName = 'Branch', branchAdmin 
 									</fieldset>
 								)
 							})}
-							<button
-								type="button"
-								className="branch-stock-add-line"
-								onClick={() => {
-									setRequestLines((current) => [...current, createRequestLine()])
-									setErrorMessage('')
-								}}
-								disabled={isSubmitting}
-							>
-								<Plus size={16} aria-hidden="true" />
-								Add another item
-							</button>
+							<div className="branch-stock-request-draft-actions">
+								<button
+									type="button"
+									className="branch-stock-add-line"
+									onClick={() => {
+										updateRequestLines((current) => [...current, createRequestLine()])
+										setErrorMessage('')
+									}}
+									disabled={isSubmitting}
+								>
+									<Plus size={16} aria-hidden="true" />
+									Add another item
+								</button>
+								<button
+									type="button"
+									className="branch-stock-remove-line branch-stock-clear-all"
+									onClick={handleClearAllDraft}
+									disabled={isSubmitting}
+								>
+									<Trash2 size={15} aria-hidden="true" />
+									Clear all draft items
+								</button>
+							</div>
 							<button
 								type="submit"
 								className="accountant-inventory-submit"
