@@ -1,7 +1,7 @@
 import hoitfTemplateUrl from './xlsl_format/HOITF.xlsx?url'
 
 const firstDataRow = 5
-const templateDataRowCount = 20
+const templateDataRowCount = 50
 const footerStartRow = firstDataRow + templateDataRowCount
 const expectedHeaders = [
 	'No.',
@@ -57,7 +57,7 @@ const restoreTemplateDrawing = async (templateBuffer, workbookBuffer, extraRows,
 			(anchor) => anchor.replace(
 				/(<xdr:row>)(\d+)(<\/xdr:row>)/g,
 				(match, openingTag, rowNumber, closingTag) => (
-					Number(rowNumber) >= 24
+					Number(rowNumber) >= footerStartRow - 1
 						? `${openingTag}${Number(rowNumber) + extraRows}${closingTag}`
 						: match
 				)

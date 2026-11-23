@@ -23,6 +23,7 @@ const TafiInventory = lazy(() => import('./TAFI_Inventory'))
 const TafiStockInventory = lazy(() => import('./TAFI_Stock_Inventory'))
 const TafiBranchInventoryStock = lazy(() => import('./TAFI_branch_inventory_stock'))
 const TafiRequestStockOrder = lazy(() => import('./TAFI_Request_Stock_Order'))
+const TafiPurchaseOrder = lazy(() => import('./TAFI_Purchase_Order'))
 const TafiInventoryLog = lazy(() => import('./TAFI_Inventory_log'))
 const TafiBranchCDJ = lazy(() => import('./TAFI_Branch_cdj'))
 const TafiTafiCDJ = lazy(() => import('./TAFI_TAFI_cdj'))
@@ -80,6 +81,7 @@ const navigationGroups = [
 			{ id: 'stock-inventory', label: 'TAFI Stock Inventory', icon: Package },
 			{ id: 'branch-inventory-stock', label: 'Branch Inventory Stock', icon: Package },
 			{ id: 'stock-requests', label: 'Branch Stock Requests', icon: ClipboardList },
+			{ id: 'purchase-order', label: 'Purchase Order', icon: ClipboardList },
 			{ id: 'inventory-log', label: 'Branch Usage Log', icon: ClipboardList }
 		]
 	},
@@ -335,6 +337,12 @@ export default function TafiDashboard() {
 												<TafiRequestStockOrder sessionToken={tafiAdmin.session_token} />
 											</Suspense>
 										)
+										: activePage === 'purchase-order'
+											? (
+												<Suspense fallback={<p className="other-deduction-message" role="status">Loading Purchase Order...</p>}>
+													<TafiPurchaseOrder sessionToken={tafiAdmin.session_token} />
+												</Suspense>
+											)
 										: activePage === 'inventory-log'
 											? (
 												<Suspense fallback={<p className="other-deduction-message" role="status">Loading branch usage log...</p>}>

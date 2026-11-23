@@ -10,6 +10,8 @@ create table if not exists public.tafi_ap_subsidiary_ledger (
   payee_supplier_name text,
   terms text,
   amount numeric(14, 2) check (amount is null or amount >= 0),
+  discount numeric(14, 2) check (discount is null or discount >= 0),
+  wth numeric(14, 2) check (wth is null or wth >= 0),
   net_amount numeric(14, 2) check (net_amount is null or net_amount >= 0),
   payment_made numeric(14, 2) check (payment_made is null or payment_made >= 0),
   check_no text,
@@ -29,6 +31,12 @@ create table if not exists public.tafi_ap_subsidiary_ledger (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.tafi_ap_subsidiary_ledger
+  add column if not exists discount numeric(14, 2)
+    check (discount is null or discount >= 0),
+  add column if not exists wth numeric(14, 2)
+    check (wth is null or wth >= 0);
 
 alter table public.tafi_ap_subsidiary_ledger
   add column if not exists created_by_tafi_admin_id uuid
@@ -53,6 +61,8 @@ $$;
 alter table public.tafi_ap_subsidiary_ledger enable row level security;
 revoke all on table public.tafi_ap_subsidiary_ledger from public, anon, authenticated;
 
+drop function if exists public.accountant_list_ap_subsidiary_ledger(uuid);
+
 create or replace function public.accountant_list_ap_subsidiary_ledger(
   p_session_token uuid
 )
@@ -67,6 +77,8 @@ returns table (
   payee_supplier_name text,
   terms text,
   amount numeric,
+  discount numeric,
+  wth numeric,
   net_amount numeric,
   payment_made numeric,
   check_no text,
@@ -104,6 +116,8 @@ begin
          ledger.payee_supplier_name,
          ledger.terms,
          ledger.amount,
+         ledger.discount,
+         ledger.wth,
          ledger.net_amount,
          ledger.payment_made,
          ledger.check_no,
@@ -120,6 +134,11 @@ begin
 end;
 $$;
 
+drop function if exists public.accountant_save_ap_subsidiary_ledger_entry(
+  uuid, uuid, date, text, text, text, text, text, text, text, numeric, numeric,
+  numeric, text, text, text, text, numeric, text, text
+);
+
 create or replace function public.accountant_save_ap_subsidiary_ledger_entry(
   p_session_token uuid,
   p_ledger_id uuid,
@@ -132,6 +151,8 @@ create or replace function public.accountant_save_ap_subsidiary_ledger_entry(
   p_payee_supplier_name text,
   p_terms text,
   p_amount numeric,
+  p_discount numeric,
+  p_wth numeric,
   p_net_amount numeric,
   p_payment_made numeric,
   p_check_no text,
@@ -176,6 +197,8 @@ begin
       payee_supplier_name,
       terms,
       amount,
+      discount,
+      wth,
       net_amount,
       payment_made,
       check_no,
@@ -197,6 +220,8 @@ begin
       nullif(btrim(p_payee_supplier_name), ''),
       nullif(btrim(p_terms), ''),
       p_amount,
+      p_discount,
+      p_wth,
       p_net_amount,
       p_payment_made,
       nullif(btrim(p_check_no), ''),
@@ -220,6 +245,8 @@ begin
         payee_supplier_name = nullif(btrim(p_payee_supplier_name), ''),
         terms = nullif(btrim(p_terms), ''),
         amount = p_amount,
+        discount = p_discount,
+        wth = p_wth,
         net_amount = p_net_amount,
         payment_made = p_payment_made,
         check_no = nullif(btrim(p_check_no), ''),
@@ -245,14 +272,16 @@ $$;
 revoke all on function public.accountant_list_ap_subsidiary_ledger(uuid) from public;
 revoke all on function public.accountant_save_ap_subsidiary_ledger_entry(
   uuid, uuid, date, text, text, text, text, text, text, text, numeric, numeric,
-  numeric, text, text, text, text, numeric, text, text
+  numeric, numeric, numeric, text, text, text, text, numeric, text, text
 ) from public;
 
 grant execute on function public.accountant_list_ap_subsidiary_ledger(uuid) to anon, authenticated;
 grant execute on function public.accountant_save_ap_subsidiary_ledger_entry(
   uuid, uuid, date, text, text, text, text, text, text, text, numeric, numeric,
-  numeric, text, text, text, text, numeric, text, text
+  numeric, numeric, numeric, text, text, text, text, numeric, text, text
 ) to anon, authenticated;
+
+drop function if exists public.tafi_admin_list_ap_subsidiary_ledger(uuid);
 
 create or replace function public.tafi_admin_list_ap_subsidiary_ledger(
   p_session_token uuid
@@ -268,6 +297,8 @@ returns table (
   payee_supplier_name text,
   terms text,
   amount numeric,
+  discount numeric,
+  wth numeric,
   net_amount numeric,
   payment_made numeric,
   check_no text,
@@ -305,6 +336,8 @@ begin
          ledger.payee_supplier_name,
          ledger.terms,
          ledger.amount,
+         ledger.discount,
+         ledger.wth,
          ledger.net_amount,
          ledger.payment_made,
          ledger.check_no,
@@ -321,6 +354,11 @@ begin
 end;
 $$;
 
+drop function if exists public.tafi_admin_save_ap_subsidiary_ledger_entry(
+  uuid, uuid, date, text, text, text, text, text, text, text, numeric, numeric,
+  numeric, text, text, text, text, numeric, text, text
+);
+
 create or replace function public.tafi_admin_save_ap_subsidiary_ledger_entry(
   p_session_token uuid,
   p_ledger_id uuid,
@@ -333,6 +371,8 @@ create or replace function public.tafi_admin_save_ap_subsidiary_ledger_entry(
   p_payee_supplier_name text,
   p_terms text,
   p_amount numeric,
+  p_discount numeric,
+  p_wth numeric,
   p_net_amount numeric,
   p_payment_made numeric,
   p_check_no text,
@@ -377,6 +417,8 @@ begin
       payee_supplier_name,
       terms,
       amount,
+      discount,
+      wth,
       net_amount,
       payment_made,
       check_no,
@@ -398,6 +440,8 @@ begin
       nullif(btrim(p_payee_supplier_name), ''),
       nullif(btrim(p_terms), ''),
       p_amount,
+      p_discount,
+      p_wth,
       p_net_amount,
       p_payment_made,
       nullif(btrim(p_check_no), ''),
@@ -421,6 +465,8 @@ begin
         payee_supplier_name = nullif(btrim(p_payee_supplier_name), ''),
         terms = nullif(btrim(p_terms), ''),
         amount = p_amount,
+        discount = p_discount,
+        wth = p_wth,
         net_amount = p_net_amount,
         payment_made = p_payment_made,
         check_no = nullif(btrim(p_check_no), ''),
@@ -446,11 +492,13 @@ $$;
 revoke all on function public.tafi_admin_list_ap_subsidiary_ledger(uuid) from public;
 revoke all on function public.tafi_admin_save_ap_subsidiary_ledger_entry(
   uuid, uuid, date, text, text, text, text, text, text, text, numeric, numeric,
-  numeric, text, text, text, text, numeric, text, text
+  numeric, numeric, numeric, text, text, text, text, numeric, text, text
 ) from public;
 
 grant execute on function public.tafi_admin_list_ap_subsidiary_ledger(uuid) to anon, authenticated;
 grant execute on function public.tafi_admin_save_ap_subsidiary_ledger_entry(
   uuid, uuid, date, text, text, text, text, text, text, text, numeric, numeric,
-  numeric, text, text, text, text, numeric, text, text
+  numeric, numeric, numeric, text, text, text, text, numeric, text, text
 ) to anon, authenticated;
+
+notify pgrst, 'reload schema';

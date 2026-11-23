@@ -13,6 +13,8 @@ const ledgerFields = [
   { name: 'description', label: 'Description', multiline: true },
   { name: 'terms', label: 'Terms' },
   { name: 'amount', label: 'Amount', type: 'number' },
+  { name: 'discount', label: 'Discount', type: 'number' },
+  { name: 'wth', label: 'WTH', type: 'number' },
   { name: 'net_amount', label: 'Net Amount', type: 'number' },
   { name: 'payment_made', label: 'Payment Made', type: 'number' },
   { name: 'check_no', label: 'Check No.' },
@@ -39,6 +41,8 @@ const createEmptyEntry = () => ({
   payee_supplier_name: '',
   terms: '',
   amount: '',
+  discount: '',
+  wth: '',
   net_amount: '',
   payment_made: '',
   check_no: '',
@@ -326,6 +330,8 @@ export default function AccountantAPSubsidiaryLedger({
                 <th scope="col">Payee / Supplier Name</th>
                 <th scope="col">Terms</th>
                 <th scope="col">Amount</th>
+                <th scope="col">Discount</th>
+                <th scope="col">WTH</th>
                 <th scope="col">Net Amount</th>
                 <th scope="col">Payment Made</th>
                 <th scope="col">Check No.</th>
@@ -340,10 +346,10 @@ export default function AccountantAPSubsidiaryLedger({
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td className="ap-ledger-table-message" colSpan={readOnly ? 18 : 19}>Loading AP entries…</td></tr>
+                <tr><td className="ap-ledger-table-message" colSpan={readOnly ? 20 : 21}>Loading AP entries…</td></tr>
               ) : entries.length === 0 ? (
                 <tr>
-                  <td className="ap-ledger-table-message" colSpan={readOnly ? 18 : 19}>
+                  <td className="ap-ledger-table-message" colSpan={readOnly ? 20 : 21}>
                     {readOnly ? 'No AP entries yet.' : 'No AP entries yet. Add an entry to get started.'}
                   </td>
                 </tr>
@@ -358,6 +364,8 @@ export default function AccountantAPSubsidiaryLedger({
                   <td>{entry.payee_supplier_name || '—'}</td>
                   <td>{entry.terms || '—'}</td>
                   <td className="ap-ledger-amount">{formatAmount(entry.amount)}</td>
+                  <td className="ap-ledger-amount">{formatAmount(entry.discount)}</td>
+                  <td className="ap-ledger-amount">{formatAmount(entry.wth)}</td>
                   <td className="ap-ledger-amount">{formatAmount(entry.net_amount)}</td>
                   <td className="ap-ledger-amount">{formatAmount(entry.payment_made)}</td>
                   <td>{entry.check_no || '—'}</td>

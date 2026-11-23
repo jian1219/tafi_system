@@ -165,6 +165,8 @@ begin
 end;
 $$;
 
+drop function if exists public.guest_list_tafi_ap_subsidiary_ledger(uuid);
+
 create or replace function public.guest_list_tafi_ap_subsidiary_ledger(
   p_session_token uuid
 )
@@ -179,6 +181,8 @@ returns table (
   payee_supplier_name text,
   terms text,
   amount numeric,
+  discount numeric,
+  wth numeric,
   net_amount numeric,
   payment_made numeric,
   check_no text,
@@ -209,6 +213,8 @@ begin
          ledger.payee_supplier_name,
          ledger.terms,
          ledger.amount,
+         ledger.discount,
+         ledger.wth,
          ledger.net_amount,
          ledger.payment_made,
          ledger.check_no,
