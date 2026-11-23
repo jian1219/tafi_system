@@ -55,6 +55,15 @@ const createEmptyEntry = () => ({
 })
 
 const getStatusLabel = (value) => statuses.find((status) => status.value === value)?.label ?? value
+const getAutomaticStatus = (entry) => {
+  const hasBillingInvoice = Boolean(entry.billing_invoice?.trim())
+  const hasCheckNumber = Boolean(entry.check_no?.trim())
+  const hasInvoiceReference = Boolean(entry.invoice_no_ref_no?.trim())
+
+  if (hasBillingInvoice && hasCheckNumber && hasInvoiceReference) return 'paid'
+  if (hasBillingInvoice && hasCheckNumber) return 'check_for_pick_up'
+  return 'preparing_check'
+}
 const formatAmount = (value) => value === null || value === ''
   ? '—'
   : Number(value).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -122,12 +131,14 @@ export default function AccountantAPSubsidiaryLedger({
 
   const handleEdit = (entry) => {
     if (readOnly) return
-    setForm(Object.fromEntries(
+    const updatedForm = Object.fromEntries(
       Object.entries(createEmptyEntry()).map(([key, defaultValue]) => [
         key,
         entry[key] == null ? defaultValue : String(entry[key])
       ])
-    ))
+    )
+    updatedForm.status = getAutomaticStatus(updatedForm)
+    setForm(updatedForm)
     setEditingId(entry.ledger_id)
     setIsAddingSupplier(!suppliers.includes(entry.payee_supplier_name))
     setIsFormOpen(true)
@@ -153,6 +164,7 @@ export default function AccountantAPSubsidiaryLedger({
     setIsSaving(true)
     const { error: saveError } = await saveEntry(sessionToken, {
       ...form,
+      status: getAutomaticStatus(form),
       ledger_id: editingId
     })
     if (saveError) {
@@ -172,6 +184,14 @@ export default function AccountantAPSubsidiaryLedger({
     const wasEditing = Boolean(editingId)
     resetForm()
     setMessage(wasEditing ? 'AP Subsidiary Ledger entry updated.' : 'AP Subsidiary Ledger entry saved.')
+  }
+
+  const updateFormField = (name, value) => {
+    setForm((current) => {
+      const updatedForm = { ...current, [name]: value }
+      updatedForm.status = getAutomaticStatus(updatedForm)
+      return updatedForm
+    })
   }
 
   const handleDelete = async (entry) => {
@@ -244,7 +264,7 @@ export default function AccountantAPSubsidiaryLedger({
         <form className="branch-cdj-form ap-ledger-form" onSubmit={handleSubmit}>
           <div className="ap-ledger-form-heading">
             <h3>{editingId ? 'Edit AP entry' : 'New AP entry'}</h3>
-            <span>Amounts accept up to two decimal places.</span>
+            <span>Amounts accept up to two decimal places. Status updates automatically from Billing / Invoice, Check No., and Invoice No. / Ref No.</span>
           </div>
           <div className="ap-ledger-form-grid">
             {ledgerFields.slice(0, 5).map(({ name, label, type = 'text' }) => (
@@ -253,7 +273,7 @@ export default function AccountantAPSubsidiaryLedger({
                 <input
                   type={type}
                   value={form[name]}
-                  onChange={(event) => setForm((current) => ({ ...current, [name]: event.target.value }))}
+                  onChange={(event) => updateFormField(name, event.target.value)}
                 />
               </label>
             ))}
@@ -309,7 +329,7 @@ export default function AccountantAPSubsidiaryLedger({
                   <textarea
                     rows="2"
                     value={form[name]}
-                    onChange={(event) => setForm((current) => ({ ...current, [name]: event.target.value }))}
+                    onChange={(event) => updateFormField(name, event.target.value)}
                   />
                 ) : (
                   <input
@@ -317,21 +337,14 @@ export default function AccountantAPSubsidiaryLedger({
                     min={type === 'number' ? '0' : undefined}
                     step={type === 'number' ? '0.01' : undefined}
                     value={form[name]}
-                    onChange={(event) => setForm((current) => ({ ...current, [name]: event.target.value }))}
+                    onChange={(event) => updateFormField(name, event.target.value)}
                   />
                 )}
               </label>
             ))}
             <label className="branch-cdj-field ap-ledger-field">
-              <span>Status</span>
-              <select
-                value={form.status}
-                onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}
-              >
-                {statuses.map(({ value, label }) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
+              <span>Status (automatic)</span>
+              <input value={getStatusLabel(getAutomaticStatus(form))} readOnly />
             </label>
           </div>
           <div className="ap-ledger-form-actions">

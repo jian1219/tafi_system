@@ -171,6 +171,7 @@ as $$
 declare
   accountant_id uuid;
   saved_ledger_id uuid;
+  v_status text;
 begin
   select accountant_session.accountant_id
   into accountant_id
@@ -185,6 +186,13 @@ begin
   if p_status not in ('preparing_check', 'paid', 'check_for_pick_up') then
     raise exception 'Choose a valid AP payment status';
   end if;
+
+  v_status := case
+    when nullif(btrim(p_billing_invoice), '') is null
+      or nullif(btrim(p_check_no), '') is null then 'preparing_check'
+    when nullif(btrim(p_invoice_no_ref_no), '') is null then 'check_for_pick_up'
+    else 'paid'
+  end;
 
   if p_ledger_id is null then
     insert into public.tafi_ap_subsidiary_ledger (
@@ -229,7 +237,7 @@ begin
       nullif(btrim(p_invoice_no_ref_no), ''),
       nullif(btrim(p_date_payment), ''),
       p_balance_due,
-      p_status,
+      v_status,
       nullif(btrim(p_remarks), ''),
       accountant_id
     )
@@ -254,7 +262,7 @@ begin
         invoice_no_ref_no = nullif(btrim(p_invoice_no_ref_no), ''),
         date_payment = nullif(btrim(p_date_payment), ''),
         balance_due = p_balance_due,
-        status = p_status,
+        status = v_status,
         remarks = nullif(btrim(p_remarks), ''),
         updated_at = now()
     where ledger.id = p_ledger_id
@@ -391,6 +399,7 @@ as $$
 declare
   tafi_admin_id uuid;
   saved_ledger_id uuid;
+  v_status text;
 begin
   select admin_session.tafi_admin_id
   into tafi_admin_id
@@ -405,6 +414,13 @@ begin
   if p_status not in ('preparing_check', 'paid', 'check_for_pick_up') then
     raise exception 'Choose a valid AP payment status';
   end if;
+
+  v_status := case
+    when nullif(btrim(p_billing_invoice), '') is null
+      or nullif(btrim(p_check_no), '') is null then 'preparing_check'
+    when nullif(btrim(p_invoice_no_ref_no), '') is null then 'check_for_pick_up'
+    else 'paid'
+  end;
 
   if p_ledger_id is null then
     insert into public.tafi_ap_subsidiary_ledger (
@@ -449,7 +465,7 @@ begin
       nullif(btrim(p_invoice_no_ref_no), ''),
       nullif(btrim(p_date_payment), ''),
       p_balance_due,
-      p_status,
+      v_status,
       nullif(btrim(p_remarks), ''),
       tafi_admin_id
     )
@@ -474,7 +490,7 @@ begin
         invoice_no_ref_no = nullif(btrim(p_invoice_no_ref_no), ''),
         date_payment = nullif(btrim(p_date_payment), ''),
         balance_due = p_balance_due,
-        status = p_status,
+        status = v_status,
         remarks = nullif(btrim(p_remarks), ''),
         updated_at = now()
     where ledger.id = p_ledger_id
