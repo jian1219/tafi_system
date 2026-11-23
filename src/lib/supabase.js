@@ -2910,6 +2910,21 @@ export async function saveTafiAdminAPSubsidiaryLedgerEntry(sessionToken, entry) 
   }
 }
 
+export async function deleteTafiAdminAPSubsidiaryLedgerEntry(sessionToken, ledgerId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_delete_ap_subsidiary_ledger_entry', {
+      p_session_token: sessionToken,
+      p_ledger_id: ledgerId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to delete the AP Subsidiary Ledger entry.')
+    }
+  }
+}
+
 export async function listAccountantBranchDailySummaryCDJ(sessionToken, branchId) {
   try {
     const supabaseClient = await getSupabaseClient()

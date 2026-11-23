@@ -12314,9 +12314,34 @@ fieldset.employee-emergency-contact-box {
   background: #eff6ff;
 }
 
+.ap-ledger-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ap-ledger-delete-button {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ap-ledger-delete-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 .ap-ledger-primary-button:focus-visible,
 .ap-ledger-secondary-button:focus-visible,
 .ap-ledger-edit-button:focus-visible,
+.ap-ledger-delete-button:focus-visible,
 .ap-ledger-field input:focus-visible,
 .ap-ledger-field select:focus-visible,
 .ap-ledger-field textarea:focus-visible,
@@ -12468,7 +12493,8 @@ fieldset.employee-emergency-contact-box {
 
 .ap-ledger-table td:nth-child(6),
 .ap-ledger-table td:nth-child(7),
-.ap-ledger-table td:nth-child(19) {
+.ap-ledger-table td:nth-child(20),
+.ap-ledger-table td:nth-child(21) {
   max-width: 260px;
   white-space: normal;
 }

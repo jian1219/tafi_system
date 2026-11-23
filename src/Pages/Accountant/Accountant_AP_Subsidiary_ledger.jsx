@@ -63,8 +63,12 @@ export default function AccountantAPSubsidiaryLedger({
   sessionToken,
   listEntries = listAccountantAPSubsidiaryLedger,
   saveEntry = saveAccountantAPSubsidiaryLedgerEntry,
+  deleteEntry = null,
   sessionRoleLabel = 'Accountant',
-  readOnly = false
+  readOnly = false,
+  supplierOptions = null,
+  supplierOptionsLoading = false,
+  supplierOptionsError = ''
 }) {
   const [entries, setEntries] = useState([])
   const [form, setForm] = useState(createEmptyEntry)
@@ -73,14 +77,14 @@ export default function AccountantAPSubsidiaryLedger({
   const [isAddingSupplier, setIsAddingSupplier] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState('')
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
 
-  const suppliers = useMemo(
-    () => [...new Set(entries.map(({ payee_supplier_name: name }) => name).filter(Boolean))]
-      .sort((a, b) => a.localeCompare(b)),
-    [entries]
-  )
+  const suppliers = useMemo(() => supplierOptions ?? (
+    [...new Set(entries.map(({ payee_supplier_name: name }) => name).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b))
+  ), [entries, supplierOptions])
 
   useEffect(() => {
     let isCurrent = true
@@ -133,7 +137,7 @@ export default function AccountantAPSubsidiaryLedger({
 
   const handleSubmit = async (event) => {
     event.preventDefault()
-    if (readOnly) return
+    if (readOnly || deletingId) return
     setError('')
     setMessage('')
 
@@ -170,6 +174,40 @@ export default function AccountantAPSubsidiaryLedger({
     setMessage(wasEditing ? 'AP Subsidiary Ledger entry updated.' : 'AP Subsidiary Ledger entry saved.')
   }
 
+  const handleDelete = async (entry) => {
+    if (readOnly || !deleteEntry || isSaving || deletingId) return
+    const entryLabel = [entry.payee_supplier_name, entry.po_no].filter(Boolean).join(' — ')
+      || 'this AP entry'
+    if (!window.confirm(`Delete ${entryLabel}? This action cannot be undone.`)) return
+
+    setError('')
+    setMessage('')
+    setDeletingId(entry.ledger_id)
+    const { data: deleted, error: deleteError } = await deleteEntry(sessionToken, entry.ledger_id)
+    if (deleteError) {
+      setError(deleteError.message)
+      setDeletingId('')
+      return
+    }
+    if (deleted !== true) {
+      setError('The AP Subsidiary Ledger entry was not deleted.')
+      setDeletingId('')
+      return
+    }
+
+    setEntries((current) => current.filter((currentEntry) => currentEntry.ledger_id !== entry.ledger_id))
+    if (editingId === entry.ledger_id) resetForm()
+
+    const { data, error: loadError } = await listEntries(sessionToken)
+    setDeletingId('')
+    if (loadError) {
+      setError(`Entry deleted, but the ledger could not refresh: ${loadError.message}`)
+      return
+    }
+    setEntries(data ?? [])
+    setMessage('AP Subsidiary Ledger entry deleted.')
+  }
+
   return (
     <section className="ap-ledger-page">
       <header className="ap-ledger-heading">
@@ -181,6 +219,7 @@ export default function AccountantAPSubsidiaryLedger({
         {!readOnly && <button
           type="button"
           className="ap-ledger-primary-button"
+          disabled={Boolean(deletingId)}
           onClick={() => {
             if (isFormOpen && !editingId) {
               resetForm()
@@ -198,6 +237,7 @@ export default function AccountantAPSubsidiaryLedger({
       </header>
 
       {error && <p className="ap-ledger-alert" role="alert">{error}</p>}
+      {supplierOptionsError && <p className="ap-ledger-alert" role="alert">{supplierOptionsError}</p>}
       {message && <p className="ap-ledger-success" role="status">{message}</p>}
 
       {!readOnly && isFormOpen && (
@@ -251,10 +291,11 @@ export default function AccountantAPSubsidiaryLedger({
                   }}
                 >
                   <option value="">Select a supplier</option>
+                  {supplierOptionsLoading && <option value="" disabled>Loading shared inventory suppliers…</option>}
                   {suppliers.map((supplier) => (
                     <option value={supplier} key={supplier}>{supplier}</option>
                   ))}
-                  <option value="__add_supplier__">+ Add a new supplier</option>
+                  <option value="__add_supplier__">+ Add a new Supplier</option>
                 </select>
               )}
             </label>
@@ -294,10 +335,10 @@ export default function AccountantAPSubsidiaryLedger({
             </label>
           </div>
           <div className="ap-ledger-form-actions">
-            <button type="button" className="ap-ledger-secondary-button" onClick={resetForm}>
+            <button type="button" className="ap-ledger-secondary-button" onClick={resetForm} disabled={Boolean(deletingId)}>
               Cancel
             </button>
-            <button type="submit" className="ap-ledger-primary-button" disabled={isSaving}>
+            <button type="submit" className="ap-ledger-primary-button" disabled={isSaving || Boolean(deletingId)}>
               {isSaving ? 'Saving…' : editingId ? 'Save Changes' : 'Save Entry'}
             </button>
           </div>
@@ -376,14 +417,28 @@ export default function AccountantAPSubsidiaryLedger({
                   <td><span className={`ap-ledger-status ${entry.status}`}>{getStatusLabel(entry.status)}</span></td>
                   <td>{entry.remarks || '—'}</td>
                   {!readOnly && <td>
-                    <button
-                      type="button"
-                      className="ap-ledger-edit-button"
-                      onClick={() => handleEdit(entry)}
-                      aria-label={`Edit AP entry for ${entry.payee_supplier_name || 'supplier'}`}
-                    >
-                      Edit
-                    </button>
+                    <div className="ap-ledger-row-actions">
+                      <button
+                        type="button"
+                        className="ap-ledger-edit-button"
+                        onClick={() => handleEdit(entry)}
+                        aria-label={`Edit AP entry for ${entry.payee_supplier_name || 'supplier'}`}
+                        disabled={Boolean(deletingId) || isSaving}
+                      >
+                        Edit
+                      </button>
+                      {deleteEntry && (
+                        <button
+                          type="button"
+                          className="ap-ledger-delete-button"
+                          onClick={() => handleDelete(entry)}
+                          aria-label={`Delete AP entry for ${entry.payee_supplier_name || 'supplier'}`}
+                          disabled={Boolean(deletingId) || isSaving}
+                        >
+                          {deletingId === entry.ledger_id ? 'Deleting…' : 'Delete'}
+                        </button>
+                      )}
+                    </div>
                   </td>}
                 </tr>
               ))}

@@ -501,4 +501,41 @@ grant execute on function public.tafi_admin_save_ap_subsidiary_ledger_entry(
   numeric, numeric, numeric, text, text, text, text, numeric, text, text
 ) to anon, authenticated;
 
+create or replace function public.tafi_admin_delete_ap_subsidiary_ledger_entry(
+  p_session_token uuid,
+  p_ledger_id uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (
+    select 1
+    from public.tafi_admin_session as admin_session
+    where admin_session.session_token = p_session_token
+      and admin_session.expires_at > now()
+  ) then
+    raise exception 'TAFI Admin session is invalid or expired' using errcode = '28000';
+  end if;
+
+  if p_ledger_id is null then
+    raise exception 'An AP Subsidiary Ledger entry is required';
+  end if;
+
+  delete from public.tafi_ap_subsidiary_ledger as ledger
+  where ledger.id = p_ledger_id;
+
+  if not found then
+    raise exception 'AP Subsidiary Ledger entry not found';
+  end if;
+
+  return true;
+end;
+$$;
+
+revoke all on function public.tafi_admin_delete_ap_subsidiary_ledger_entry(uuid, uuid) from public;
+grant execute on function public.tafi_admin_delete_ap_subsidiary_ledger_entry(uuid, uuid) to anon, authenticated;
+
 notify pgrst, 'reload schema';
