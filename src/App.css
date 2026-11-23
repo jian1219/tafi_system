@@ -5311,6 +5311,23 @@ fieldset.employee-emergency-contact-box {
   margin: 2px 0;
 }
 
+.overtime-history-edit-button {
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 7px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.overtime-history-edit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .report-history-table.report-payroll-snapshot-table {
   min-width: 1200px;
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   listBranchOvertimeHours,
   saveBranchOvertimeHours
@@ -64,6 +64,8 @@ export default function BranchOtherAdditionPay({ branchName = 'Bansasi Branch', 
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [editingOvertimeKey, setEditingOvertimeKey] = useState('')
+  const overtimeFormRef = useRef(null)
   const sessionToken = branchAdmin?.session_token
   const payrollWeeks = useMemo(() => getPayrollWeeks(selectedMonth), [selectedMonth])
 
@@ -168,6 +170,23 @@ export default function BranchOtherAdditionPay({ branchName = 'Bansasi Branch', 
       || first.employeeName.localeCompare(second.employeeName)
   )
 
+  const startEditingOvertime = (group) => {
+    setEmployeeCode(group.employeeCode)
+    setSelectedMonth(group.week.startDate.slice(0, 7))
+    setWeekIndex(group.week.index)
+    setOvertimeHours((current) => ({
+      ...current,
+      ...Object.fromEntries(group.entries.map((entry) => [
+        getOvertimeKey(group.employeeCode, entry.overtime_date),
+        String(entry.hours)
+      ]))
+    }))
+    setEditingOvertimeKey(group.key)
+    setError('')
+    setMessage(`Editing overtime hours for ${group.employeeName}.`)
+    overtimeFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   const saveOvertime = async (event) => {
     event.preventDefault()
     setError('')
@@ -211,7 +230,8 @@ export default function BranchOtherAdditionPay({ branchName = 'Bansasi Branch', 
         String(entry.hours)
       ])))
       setStatus('ready')
-      setMessage(`Saved ${totalOvertimeHours} overtime hours. ${formatCurrency(overtimePay)} will be included in the selected week’s payroll.`)
+      setEditingOvertimeKey('')
+      setMessage(`${editingOvertimeKey ? 'Updated' : 'Saved'} ${totalOvertimeHours} overtime hours. ${formatCurrency(overtimePay)} will be included in the selected week’s payroll.`)
     }
     setIsSaving(false)
   }
@@ -238,12 +258,15 @@ export default function BranchOtherAdditionPay({ branchName = 'Bansasi Branch', 
         <p className="other-deduction-help">
           Enter the hours worked on each day. Overtime pay is calculated automatically as daily rate ÷ 8 × total overtime hours.
         </p>
-        <form className="other-deduction-form" onSubmit={saveOvertime}>
+        <form ref={overtimeFormRef} className="other-deduction-form" onSubmit={saveOvertime}>
           <label>
             <span>Employee</span>
             <select
               value={employeeCode}
-              onChange={(event) => setEmployeeCode(event.target.value)}
+              onChange={(event) => {
+                setEmployeeCode(event.target.value)
+                setEditingOvertimeKey('')
+              }}
               required
               disabled={status !== 'ready' || employees.length === 0}
             >
@@ -257,7 +280,10 @@ export default function BranchOtherAdditionPay({ branchName = 'Bansasi Branch', 
             <span>Payroll period</span>
             <select
               value={weekIndex}
-              onChange={(event) => setWeekIndex(Number(event.target.value))}
+              onChange={(event) => {
+                setWeekIndex(Number(event.target.value))
+                setEditingOvertimeKey('')
+              }}
             >
               {payrollWeeks.map((week) => (
                 <option key={week.startDate} value={week.index}>
@@ -294,8 +320,22 @@ export default function BranchOtherAdditionPay({ branchName = 'Bansasi Branch', 
                 {selectedEmployee && <small>Daily rate {formatCurrency(selectedEmployee.dailyRate)} ÷ 8 × {totalOvertimeHours.toFixed(2)} hours</small>}
               </div>
               <button type="submit" disabled={isSaving || status !== 'ready' || employees.length === 0}>
-                {isSaving ? 'Saving…' : 'Save overtime hours'}
+                {isSaving ? 'Saving…' : editingOvertimeKey ? 'Update overtime hours' : 'Save overtime hours'}
               </button>
+              {editingOvertimeKey && (
+                <button
+                  type="button"
+                  className="other-deduction-full-payment"
+                  onClick={() => {
+                    setEditingOvertimeKey('')
+                    setMessage('')
+                    setError('')
+                  }}
+                  disabled={isSaving}
+                >
+                  Cancel edit
+                </button>
+              )}
           </div>
         </form>
       </section>
@@ -316,6 +356,7 @@ export default function BranchOtherAdditionPay({ branchName = 'Bansasi Branch', 
               if (!event.target.value) return
               setSelectedMonth(event.target.value)
               setWeekIndex(0)
+              setEditingOvertimeKey('')
               setMessage('')
               setError('')
               setStatus('loading')
@@ -327,7 +368,7 @@ export default function BranchOtherAdditionPay({ branchName = 'Bansasi Branch', 
       <div className="other-deduction-table-wrap" role="region" aria-label="Overtime hours history" tabIndex="0">
           <table className="other-deduction-table">
             <thead>
-              <tr><th>Employee</th><th>Payroll period</th><th>Daily overtime hours</th><th>Total hours</th></tr>
+              <tr><th>Employee</th><th>Payroll period</th><th>Daily overtime hours</th><th>Total hours</th><th>Action</th></tr>
             </thead>
             <tbody>
               {overtimeHistoryGroups.map((group) => (
@@ -342,10 +383,20 @@ export default function BranchOtherAdditionPay({ branchName = 'Bansasi Branch', 
                     ))}
                   </td>
                   <td>{group.totalHours.toFixed(2)} hours</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="overtime-history-edit-button"
+                      onClick={() => startEditingOvertime(group)}
+                      disabled={isSaving || status !== 'ready'}
+                    >
+                      Edit
+                    </button>
+                  </td>
                 </tr>
               ))}
               {status === 'ready' && overtimeHistoryGroups.length === 0 && (
-                <tr><td className="employee-empty-state" colSpan="4">No overtime hours have been entered for this month.</td></tr>
+                <tr><td className="employee-empty-state" colSpan="5">No overtime hours have been entered for this month.</td></tr>
               )}
             </tbody>
           </table>
