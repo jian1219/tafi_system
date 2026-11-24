@@ -2713,6 +2713,20 @@ export async function listAccountantBranchStockInventory(sessionToken) {
   }
 }
 
+export async function listAccountantBranchStockCardRecords(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('accountant_list_branch_stock_card_records', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load Branch Stock Card records.')
+    }
+  }
+}
+
 export async function listAccountantInventoryBranches(sessionToken) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -3260,6 +3274,20 @@ export async function listBranchStockInRecords(sessionToken) {
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to load branch stock-in records.')
+    }
+  }
+}
+
+export async function listBranchStockCardRecords(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_list_stock_card_records', {
+      p_session_token: sessionToken
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load Branch Stock Card records.')
     }
   }
 }

@@ -11,6 +11,7 @@ import useRoleSessionExpiry from '../../lib/useRoleSessionExpiry'
 import logoImage from '../../images/Tafi logo transparent.png'
 import AccountantBarcode from './Accountant_Barcode'
 import AccountantBranchStockRecords from './Accountant_Branch_Stock_records'
+import AccountantBranchStockCard from './Accountant_Branch_Stock_Card'
 import AccountantTafiCDJ from './Accountant_TAFI_cdj'
 import AccountantInventoryInformation from './Accountant_Inventory_Information'
 import AccountantInventoryLog from './Accountant_Inventory_log'
@@ -29,7 +30,8 @@ const inventoryNavigationGroup = {
 		{ id: 'barcode', label: 'TAFI Inventory', icon: Barcode },
 		{ id: 'inventory-log', label: 'Branch Usage Log', icon: ClipboardList },
 		{ id: 'inventory-transform', label: 'Inventory Transfer Form Records', icon: ClipboardList },
-		{ id: 'branch-stock-records', label: 'Branch Stock Records', icon: Package }
+		{ id: 'branch-stock-records', label: 'Branch Stock Records', icon: Package },
+		{ id: 'branch-stock-card', label: 'Branch Stock Card', icon: ClipboardList }
 	]
 }
 const salesNavigationGroup = {
@@ -256,6 +258,8 @@ export default function AccountantDashboard() {
 									? 'Inventory Transfer Form Records'
 								: activePage === 'barcode'
 									? 'TAFI Inventory'
+										: activePage === 'branch-stock-card'
+											? 'Branch Stock Card'
 										: activePage === 'branch-stock-records'
 											? 'Branch Stock Records'
 											: activePage === 'sales-crj'
@@ -301,6 +305,9 @@ export default function AccountantDashboard() {
 					)}
 					{activePage === 'branch-stock-records' && (
 						<AccountantBranchStockRecords />
+					)}
+					{activePage === 'branch-stock-card' && (
+						<AccountantBranchStockCard sessionToken={sessionToken} />
 					)}
 					{activePage === 'branch-cdj' && (
 						<AccountantBranchCDJ sessionToken={accountant.session_token} />

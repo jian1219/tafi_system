@@ -27,6 +27,7 @@ import BranchOtherAdditionPay from './Branch_Other_Addition_pay'
 import BranchEmployeeLeaveCredits from './Branch_employee_leave_credits'
 import BranchInventory from './Branch_Inventory'
 import BranchInventoryLog from './Branch_Inventory_log'
+import BranchStockCard from './Branch_Stock_card'
 import BranchStockRecord from './Branch_Stock_record'
 import BranchRequestStock from './Branch_Request_Stock'
 import BranchAdminExpenseCDJ from './Branch_admin_expense_CDJ'
@@ -84,6 +85,7 @@ const navigationGroups = [
     items: [
       { name: 'Branch Inventory', label: 'Branch Inventory', component: BranchInventory, icon: Package },
       { name: 'Daily Inventory Log', label: 'Daily Inventory Log', component: BranchInventoryLog, icon: CalendarDays },
+      { name: 'Branch Stock Card', label: 'Branch Stock Card', component: BranchStockCard, icon: ClipboardList },
       { name: 'Branch Stock Record', label: 'Branch Stock Record', component: BranchStockRecord, icon: ClipboardList },
       { name: 'Request Stock', label: 'Request Stock', component: BranchRequestStock, icon: ClipboardList }
     ]
