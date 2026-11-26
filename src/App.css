@@ -5360,6 +5360,43 @@ fieldset.employee-emergency-contact-box {
   white-space: normal;
 }
 
+.holiday-pay-edit-button,
+.holiday-pay-delete-button {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.holiday-pay-edit-button {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.holiday-pay-delete-button {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.holiday-pay-edit-button:disabled,
+.holiday-pay-delete-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.holiday-pay-edit-button:focus-visible,
+.holiday-pay-delete-button:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px;
+}
+
 .overtime-history-days span {
   display: block;
   margin: 2px 0;

@@ -1343,6 +1343,21 @@ export async function saveTafiAdminHolidayPay(sessionToken, branchId, holidayPay
   }
 }
 
+export async function deleteTafiAdminSpecialNonworkingHolidayPay(sessionToken, holidayPayId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_delete_special_nonworking_holiday_pay', {
+      p_session_token: sessionToken,
+      p_holiday_pay_id: holidayPayId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to delete special non-working holiday pay.')
+    }
+  }
+}
+
 export async function listTafiAdminUndertimeDeductions(sessionToken, branchId, startDate, endDate) {
   try {
     const supabaseClient = await getSupabaseClient()

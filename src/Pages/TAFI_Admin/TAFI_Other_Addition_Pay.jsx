@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
 import {
+	deleteTafiAdminSpecialNonworkingHolidayPay,
 	listTafiAdminBranches,
 	listTafiAdminEmployees,
 	listTafiAdminHolidayPay,
@@ -86,6 +88,7 @@ export default function TafiOtherAdditionPay({ sessionToken }) {
 	const [directoryStatus, setDirectoryStatus] = useState('loading')
 	const [loadStatus, setLoadStatus] = useState('loading')
 	const [isSaving, setIsSaving] = useState(false)
+	const [deletingHolidayId, setDeletingHolidayId] = useState('')
 	const [reloadVersion, setReloadVersion] = useState(0)
 	const [error, setError] = useState('')
 	const [message, setMessage] = useState('')
@@ -391,7 +394,55 @@ export default function TafiOtherAdditionPay({ sessionToken }) {
 			delete next[holidayDraftKey]
 			return next
 		})
-		setMessage(`${selectedType.label} saved. Only employees marked Present or Present (Late) on the holiday date receive this pay.`)
+		setMessage(activeType === 'special_nonworking_holiday'
+			? `${selectedType.label} saved. Only employees marked Present or Present (Late) on the holiday date receive this pay.`
+			: `${selectedType.label} saved for all active employees in the selected classifications.`)
+		setReloadVersion((version) => version + 1)
+	}
+
+	const editRegularHolidayPay = (entry) => {
+		if (activeType !== 'holiday_regular_pay' || isSaving) return
+		const week = payrollWeeks.find((candidate) =>
+			entry.holiday_date >= candidate.startDate && entry.holiday_date <= candidate.endDate
+		)
+		const rule = holidayRules.find((candidate) =>
+			candidate.addition_type === 'holiday_regular_pay'
+				&& candidate.holiday_date === entry.holiday_date
+		)
+		if (!week || !rule) {
+			setError('Could not load the saved holiday settings. Refresh the page and try again.')
+			return
+		}
+
+		setError('')
+		setWeekIndex(week.index)
+		setHolidayDate(entry.holiday_date)
+		setHolidayDrafts((current) => ({
+			...current,
+			[`${selectedBranchId}:holiday_regular_pay:${entry.holiday_date}`]: {
+				percentage: String(rule.percentage),
+				classifications: rule.eligible_classifications
+			}
+		}))
+		setMessage(`Editing Holiday Regular Pay for ${formatDate(entry.holiday_date)}. Saving will update the pay for all employees in the selected classifications.`)
+	}
+
+	const deleteSpecialNonworkingHolidayPay = async (entry) => {
+		if (activeType !== 'special_nonworking_holiday' || isSaving || deletingHolidayId) return
+		if (!window.confirm(
+			`Delete ${entry.employee_name}’s Special Non-working Holiday pay of ${formatCurrency(Number(entry.amount))} for ${formatDate(entry.holiday_date)}? This cannot be undone.`
+		)) return
+
+		setError('')
+		setMessage('')
+		setDeletingHolidayId(entry.id)
+		const { error: deleteError } = await deleteTafiAdminSpecialNonworkingHolidayPay(sessionToken, entry.id)
+		setDeletingHolidayId('')
+		if (deleteError) {
+			setError(deleteError.message)
+			return
+		}
+		setMessage(`${entry.employee_name}’s Special Non-working Holiday pay was deleted.`)
 		setReloadVersion((version) => version + 1)
 	}
 
@@ -674,7 +725,9 @@ export default function TafiOtherAdditionPay({ sessionToken }) {
 				<div className="other-deduction-table-wrap" role="region" aria-label={`${selectedType.label} history`} tabIndex="0">
 					<table className="other-deduction-table">
 						<thead>
-							<tr><th>Employee</th><th>Holiday date</th><th>Percentage</th><th>Daily rate</th><th>Added pay</th></tr>
+							<tr>
+								<th>Employee</th><th>Holiday date</th><th>Percentage</th><th>Daily rate</th><th>Added pay</th><th>Action</th>
+							</tr>
 						</thead>
 						<tbody>
 							{visibleHolidayEntries.map((entry) => (
@@ -684,10 +737,37 @@ export default function TafiOtherAdditionPay({ sessionToken }) {
 									<td>{Number(entry.percentage).toFixed(2)}%</td>
 									<td>{formatCurrency(entry.daily_rate)}</td>
 									<td>{formatCurrency(entry.amount)}</td>
+									{activeType === 'holiday_regular_pay' ? (
+										<td>
+											<button
+												type="button"
+												className="holiday-pay-edit-button"
+												aria-label={`Edit Holiday Regular Pay settings for ${formatDate(entry.holiday_date)}`}
+												disabled={isSaving || Boolean(deletingHolidayId)}
+												onClick={() => editRegularHolidayPay(entry)}
+											>
+												<Pencil size={15} aria-hidden="true" />
+												Edit
+											</button>
+										</td>
+									) : activeType === 'special_nonworking_holiday' ? (
+										<td>
+											<button
+												type="button"
+												className="holiday-pay-delete-button"
+												aria-label={`Delete ${entry.employee_name}’s Special Non-working Holiday pay`}
+												disabled={isSaving || Boolean(deletingHolidayId)}
+												onClick={() => deleteSpecialNonworkingHolidayPay(entry)}
+											>
+												<Trash2 size={15} aria-hidden="true" />
+												{deletingHolidayId === entry.id ? 'Deleting…' : 'Delete'}
+											</button>
+										</td>
+									) : null}
 								</tr>
 							))}
 							{loadStatus === 'ready' && visibleHolidayEntries.length === 0 && (
-								<tr><td className="employee-empty-state" colSpan="5">No {selectedType.label.toLowerCase()} entries for this month.</td></tr>
+								<tr><td className="employee-empty-state" colSpan="6">No {selectedType.label.toLowerCase()} entries for this month.</td></tr>
 							)}
 						</tbody>
 					</table>
