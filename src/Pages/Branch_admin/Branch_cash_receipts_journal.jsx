@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   createBranchCashReceiptsJournalEntry,
+  deleteBranchCashReceiptsJournalEntry,
   listBranchDeposits,
   listBranchCashReceiptsJournalEntries,
   listBranchSalesTargets,
@@ -9,6 +10,7 @@ import {
 
 const branchCashReceiptsJournalApi = {
   createBranchCashReceiptsJournalEntry,
+  deleteBranchCashReceiptsJournalEntry,
   listBranchDeposits,
   listBranchSalesTargets,
   listBranchCashReceiptsJournalEntries,
@@ -237,7 +239,8 @@ export default function BranchCashReceiptsJournal({
   branchAdmin,
   api = branchCashReceiptsJournalApi,
   canManageTargets = false,
-  canManageEntries = true
+  canManageEntries = true,
+  canDeleteEntries = false
 }) {
   const sessionToken = branchAdmin?.session_token
   const [entries, setEntries] = useState([])
@@ -257,6 +260,7 @@ export default function BranchCashReceiptsJournal({
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [deletingEntryId, setDeletingEntryId] = useState('')
   const [isSavingTarget, setIsSavingTarget] = useState(false)
   const [selectedMonth, setSelectedMonth] = useState(() => getManilaDateKey().slice(0, 7))
   const cashFloatManuallyEdited = useRef(false)
@@ -340,6 +344,10 @@ export default function BranchCashReceiptsJournal({
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    if (deletingEntryId) {
+      setError('Wait for the journal entry deletion to finish before saving.')
+      return
+    }
     setError('')
     setMessage('')
 
@@ -427,6 +435,49 @@ export default function BranchCashReceiptsJournal({
     })
     setError('')
     setMessage('')
+  }
+
+  const handleDelete = async (entry) => {
+    if (!window.confirm(`Delete Cash Receipts Journal entry SI No. ${entry.si_no}? This cannot be undone.`)) {
+      return
+    }
+    if (typeof api.deleteBranchCashReceiptsJournalEntry !== 'function') {
+      setError('Deleting Cash Receipts Journal entries is not available for this account.')
+      setMessage('')
+      return
+    }
+
+    setError('')
+    setMessage('')
+    setDeletingEntryId(entry.id)
+    const { error: deleteError } = await api.deleteBranchCashReceiptsJournalEntry(sessionToken, entry.id)
+    if (deleteError) {
+      setError(deleteError.message)
+      setDeletingEntryId('')
+      return
+    }
+
+    const [entriesResult, targetsResult] = await Promise.all([
+      api.listBranchCashReceiptsJournalEntries(sessionToken),
+      api.listBranchSalesTargets(sessionToken)
+    ])
+    setDeletingEntryId('')
+    setSelectedEntryId((current) => current === entry.id ? '' : current)
+    if (editingEntryId === entry.id) cancelEdit()
+
+    if (entriesResult.error || targetsResult.error) {
+      setEntries((current) => current.filter((item) => item.id !== entry.id))
+      if (targetsResult.data) setTargets(targetsResult.data)
+      const refreshError = entriesResult.error ?? targetsResult.error
+      setError(`SI No. ${entry.si_no} was deleted, but the journal or targets could not refresh: ${refreshError.message}`)
+      setStatus('error')
+      return
+    }
+
+    setEntries(entriesResult.data ?? [])
+    setTargets(targetsResult.data ?? [])
+    setStatus('ready')
+    setMessage(`Cash receipts journal entry SI No. ${entry.si_no} deleted.`)
   }
 
   const handleTargetSubmit = async (event) => {
@@ -634,7 +685,7 @@ export default function BranchCashReceiptsJournal({
           </div>
         </fieldset>
 
-        <button type="submit" disabled={isSaving || status !== 'ready'}>
+        <button type="submit" disabled={isSaving || Boolean(deletingEntryId) || status !== 'ready'}>
           {isSaving ? 'Saving…' : editingEntryId ? 'Save Changes' : 'Save Entry'}
         </button>
         {editingEntryId && (
@@ -642,7 +693,7 @@ export default function BranchCashReceiptsJournal({
             type="button"
             className="crj-cancel-button"
             onClick={cancelEdit}
-            disabled={isSaving}
+            disabled={isSaving || Boolean(deletingEntryId)}
           >
             Cancel
           </button>
@@ -712,10 +763,20 @@ export default function BranchCashReceiptsJournal({
                         type="button"
                         className="crj-edit-button"
                         onClick={() => handleEdit(entry)}
-                        disabled={isSaving}
+                        disabled={isSaving || Boolean(deletingEntryId)}
                       >
                         Edit
                       </button>
+                      {canDeleteEntries && (
+                        <button
+                          type="button"
+                          className="crj-delete-button"
+                          onClick={() => handleDelete(entry)}
+                          disabled={isSaving || Boolean(deletingEntryId)}
+                        >
+                          {deletingEntryId === entry.id ? 'Deleting…' : 'Delete'}
+                        </button>
+                      )}
                     </td>
                   )}
                 </tr>

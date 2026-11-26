@@ -251,6 +251,8 @@ export default function BranchAdminDashboard() {
             <ActiveComponent
               branchName={branchName}
               branchAdmin={branchAdmin}
+              canDeleteEntries={activeTab === 'Cash Receipts Journal'}
+              canDeleteTransactions={activeTab === 'Branch Transactions'}
             />
           </div>
         </main>

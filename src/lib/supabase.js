@@ -3688,6 +3688,21 @@ export async function updateBranchCDJEntry(sessionToken, entry) {
   }
 }
 
+export async function deleteBranchCDJEntry(sessionToken, entryId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_delete_cdj_entry', {
+      p_session_token: sessionToken,
+      p_entry_id: entryId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to delete the Cash Disbursement Journal entry.')
+    }
+  }
+}
+
 export async function listBranchCDJEntries(sessionToken) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -3767,6 +3782,21 @@ export async function updateBranchCashReceiptsJournalEntry(sessionToken, entryId
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to update the Cash Receipts Journal entry.')
+    }
+  }
+}
+
+export async function deleteBranchCashReceiptsJournalEntry(sessionToken, entryId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_delete_cash_receipts_journal_entry', {
+      p_session_token: sessionToken,
+      p_entry_id: entryId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to delete the Cash Receipts Journal entry.')
     }
   }
 }
@@ -3939,6 +3969,21 @@ export async function createBranchGcashTransaction(sessionToken, transaction) {
   }
 }
 
+export async function deleteBranchGcashTransaction(sessionToken, transactionId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_delete_gcash_transaction', {
+      p_session_token: sessionToken,
+      p_transaction_id: transactionId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to delete the GCash transaction.')
+    }
+  }
+}
+
 export async function listBranchGcashTransactions(sessionToken) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -3986,6 +4031,21 @@ export async function createBranchFoodPandaTransaction(sessionToken, transaction
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to save the Food Panda transaction.')
+    }
+  }
+}
+
+export async function deleteBranchFoodPandaTransaction(sessionToken, transactionId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_delete_food_panda_transaction', {
+      p_session_token: sessionToken,
+      p_transaction_id: transactionId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to delete the Food Panda transaction.')
     }
   }
 }

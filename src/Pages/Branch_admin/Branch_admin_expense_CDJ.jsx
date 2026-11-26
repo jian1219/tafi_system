@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import {
   createBranchCDJEntry,
+  deleteBranchCDJEntry,
   listBranchCDJEntries,
   updateBranchCDJEntry
 } from '../../lib/supabase'
@@ -112,6 +113,7 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [deletingEntryId, setDeletingEntryId] = useState('')
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingEntryId, setEditingEntryId] = useState('')
   const [selectedMonth, setSelectedMonth] = useState(() => getManilaDateKey().slice(0, 7))
@@ -195,6 +197,10 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    if (deletingEntryId) {
+      setError('Wait for the journal entry deletion to finish before saving.')
+      return
+    }
     setError('')
     setMessage('')
 
@@ -271,6 +277,42 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
     setMessage('')
   }
 
+  const handleDeleteEntry = async (entry) => {
+    if (!window.confirm(
+      `Delete this Cash Disbursement Journal entry for ${formatDate(entry.date)} (${entry.payee_supplier}, ${formatCurrency(entry.total)})? This cannot be undone.`
+    )) {
+      return
+    }
+
+    setError('')
+    setMessage('')
+    setDeletingEntryId(entry.id)
+    const { error: deleteError } = await deleteBranchCDJEntry(sessionToken, entry.id)
+    if (deleteError) {
+      setError(deleteError.message)
+      setDeletingEntryId('')
+      return
+    }
+
+    const { data, error: loadError } = await listBranchCDJEntries(sessionToken)
+    setDeletingEntryId('')
+    if (editingEntryId === entry.id) {
+      setForm(createEmptyEntry())
+      setEditingEntryId('')
+      setIsFormOpen(false)
+    }
+    if (loadError) {
+      setEntries((current) => current.filter((item) => item.id !== entry.id))
+      setError(`Entry deleted, but the journal could not refresh: ${loadError.message}`)
+      setStatus('error')
+      return
+    }
+
+    setEntries(data ?? [])
+    setStatus('ready')
+    setMessage(`Cash disbursement entry for ${formatDate(entry.date)} deleted.`)
+  }
+
   return (
     <section className="branch-cdj-page">
       <header className="branch-cash-advance-header">
@@ -284,7 +326,7 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
         <button
           type="button"
           className="branch-cdj-add-entry"
-          disabled={isSaving}
+          disabled={isSaving || Boolean(deletingEntryId)}
           aria-expanded={isFormOpen}
           aria-controls="branch-cdj-entry-form"
           onClick={() => {
@@ -392,13 +434,13 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
           <span>Total</span>
           <strong>{formatCurrency(total)}</strong>
         </div>
-        <button type="submit" disabled={isSaving || status !== 'ready'}>
+        <button type="submit" disabled={isSaving || Boolean(deletingEntryId) || status !== 'ready'}>
           {isSaving ? (editingEntryId ? 'Updating…' : 'Saving…') : (editingEntryId ? 'Update Entry' : 'Save Entry')}
         </button>
         {editingEntryId && (
           <button
             type="button"
-            disabled={isSaving}
+            disabled={isSaving || Boolean(deletingEntryId)}
             onClick={() => {
               setForm(createEmptyEntry())
               setEditingEntryId('')
@@ -521,11 +563,20 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
                         <button
                           className="branch-cdj-row-edit"
                           type="button"
-                          disabled={isSaving}
+                          disabled={isSaving || Boolean(deletingEntryId)}
                           aria-label={`Edit cash disbursement entry dated ${formatDate(entry.date)}`}
                           onClick={() => handleEditEntry(entry)}
                         >
                           Edit
+                        </button>
+                        <button
+                          className="branch-cdj-row-delete"
+                          type="button"
+                          disabled={isSaving || Boolean(deletingEntryId)}
+                          aria-label={`Delete cash disbursement entry dated ${formatDate(entry.date)}`}
+                          onClick={() => handleDeleteEntry(entry)}
+                        >
+                          {deletingEntryId === entry.id ? 'Deleting…' : 'Delete'}
                         </button>
                       </td>
                     </tr>

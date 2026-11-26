@@ -206,6 +206,82 @@ begin
 end;
 $$;
 
+create or replace function public.branch_admin_delete_gcash_transaction(
+  p_session_token uuid,
+  p_transaction_id uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_branch_id uuid;
+begin
+  select branch_admin.branch_id into v_branch_id
+  from public.branch_admin_session as admin_session
+  join public.branch_admin as branch_admin
+    on branch_admin.id = admin_session.branch_admin_id
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now();
+
+  if not found then
+    raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
+  end if;
+  if p_transaction_id is null then
+    raise exception 'Select a GCash transaction to delete';
+  end if;
+
+  delete from public.gcash_transaction as transaction_entry
+  where transaction_entry.id = p_transaction_id
+    and transaction_entry.branch_id = v_branch_id;
+
+  if not found then
+    raise exception 'GCash transaction was not found in your branch';
+  end if;
+
+  return true;
+end;
+$$;
+
+create or replace function public.branch_admin_delete_food_panda_transaction(
+  p_session_token uuid,
+  p_transaction_id uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_branch_id uuid;
+begin
+  select branch_admin.branch_id into v_branch_id
+  from public.branch_admin_session as admin_session
+  join public.branch_admin as branch_admin
+    on branch_admin.id = admin_session.branch_admin_id
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now();
+
+  if not found then
+    raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
+  end if;
+  if p_transaction_id is null then
+    raise exception 'Select a Food Panda transaction to delete';
+  end if;
+
+  delete from public.food_panda_transaction as transaction_entry
+  where transaction_entry.id = p_transaction_id
+    and transaction_entry.branch_id = v_branch_id;
+
+  if not found then
+    raise exception 'Food Panda transaction was not found in your branch';
+  end if;
+
+  return true;
+end;
+$$;
+
 revoke all on function public.branch_admin_create_gcash_transaction(
   uuid, date, text, text, text, numeric, text
 ) from public, anon, authenticated;
@@ -216,6 +292,10 @@ revoke all on function public.branch_admin_create_food_panda_transaction(
 ) from public, anon, authenticated;
 revoke all on function public.branch_admin_list_food_panda_transactions(uuid, integer, integer)
   from public, anon, authenticated;
+revoke all on function public.branch_admin_delete_gcash_transaction(uuid, uuid)
+  from public, anon, authenticated;
+revoke all on function public.branch_admin_delete_food_panda_transaction(uuid, uuid)
+  from public, anon, authenticated;
 grant execute on function public.branch_admin_create_gcash_transaction(
   uuid, date, text, text, text, numeric, text
 ) to anon, authenticated;
@@ -225,6 +305,10 @@ grant execute on function public.branch_admin_create_food_panda_transaction(
   uuid, date, text, text, text, text, numeric, text
 ) to anon, authenticated;
 grant execute on function public.branch_admin_list_food_panda_transactions(uuid, integer, integer)
+  to anon, authenticated;
+grant execute on function public.branch_admin_delete_gcash_transaction(uuid, uuid)
+  to anon, authenticated;
+grant execute on function public.branch_admin_delete_food_panda_transaction(uuid, uuid)
   to anon, authenticated;
 
 notify pgrst, 'reload schema';

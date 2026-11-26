@@ -512,6 +512,46 @@ begin
 end;
 $$;
 
+create or replace function public.branch_admin_delete_cash_receipts_journal_entry(
+  p_session_token uuid,
+  p_entry_id uuid
+)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_branch_id uuid;
+  v_si_no text;
+begin
+  select branch_admin.branch_id into v_branch_id
+  from public.branch_admin_session as admin_session
+  join public.branch_admin as branch_admin
+    on branch_admin.id = admin_session.branch_admin_id
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now();
+
+  if not found then
+    raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
+  end if;
+  if p_entry_id is null then
+    raise exception 'Select a Cash Receipts Journal entry to delete';
+  end if;
+
+  delete from public.cash_receipts_journal as entry
+  where entry.id = p_entry_id
+    and entry.branch_id = v_branch_id
+  returning entry.si_no into v_si_no;
+
+  if not found then
+    raise exception 'Cash Receipts Journal entry was not found in your branch';
+  end if;
+
+  return v_si_no;
+end;
+$$;
+
 revoke all on function public.cash_receipts_journal_calculate_fields()
   from public, anon, authenticated;
 revoke all on function public.branch_admin_create_cash_receipts_journal_entry(
@@ -529,6 +569,9 @@ revoke all on function public.branch_admin_update_cash_receipts_journal_entry_wi
 revoke all on function public.branch_admin_list_cash_receipts_journal_entries(
   uuid, integer, integer
 ) from public, anon, authenticated;
+revoke all on function public.branch_admin_delete_cash_receipts_journal_entry(
+  uuid, uuid
+) from public, anon, authenticated;
 grant execute on function public.branch_admin_create_cash_receipts_journal_entry(
   uuid, numeric, numeric, numeric, numeric, numeric, numeric, numeric, numeric, numeric, numeric
 ) to anon, authenticated;
@@ -543,6 +586,9 @@ grant execute on function public.branch_admin_update_cash_receipts_journal_entry
 ) to anon, authenticated;
 grant execute on function public.branch_admin_list_cash_receipts_journal_entries(
   uuid, integer, integer
+) to anon, authenticated;
+grant execute on function public.branch_admin_delete_cash_receipts_journal_entry(
+  uuid, uuid
 ) to anon, authenticated;
 
 notify pgrst, 'reload schema';

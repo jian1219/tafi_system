@@ -219,6 +219,45 @@ begin
 end;
 $$;
 
+create or replace function public.branch_admin_delete_cdj_entry(
+  p_session_token uuid,
+  p_entry_id uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_branch_id uuid;
+begin
+  select branch_admin.branch_id
+  into v_branch_id
+  from public.branch_admin_session as admin_session
+  join public.branch_admin as branch_admin
+    on branch_admin.id = admin_session.branch_admin_id
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now();
+
+  if not found then
+    raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
+  end if;
+  if p_entry_id is null then
+    raise exception 'Select a Cash Disbursement Journal entry to delete';
+  end if;
+
+  delete from public.branch_cdj as entry
+  where entry.id = p_entry_id
+    and entry.branch_id = v_branch_id;
+
+  if not found then
+    raise exception 'Cash Disbursement Journal entry not found or does not belong to this branch';
+  end if;
+
+  return true;
+end;
+$$;
+
 revoke all on function public.branch_admin_create_cdj_entry_with_date(
   uuid, date, text, text, text, text, text, text, numeric, numeric, numeric, numeric
 ) from public, anon, authenticated;
@@ -234,6 +273,12 @@ revoke all on function public.branch_admin_update_cdj_entry_with_date(
 grant execute on function public.branch_admin_update_cdj_entry_with_date(
   uuid, uuid, date, text, text, text, text, text, text, numeric, numeric, numeric, numeric
 ) to anon, authenticated;
+
+revoke all on function public.branch_admin_delete_cdj_entry(uuid, uuid)
+  from public, anon, authenticated;
+
+grant execute on function public.branch_admin_delete_cdj_entry(uuid, uuid)
+  to anon, authenticated;
 
 notify pgrst, 'reload schema';
 commit;
