@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
-import { ArrowRight, Calculator, Crown, ShieldCheck, Store, UserRound } from 'lucide-react'
+import { ArrowRight, Calculator, Crown, ScanLine, ShieldCheck, Store, UserRound } from 'lucide-react'
 import AccountantLogin from './Pages/Accountant/Accountant_login'
 import AccountantDashboard from './Pages/Accountant/Accountant_Dashboard'
 import AdminLogin from './Pages/TAFI_Admin/TAFI_Admin_login'
@@ -11,6 +11,8 @@ import GuestLogin from './Pages/Owner/Guest_login'
 import GuestDashboard from './Pages/Owner/Guest_Dashboard'
 import SuperAdminLogin from './Pages/Super_Admin/Super_Admin'
 import SuperAdminDashboard from './Pages/Super_Admin/Super_Admin_Dashboard'
+import CounterScannerLogin from './Pages/Branch_Scanner/Counter_Scanner/Counter_scanner_login'
+import CounterScannerDashboard from './Pages/Branch_Scanner/Counter_Scanner/Counter_scanner_dashboard'
 import logoImage from './images/Tafi logo transparent.png'
 import './App.css'
 
@@ -40,6 +42,12 @@ const roles = [
     path: '/guest-login',
     icon: UserRound,
     description: 'Sign in to your Owner workspace.'
+  },
+  {
+    name: 'Counter Scanner',
+    path: '/counter-scanner-login',
+    icon: ScanLine,
+    description: 'Sign in with your branch account to open the Counter Scanner.'
   }
 ]
 
@@ -90,7 +98,7 @@ function Home() {
                 <h2 className="role-title" id="role-panel-title">Continue as</h2>
                 <p className="role-subtitle">Select a team workspace to sign in.</p>
               </div>
-              <span className="role-count">04 WORKSPACES</span>
+              <span className="role-count">05 WORKSPACES</span>
             </div>
 
             <div className="role-list">
@@ -135,6 +143,8 @@ function App() {
         <Route path="/tafi-admin-login" element={<AdminLogin />} />
         <Route path="/tafi-dashboard" element={<TafiDashboard />} />
         <Route path="/branch-admin-login" element={<BranchAdminLogin />} />
+        <Route path="/counter-scanner-login" element={<CounterScannerLogin />} />
+        <Route path="/counter-scanner-dashboard" element={<CounterScannerDashboard />} />
         <Route path="/guest-login" element={<GuestLogin />} />
         <Route path="/guest-dashboard" element={<GuestDashboard />} />
         <Route path="/super-admin-login" element={<SuperAdminLogin />} />

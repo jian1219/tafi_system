@@ -7447,6 +7447,96 @@ fieldset.employee-emergency-contact-box {
   grid-column: auto;
 }
 
+.branch-ref-inventory-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.branch-ref-inventory-actions .accountant-inventory-add-toggle {
+  min-height: 42px;
+  padding: 10px 16px;
+}
+
+.branch-ref-history-date-summary-row {
+  display: grid;
+  grid-template-columns: minmax(200px, 240px) minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  margin: 14px 0;
+}
+
+.branch-ref-history-period-selector {
+  display: grid;
+  width: 100%;
+  gap: 6px;
+  color: #475569;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.branch-ref-history-period-selector input {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: white;
+  font: inherit;
+}
+
+.branch-ref-history-period-selector small {
+  font-size: 0.76rem;
+  font-weight: 400;
+}
+
+.branch-ref-history-monthly-summary {
+  display: grid;
+  gap: 10px;
+}
+
+.branch-ref-history-daily-totals {
+  min-height: 100%;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.branch-ref-history-daily-totals h4 {
+  margin: 0 0 8px;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.branch-ref-history-daily-totals p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.84rem;
+}
+
+.branch-ref-history-daily-totals ul {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.branch-ref-history-daily-totals li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #334155;
+  font-size: 0.84rem;
+}
+
+.branch-ref-history-daily-totals li strong {
+  flex: 0 0 auto;
+  color: #0f172a;
+}
+
 .tafi-barcode-inventory-filters {
   grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr) auto;
   align-items: end;
@@ -8237,9 +8327,29 @@ fieldset.employee-emergency-contact-box {
   font-weight: 500;
 }
 
+@media (max-width: 1000px) {
+  .branch-ref-history-date-summary-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .branch-ref-history-monthly-summary {
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
 @media (max-width: 720px) {
   .accountant-inventory-form {
     grid-template-columns: 1fr;
+  }
+
+  .branch-ref-history-date-summary-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .branch-ref-history-monthly-summary {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .tafi-inventory-edit-backdrop {
@@ -9719,9 +9829,312 @@ fieldset.employee-emergency-contact-box {
   font-size: 0.84rem;
 }
 
+.counter-scanner-dashboard {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: clamp(20px, 5vw, 56px);
+  background: linear-gradient(135deg, #f8fafc 0%, #dbeafe 100%);
+}
+
+.counter-scanner-card {
+  width: min(100%, 980px);
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
+}
+
+.counter-scanner-header {
+  display: flex;
+  min-height: 88px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.counter-scanner-header img {
+  width: 62px;
+  height: 62px;
+  object-fit: contain;
+}
+
+.counter-scanner-logout {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.counter-scanner-content {
+  padding: clamp(24px, 5vw, 44px);
+}
+
+.counter-scanner-content h1 {
+  margin: 8px 0;
+  color: #0f172a;
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+}
+
+.counter-scanner-signed-in {
+  margin: 0;
+  color: #475569;
+}
+
+.counter-scanner-ready {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 28px;
+  padding: 18px;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.counter-scanner-ready p {
+  margin: 4px 0 0;
+  color: #3f6212;
+}
+
+.counter-scanner-input-section {
+  margin-top: 30px;
+}
+
+.counter-scanner-input-section h2 {
+  margin: 0 0 8px;
+  color: #0f172a;
+  font-size: 1.25rem;
+}
+
+.counter-scanner-input-section > p {
+  color: #475569;
+  line-height: 1.5;
+}
+
+.counter-scanner-direction-tabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.counter-scanner-direction-tabs button {
+  min-height: 42px;
+  padding: 9px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.counter-scanner-direction-tabs button.active {
+  border-color: #176c60;
+  background: #176c60;
+  color: #fff;
+}
+
+.counter-scanner-direction-tabs button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.counter-scanner-input-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.counter-scanner-input-form label {
+  color: #334155;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.counter-scanner-input-form > div {
+  display: flex;
+  gap: 10px;
+}
+
+.counter-scanner-input-form input {
+  flex: 1;
+  min-width: 0;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.counter-scanner-input-form > input {
+  width: min(100%, 220px);
+}
+
+.counter-scanner-input-form input:focus {
+  border-color: #2563eb;
+  outline: 3px solid rgba(37, 99, 235, 0.16);
+}
+
+.counter-scanner-input-form button {
+  min-height: 46px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #1d4ed8;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.counter-scanner-input-status {
+  margin-bottom: 0;
+  color: #166534 !important;
+  font-weight: 700;
+}
+
+.counter-scanner-input-status.is-error {
+  color: #b91c1c !important;
+}
+
+.counter-scanner-last-scan {
+  overflow-wrap: anywhere;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #334155 !important;
+}
+
+.counter-scanner-input-note {
+  font-size: 0.82rem;
+}
+
+.counter-scanner-ref-section {
+  margin-top: 36px;
+}
+
+.counter-scanner-ref-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.counter-scanner-ref-heading h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.25rem;
+}
+
+.counter-scanner-ref-heading p {
+  margin: 6px 0 0;
+  color: #64748b;
+}
+
+.counter-scanner-refresh {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.counter-scanner-refresh:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.counter-scanner-ref-table-wrap {
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.counter-scanner-ref-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.counter-scanner-ref-table th,
+.counter-scanner-ref-table td {
+  padding: 11px 13px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #334155;
+  vertical-align: top;
+}
+
+.counter-scanner-ref-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.counter-scanner-ref-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.counter-scanner-ref-error,
+.counter-scanner-ref-empty {
+  padding: 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.counter-scanner-ref-error {
+  background: #fff6f6;
+  color: #b91c1c;
+}
+
+.counter-scanner-home-link {
+  display: inline-block;
+  margin-top: 24px;
+  color: #176c60;
+  font-weight: 700;
+}
+
 @media (max-width: 960px) {
   .role-login-page {
     grid-template-columns: 1fr;
+  }
+
+  @media (max-width: 560px) {
+    .counter-scanner-input-form > div {
+      flex-direction: column;
+    }
+
+    .counter-scanner-ref-heading {
+      align-items: flex-start;
+    }
+
+    .counter-scanner-ref-table {
+      min-width: 620px;
+    }
   }
 
   .role-login-page > .role-login-brand {

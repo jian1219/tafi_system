@@ -3080,6 +3080,69 @@ export async function listBranchInventoryRef(sessionToken) {
   }
 }
 
+export async function listBranchInventoryRefHistory(sessionToken, limit, offset, day = null) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_list_inventory_ref_history', {
+      p_session_token: sessionToken,
+      p_limit: limit,
+      p_offset: offset,
+      p_day: day
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load Ref Inventory Stock Out history.')
+    }
+  }
+}
+
+export async function listBranchInventoryRefStockOutTotals(sessionToken, day) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_list_inventory_ref_stock_out_totals', {
+      p_session_token: sessionToken,
+      p_day: day
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load daily Ref Stock Out totals.')
+    }
+  }
+}
+
+export async function listBranchInventoryRefStockOutMonthlyTotals(sessionToken, month) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_list_inventory_ref_stock_out_monthly_totals', {
+      p_session_token: sessionToken,
+      p_month: `${month}-01`
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load monthly Ref Stock Out totals.')
+    }
+  }
+}
+
+export async function listBranchInventoryRefStockInHistory(sessionToken, limit, offset) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_list_inventory_ref_stock_in_history', {
+      p_session_token: sessionToken,
+      p_limit: limit,
+      p_offset: offset
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load Ref Inventory Stock In history.')
+    }
+  }
+}
+
 export async function addBranchInventoryRefItem(sessionToken, stockInventoryId) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -3091,6 +3154,21 @@ export async function addBranchInventoryRefItem(sessionToken, stockInventoryId) 
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to add stock to branch reference inventory.')
+    }
+  }
+}
+
+export async function deleteBranchInventoryRefItem(sessionToken, stockInventoryId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_delete_inventory_ref_item', {
+      p_session_token: sessionToken,
+      p_stock_inventory_id: stockInventoryId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to delete the Ref Inventory item.')
     }
   }
 }
@@ -3111,6 +3189,38 @@ export async function updateBranchInventoryRefBarcode(sessionToken, stockInvento
   }
 }
 
+export async function scanBranchInventoryOut(sessionToken, barcode, quantity) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_scan_counter_inventory_out', {
+      p_session_token: sessionToken,
+      p_barcode: barcode,
+      p_quantity: quantity
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to record the scanned branch stock-out.')
+    }
+  }
+}
+
+export async function scanBranchInventoryIn(sessionToken, barcode, quantity) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_scan_counter_inventory_in', {
+      p_session_token: sessionToken,
+      p_barcode: barcode,
+      p_quantity: quantity
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to record the scanned branch stock-in.')
+    }
+  }
+}
+
 export async function addBranchInventoryItem(sessionToken, stockInventoryId, available) {
   try {
   	const supabaseClient = await getSupabaseClient()
@@ -3124,6 +3234,21 @@ export async function addBranchInventoryItem(sessionToken, stockInventoryId, ava
   		data: null,
   		error: error instanceof Error ? error : new Error('Unable to add the branch inventory item.')
   	}
+  }
+}
+
+export async function deleteBranchInventoryItem(sessionToken, branchInventoryId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_delete_inventory_item', {
+      p_session_token: sessionToken,
+      p_branch_inventory_id: branchInventoryId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to delete the branch inventory item.')
+    }
   }
 }
 

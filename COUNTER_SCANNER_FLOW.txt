@@ -1,0 +1,511 @@
+COUNTER SCANNER FLOW AND EYOO SCANNER NOTES
+============================================
+
+Purpose
+-------
+This file explains the existing Counter Scanner so its behavior can be
+recreated in a Flutter application.
+
+The scanner flow has two separate balances:
+
+  Main Inventory: public.branch_inventory.available
+  Ref Inventory:  public.branch_inventory_ref.available
+
+Stock In transfers quantity from Main Inventory to Ref Inventory.
+Stock Out removes quantity from Ref Inventory only.
+
+Example:
+  Before: Main = 20, Ref = 0
+  Scan In quantity 10
+  After:  Main = 10, Ref = 10
+  Scan Out quantity 3
+  After:  Main = 10, Ref = 7
+
+
+1. Existing Web App Components
+------------------------------
+Login page:
+  src/Pages/Branch_Scanner/Counter_Scanner/Counter_scanner_login.jsx
+  Route: /counter-scanner-login
+
+Scanner dashboard:
+  src/Pages/Branch_Scanner/Counter_Scanner/Counter_scanner_dashboard.jsx
+  Route: /counter-scanner-dashboard
+
+Supabase calls:
+  src/lib/supabase.js
+
+Database functions:
+  supabase/branch_management.sql
+  supabase/branch_inventory.sql
+  supabase/branch_inventory_ref.sql
+
+
+2. Login and Session
+--------------------
+1. The user enters the branch email and password.
+2. The app calls the Supabase RPC:
+
+     branch_admin_login(p_email, p_password)
+
+3. The server validates the credentials against the stored password hash.
+   The password is not checked in the UI and the app does not directly query
+   the branch_admin table.
+4. On success, the server creates a branch_admin_session and returns a
+   session_token, branch information, and admin information.
+5. The current web app stores the profile in sessionStorage under:
+
+     tafi-counter-scanner-session
+
+   It also adds a client-side expiry timestamp. The server session expires
+   after 12 hours.
+6. Every inventory RPC receives the session_token and checks that the
+   session is still valid. The dashboard redirects to login when the local
+   session expires.
+7. Sign out removes the browser session and calls:
+
+     branch_admin_logout(p_session_token)
+
+Flutter note:
+  Use the same login and logout RPCs. Store the returned session token using
+  secure device storage rather than plain preferences. Do not put a Supabase
+  service-role key in the Flutter app; use the publishable/anon key and the
+  server-side RPCs.
+
+
+3. Eyoyo Scanner Behavior
+-------------------------
+The current app expects the scanner to behave like a keyboard (often called
+HID keyboard or keyboard-wedge mode):
+
+  barcode scanner -> types barcode characters -> sends Enter
+
+The barcode input must be focused. The dashboard focuses it automatically.
+When the scanner sends Enter, the form submits the current barcode and
+quantity. After the request completes, the app clears the barcode field and
+focuses it again.
+
+The scanner's self-sensing mode is a hardware setting. It tells the device
+when to start reading a barcode; it does not send an app-specific scan event.
+The app simply receives keyboard input.
+
+To test the scanner:
+1. Connect the Eyoyo by its USB receiver or pair it as a Bluetooth keyboard.
+2. Open Notepad and scan a barcode. Confirm that the barcode appears as text.
+3. Check whether the scanner also sends Enter (the cursor should move to a
+   new line).
+4. Open the Counter Scanner and scan while the barcode field is focused.
+5. If the code appears but does not submit, configure the scanner to append
+   Enter/CR after a scan, using the programming instructions for the exact
+   Eyoyo model.
+
+The label "Boot:FM-2.03" appears to be firmware information, not enough to
+identify the scanner model or its programming barcodes. The web app does not
+use that firmware value or an Eyoyo SDK.
+
+Flutter note:
+  For a HID scanner, use a focused TextField and handle onSubmitted. On
+  Android, confirm that the phone/tablet supports USB host/OTG if using a
+  wired receiver. If the device is configured as a serial device instead of
+  a keyboard, this TextField approach will not receive scans; configure HID
+  mode or use a platform-specific serial integration.
+
+
+4. Barcode Setup Before Scanning
+--------------------------------
+Each barcode must already map to one item in that branch's Ref Inventory.
+
+In the Branch Admin dashboard:
+1. Open Branch Inventory, then Ref Inventory.
+2. Add the stock item to Ref Inventory if it is not already listed.
+3. Enter and save the item's barcode.
+4. Ensure the corresponding item exists in Main Inventory with enough
+   Available quantity before scanning Stock In.
+
+The barcode mapping is branch-specific. A barcode that is not assigned in
+that branch's Ref Inventory, or is assigned to multiple items, is rejected.
+Scanning a previously unknown barcode does not automatically create a Ref
+Inventory item.
+
+
+5. What Happens During a Scan
+-----------------------------
+The dashboard has:
+  - Scanning In / Scanning Out mode buttons
+  - A positive whole-number quantity field (default 1)
+  - A focused barcode field
+  - A status/error message
+  - A Last Scan result
+  - A Ref Inventory table with description, barcode, and Ref Available
+
+The app trims the barcode, validates that the quantity is a positive whole
+number, and prevents another request while a scan request is in progress.
+It then sends the branch session token, barcode, and quantity to Supabase.
+
+Stock In:
+  RPC: branch_admin_scan_counter_inventory_in
+  Parameters:
+    p_session_token
+    p_barcode
+    p_quantity
+
+  The server:
+  1. Validates the branch session and barcode.
+  2. Finds the barcode in this branch's Ref Inventory.
+  3. Checks that Main Inventory has at least the requested quantity.
+  4. Decreases Main Inventory by recording the quantity in its daily usage
+     log.
+  5. Increases the separate Ref Inventory available quantity.
+  6. Returns both Main available and Ref available quantities.
+
+Stock Out:
+  RPC: branch_admin_scan_counter_inventory_out
+  Parameters:
+    p_session_token
+    p_barcode
+    p_quantity
+
+  The server:
+  1. Validates the branch session and barcode.
+  2. Finds the barcode in this branch's Ref Inventory.
+  3. Checks that Ref Inventory has at least the requested quantity.
+  4. Decreases Ref Inventory only. It does not decrease Main Inventory.
+  5. Returns the remaining Ref available quantity.
+
+Both operations reject invalid quantities, expired sessions, unmapped or
+ambiguous barcodes, and requests that exceed the relevant available stock.
+The RPCs serialize scans for the same branch barcode to reduce race
+conditions.
+
+After a successful scan, the dashboard displays the item and new balance,
+clears the barcode input, and reloads the Ref Inventory table. Errors from
+the server are displayed in the status area.
+
+
+6. Data and History Notes
+-------------------------
+The Ref Inventory available balance is stored separately from Main
+Inventory. The Ref Inventory listing reads the Ref balance, not the Main
+balance.
+
+Stock In is recorded as usage against Main Inventory's daily usage log
+because quantity is being transferred out of Main Inventory. It also saves a
+per-scan row in public.branch_inventory_ref_stock_in_history. Stock Out
+changes the Ref balance only and saves a permanent row in
+public.branch_inventory_ref_history. Each history insert happens in the same
+database transaction as its inventory balance update.
+
+The Last Scan display is temporary UI state, but both Stock In and Stock Out
+history remain in Supabase after the scanner screen closes. Branch Admin can
+open Ref Stock History beside Add to Ref Inventory and switch between the
+Stock In and Stock Out sections.
+
+Database setup order for the scanner:
+  1. branch_management.sql (branch login/session functions and tables)
+  2. branch_inventory.sql (Main Inventory and daily usage functions)
+  3. branch_inventory_ref.sql (Ref Inventory and scanner RPCs)
+  4. branch_inventory_item_delete.sql (optional Main Inventory delete RPC)
+
+
+7. Supabase Tables and Relationships
+-----------------------------------
+This section documents the tables used by the Counter Scanner. It is not a
+catalog of every table in the entire application.
+
+public.branch
+  id            uuid primary key, generated UUID
+  name          text, required
+  location      text, required, defaults to empty text
+  created_at    timestamptz, defaults to now()
+
+public.branch_admin
+  id            uuid primary key, generated UUID
+  branch_id     uuid, required, unique, references branch.id
+                (deleting a branch deletes its branch admin)
+  name          text, required
+  email         text, required
+  password_hash text, required; stores a password hash, not plaintext
+  created_at    timestamptz, defaults to now()
+  Additional index: unique lower(email)
+
+public.branch_admin_session
+  session_token   uuid primary key
+  branch_admin_id uuid, required, references branch_admin.id
+                  (deleting the admin deletes their sessions)
+  expires_at      timestamptz, defaults to now() + 12 hours
+  created_at      timestamptz, defaults to now()
+  Additional index: expires_at
+
+public.inventory_information
+  id                       uuid primary key, generated UUID
+  stock_no                 text, required
+  category                 text, required
+  item_description         text, required
+  unit_of_measure          text, required
+  supplier                 text, required
+  created_by_accountant_id uuid, required, references accountant.id
+  created_at               timestamptz, defaults to now()
+
+public.tafi_stock_inventory
+  id               uuid primary key, generated UUID
+  inventory_id     uuid, required, unique
+  stock_no         text, required
+  item_description text, required
+  unit_of_measure  text, required
+  available        numeric(14,3), required, defaults to 0
+                   must be >= 0 and a whole number
+  created_at       timestamptz, defaults to now()
+  The combined inventory_id, stock_no, item_description, and
+  unit_of_measure values reference the matching inventory_information row.
+  inventory_id is unique.
+  Central TAFI available is not the Main branch balance or Ref balance used
+  by Counter Scanner.
+
+public.branch_inventory (Main Inventory balance)
+  id                uuid primary key, generated UUID
+  branch_id         uuid, required, references branch.id
+                    (deleting a branch cascades to its inventory rows)
+  stock_inventory_id uuid, required, references tafi_stock_inventory.id
+  available         numeric(14,3), required, defaults to 0, must be >= 0
+  created_at        timestamptz, defaults to now()
+  Unique pair: branch_id + stock_inventory_id
+  Additional index: branch_id
+
+public.branch_inventory_daily_log
+  id                  uuid primary key, generated UUID
+  branch_inventory_id uuid, required, references branch_inventory.id
+                      (deleting the Main Inventory row cascades to its logs)
+  usage_date          date, required
+  beginning_stock     numeric(14,3), required, must be >= 0
+  usage_quantity      numeric(14,3), required, defaults to 0, must be >= 0
+  ending_stock        generated as beginning_stock - usage_quantity
+  created_at          timestamptz, defaults to now()
+  Unique pair: branch_inventory_id + usage_date
+  Check: usage_quantity must not exceed beginning_stock
+  Additional index: branch_inventory_id + usage_date descending
+
+public.branch_inventory_ref (separate Ref/Counter balance and barcode map)
+  branch_id         uuid, required, references branch.id
+                    (deleting a branch cascades to its Ref rows)
+  stock_inventory_id uuid, required, references tafi_stock_inventory.id
+  barcode           text, optional
+  available         numeric(14,3), required, defaults to 0, must be >= 0
+  Primary key: branch_id + stock_inventory_id
+  Barcode duplicates are checked by the barcode update and scan RPCs within
+  a branch. The Ref available value is independent from Main available.
+
+public.branch_inventory_ref_history (permanent Stock Out records)
+  id              uuid primary key, generated UUID
+  branch_id       uuid, required, references branch.id
+                  (deleting a branch cascades to its history)
+  stock_no        text, required snapshot of the item's stock number
+  description     text, required snapshot of the item description
+  unit_of_measure text, required snapshot of the item's unit
+  stock_out_qty   numeric(14,3), required, must be greater than 0
+  stock_out_at    timestamptz, defaults to now()
+  Additional index: branch_id + stock_out_at descending
+
+  One row is inserted for every successful Stock Out. Item details are stored
+  as snapshots, so the record remains understandable if its Ref mapping is
+  later removed. Failed scans do not create history rows. Row Level Security
+  is enabled and direct client table access is revoked; the Stock Out RPC
+  writes to this table server-side. The Branch Admin Ref Inventory page reads
+  the records through a branch-scoped history RPC.
+
+public.branch_inventory_ref_stock_in_history (permanent Stock In records)
+  id              uuid primary key, generated UUID
+  branch_id       uuid, required, references branch.id
+                  (deleting a branch cascades to its history)
+  stock_no        text, required snapshot of the item's stock number
+  description     text, required snapshot of the item description
+  unit_of_measure text, required snapshot of the item's unit
+  stock_in_qty    numeric(14,3), required, must be greater than 0
+  stock_in_at     timestamptz, defaults to now()
+  Additional index: branch_id + stock_in_at descending
+
+  One row is inserted for every successful scanner Stock In. Item details are
+  stored as snapshots, so the record remains understandable if its Ref mapping
+  is later removed. Failed scans do not create history rows. Row Level Security
+  is enabled and direct client table access is revoked; the Stock In RPC
+  writes to this table server-side.
+
+Relationship summary:
+  branch
+    +-- branch_admin
+    |     +-- branch_admin_session
+    +-- branch_inventory
+    |     +-- branch_inventory_daily_log
+    +-- branch_inventory_ref
+    +-- branch_inventory_ref_history
+    +-- branch_inventory_ref_stock_in_history
+
+  inventory_information
+    +-- tafi_stock_inventory
+          +-- branch_inventory (one row per branch and stock item)
+          +-- branch_inventory_ref (one row per branch and stock item)
+
+Security:
+  The sensitive inventory and session tables have Row Level Security enabled
+  and direct table access revoked from public, anon, and authenticated roles.
+  The client uses RPCs instead. The RPCs run as security-definer functions
+  and validate the custom session token and its branch before reading or
+  changing branch data. Never use a service-role key in the Flutter client.
+
+
+8. Scanner RPC Reference
+------------------------
+Login:
+  branch_admin_login(p_email text, p_password text)
+  Returns admin_id, admin_name, branch_id, branch_name, branch_location,
+  admin_email, and session_token.
+
+Logout:
+  branch_admin_logout(p_session_token uuid)
+  Returns whether a session was revoked.
+
+Load Ref Inventory:
+  branch_admin_list_inventory_ref(p_session_token uuid)
+  Returns stock_inventory_id, stock_no, item_description, unit_of_measure,
+  category, barcode, and the separate Ref available quantity.
+
+Load Ref Stock Out History:
+  branch_admin_list_inventory_ref_history(
+    p_session_token uuid, p_limit integer, p_offset integer,
+    p_day date default null)
+  Returns history_id, stock_no, description, unit_of_measure, stock_out_qty,
+  and stock_out_at for the signed-in branch, newest first. Page size must be
+  between 1 and 100. The dashboard loads 50 records at a time and offers
+  Refresh history and Load more history controls. Set p_day to filter by that
+  calendar day in Asia/Manila; leave it null to list all days. The Ref Stock
+  History panel provides a Stock Out day selector.
+
+Load daily Ref Stock Out totals:
+  branch_admin_list_inventory_ref_stock_out_totals(
+    p_session_token uuid, p_day date)
+  Returns stock_no, description, unit_of_measure, and total_stock_out grouped
+  by item for the selected Asia/Manila calendar day. The dashboard shows these
+  totals beside the Stock Out day selector.
+
+Load monthly Ref Stock Out totals:
+  branch_admin_list_inventory_ref_stock_out_monthly_totals(
+    p_session_token uuid, p_month date)
+  Pass the first day of the selected month. Returns stock_no, description,
+  unit_of_measure, and total_stock_out grouped by item for that Asia/Manila
+  calendar month. The dashboard shows these totals beside a month selector.
+
+Load Ref Stock In History:
+  branch_admin_list_inventory_ref_stock_in_history(
+    p_session_token uuid, p_limit integer, p_offset integer)
+  Returns history_id, stock_no, description, unit_of_measure, stock_in_qty,
+  and stock_in_at for the signed-in branch, newest first. It uses the same
+  page-size limits and dashboard controls as Stock Out history.
+
+Prepare barcode mapping in Branch Admin:
+  branch_admin_add_inventory_ref_item(
+    p_session_token uuid, p_stock_inventory_id uuid)
+  branch_admin_update_inventory_ref_barcode(
+    p_session_token uuid, p_stock_inventory_id uuid, p_barcode text)
+
+Optional Branch Admin delete operations:
+  branch_admin_delete_inventory_ref_item(
+    p_session_token uuid, p_stock_inventory_id uuid)
+  Removes the Ref mapping only when Ref available is 0. Main Inventory is
+  unchanged.
+
+  branch_admin_delete_inventory_item(
+    p_session_token uuid, p_branch_inventory_id uuid)
+  Removes the Main Inventory row only when Main available is 0. Its linked
+  daily usage history is deleted by the table's cascade rule. Ref Inventory
+  is unchanged. This RPC is installed by branch_inventory_item_delete.sql.
+
+Stock In:
+  branch_admin_scan_counter_inventory_in(
+    p_session_token uuid, p_barcode text, p_quantity numeric)
+  Returns barcode, item information, quantity_in, Ref remaining_quantity,
+  and main_remaining_quantity. It also writes a Stock In history row in the
+  same transaction as the Main and Ref balance updates.
+
+Stock Out:
+  branch_admin_scan_counter_inventory_out(
+    p_session_token uuid, p_barcode text, p_quantity numeric)
+  Validates Ref stock, decreases the Ref balance, inserts a
+  branch_inventory_ref_history row, and returns barcode, item information,
+  quantity_out, and Ref remaining_quantity. The balance update and history
+  insert commit or roll back together.
+
+The Stock In RPC calls this internal inventory function as part of the same
+database transaction:
+  branch_admin_record_inventory_daily_usage(
+    p_session_token uuid, p_branch_inventory_id uuid,
+    p_usage_quantity numeric)
+
+Never replace these RPC operations with direct client-side table updates.
+
+
+9. Flutter Implementation Outline
+---------------------------------
+Suggested page state:
+  - session token
+  - scan direction: in or out
+  - quantity (start at 1)
+  - barcode TextEditingController
+  - barcode FocusNode
+  - isProcessing flag
+  - current Ref Inventory rows
+  - status/error and Last Scan result
+
+Pseudo-code for scan submission:
+
+  submitScan(barcode):
+    trimmedBarcode = barcode.trim()
+    quantityValue = parse quantity as a positive integer
+    if barcode or quantity is invalid:
+      show an error and stop
+    if isProcessing:
+      stop
+
+    isProcessing = true
+    rpcName = direction is In
+      ? "branch_admin_scan_counter_inventory_in"
+      : "branch_admin_scan_counter_inventory_out"
+
+    result = await supabase.rpc(rpcName, params: {
+      "p_session_token": sessionToken,
+      "p_barcode": trimmedBarcode,
+      "p_quantity": quantityValue
+    })
+
+    isProcessing = false
+    if the RPC failed:
+      show the server error
+    else:
+      show item and returned available quantities
+      clear barcode controller
+      reload Ref Inventory with branch_admin_list_inventory_ref
+      focus the barcode field again
+
+For Flutter, call branch_admin_list_inventory_ref with:
+
+  {
+    "p_session_token": sessionToken
+  }
+
+Do not update branch_inventory, branch_inventory_ref, or history directly
+from the Flutter client. The RPCs enforce branch ownership, stock checks, and
+transactional updates on the server.
+
+Stock In and Stock Out history are available in their respective Supabase
+tables and in Branch Admin's Ref Stock History panel. The panel is opened
+using the button beside Add to Ref Inventory and has separate Stock In and
+Stock Out sections. The current Counter Scanner screen itself does not show
+the history list. Each branch-scoped list RPC prevents one branch from
+reading another branch's records.
+
+Important interaction details:
+  - Keep the barcode field focused so the keyboard-wedge scanner can type.
+  - Handle the scanner's Enter suffix with TextField.onSubmitted.
+  - Disable the scan controls while a request is running.
+  - Refocus the barcode field after success or failure.
+  - Refresh the Ref list after successful scans.
+  - Test each platform with the physical scanner; HID and USB/OTG behavior
+    depends on the device and operating system.
