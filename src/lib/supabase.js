@@ -915,6 +915,21 @@ export async function completeTafiAdminStockRequestPreparation(sessionToken, pre
   }
 }
 
+export async function autoPrepareTafiAdminStockRequest(sessionToken, preparationId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_auto_prepare_stock_request', {
+      p_session_token: sessionToken,
+      p_preparation_id: preparationId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to auto-prepare the stock request.')
+    }
+  }
+}
+
 export async function deliverTafiAdminStockRequest(sessionToken, requestId, quantityDelivered) {
   try {
   	const supabaseClient = await getSupabaseClient()
@@ -2787,6 +2802,37 @@ export async function listAccountantBranchCDJEntries(sessionToken, branchId) {
   }
 }
 
+export async function listAccountantBranchRefundSummary(sessionToken, branchId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const entries = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('accountant_list_branch_refund_summary', {
+        p_session_token: sessionToken,
+        p_branch_id: branchId,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      entries.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: entries, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load Branch Refund / Replacement Summary.')
+    }
+  }
+}
+
 export async function createAccountantTafiCDJEntry(sessionToken, entry) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -3773,6 +3819,96 @@ export async function createBranchCashAdvanceLoan(sessionToken, cashAdvance) {
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to save the cash advance.')
+    }
+  }
+}
+
+export async function createBranchRefundSummaryEntry(sessionToken, entry) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_create_refund_summary', {
+      p_session_token: sessionToken,
+      p_date: entry.date,
+      p_refund_replacement: entry.refundReplacement,
+      p_refund_replacement_slip_no: entry.refundReplacementSlipNo,
+      p_qty: entry.qty,
+      p_replacement_item: entry.replacementItem,
+      p_total_refund: entry.totalRefund,
+      p_reason_for_refund_replacement: entry.reason,
+      p_remarks: entry.remarks
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to save the refund or replacement entry.')
+    }
+  }
+}
+
+export async function updateBranchRefundSummaryEntry(sessionToken, entry) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_update_refund_summary', {
+      p_session_token: sessionToken,
+      p_entry_id: entry.id,
+      p_date: entry.date,
+      p_refund_replacement: entry.refundReplacement,
+      p_refund_replacement_slip_no: entry.refundReplacementSlipNo,
+      p_qty: entry.qty,
+      p_replacement_item: entry.replacementItem,
+      p_total_refund: entry.totalRefund,
+      p_reason_for_refund_replacement: entry.reason,
+      p_remarks: entry.remarks
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the refund or replacement entry.')
+    }
+  }
+}
+
+export async function deleteBranchRefundSummaryEntry(sessionToken, entryId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_delete_refund_summary', {
+      p_session_token: sessionToken,
+      p_entry_id: entryId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to delete the refund or replacement entry.')
+    }
+  }
+}
+
+export async function listBranchRefundSummary(sessionToken) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    const entries = []
+    const pageSize = 500
+    let offset = 0
+
+    while (true) {
+      const { data, error } = await supabaseClient.rpc('branch_admin_list_refund_summary', {
+        p_session_token: sessionToken,
+        p_offset: offset,
+        p_limit: pageSize
+      })
+      if (error) return { data: null, error }
+
+      const page = data ?? []
+      entries.push(...page)
+      if (page.length < pageSize) break
+      offset += pageSize
+    }
+
+    return { data: entries, error: null }
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load refund or replacement entries.')
     }
   }
 }

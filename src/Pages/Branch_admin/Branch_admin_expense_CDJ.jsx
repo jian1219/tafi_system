@@ -74,10 +74,10 @@ const createEmptyEntry = () => ({
   accountTitle: '',
   payeeSupplier: '',
   tin: '',
-  cash: '0.00',
-  bankTransfer: '0.00',
-  gcash: '0.00',
-  cwt: '0.00'
+  cash: '',
+  bankTransfer: '',
+  gcash: '',
+  cwt: ''
 })
 
 const getManilaDateKey = () => {
@@ -98,6 +98,10 @@ const formatCurrency = (amount) => Number(amount).toLocaleString('en-PH', {
 })
 
 const getAmountInCents = (amount) => Math.round(Number(amount) * 100)
+const getAmountInputValue = (amount) => {
+  const value = Number(amount)
+  return Number.isFinite(value) && value !== 0 ? value.toFixed(2) : ''
+}
 
 const formatDate = (dateKey) => new Date(`${dateKey}T12:00:00`).toLocaleDateString(undefined, {
   month: 'short',
@@ -265,10 +269,10 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
       accountTitle: entry.account_titles ?? '',
       payeeSupplier: entry.payee_supplier ?? '',
       tin: entry.tin ?? '',
-      cash: Number(entry.cash).toFixed(2),
-      bankTransfer: Number(entry.bank_transfer).toFixed(2),
-      gcash: Number(entry.gcash).toFixed(2),
-      cwt: Number(entry.cwt).toFixed(2)
+      cash: getAmountInputValue(entry.cash),
+      bankTransfer: getAmountInputValue(entry.bank_transfer),
+      gcash: getAmountInputValue(entry.gcash),
+      cwt: getAmountInputValue(entry.cwt)
     })
     setSelectedMonth(entry.date.slice(0, 7))
     setActiveSection('journal')

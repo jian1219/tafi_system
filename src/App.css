@@ -4530,6 +4530,17 @@ fieldset.employee-emergency-contact-box {
   cursor: not-allowed;
 }
 
+.branch-refund-summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.branch-refund-summary-actions .crj-delete-button {
+  margin-left: 0;
+}
+
 .branch-cdj-total {
   display: grid;
   min-height: 42px;
@@ -5372,6 +5383,12 @@ fieldset.employee-emergency-contact-box {
   font: inherit;
   font-weight: 700;
   cursor: pointer;
+}
+
+.holiday-pay-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .holiday-pay-edit-button {
@@ -7706,6 +7723,18 @@ fieldset.employee-emergency-contact-box {
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 16px;
+}
+
+.tafi-stock-preparation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.tafi-stock-preparation-actions .accountant-inventory-empty {
+  flex-basis: 100%;
 }
 
 .tafi-stock-preparation-scan-form {

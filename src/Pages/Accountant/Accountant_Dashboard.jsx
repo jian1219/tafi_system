@@ -17,6 +17,7 @@ import AccountantInventoryInformation from './Accountant_Inventory_Information'
 import AccountantInventoryLog from './Accountant_Inventory_log'
 import AccountantInventoryTransferForm from './Accountant_Inventory_Transfer_Form'
 import AccountantBranchCDJ from './Accountant_Branch_cdj'
+import AccountantRefundReplacement from './Accountant_Refund_Replacement'
 import AccountantAPSubsidiaryLedger from './Accountant_AP_Subsidiary_ledger'
 import TafiOverviewAnalytics from '../TAFI_Admin/TAFI_Overview_Analytics'
 const AccountantSales = lazy(() => import('./Accountant_Sales'))
@@ -51,6 +52,7 @@ const expenseNavigationGroup = {
 	items: [
 		{ id: 'tafi-cdj', label: 'TAFI CDJ', icon: Receipt },
 		{ id: 'branch-cdj', label: 'Branch CDJ', icon: Receipt },
+		{ id: 'refund-replacement', label: 'Branch Refund / Replacement Summary', icon: ClipboardList },
 		{ id: 'ap-subsidiary-ledger', label: 'AP Subsidiary Ledger', icon: Receipt }
 	]
 }
@@ -248,6 +250,8 @@ export default function AccountantDashboard() {
 								? 'AP Subsidiary Ledger'
 								: activePage === 'branch-cdj'
 								? 'Branch Cash Disbursement Journal'
+								: activePage === 'refund-replacement'
+									? 'Branch Refund / Replacement Summary'
 								: activePage === 'tafi-cdj'
 									? 'TAFI CDJ'
 								: activePage === 'inventory'
@@ -311,6 +315,9 @@ export default function AccountantDashboard() {
 					)}
 					{activePage === 'branch-cdj' && (
 						<AccountantBranchCDJ sessionToken={accountant.session_token} />
+					)}
+					{activePage === 'refund-replacement' && (
+						<AccountantRefundReplacement sessionToken={accountant.session_token} />
 					)}
 					{activePage === 'tafi-cdj' && (
 						<AccountantTafiCDJ sessionToken={accountant.session_token} />

@@ -31,6 +31,7 @@ import BranchStockCard from './Branch_Stock_card'
 import BranchStockRecord from './Branch_Stock_record'
 import BranchRequestStock from './Branch_Request_Stock'
 import BranchAdminExpenseCDJ from './Branch_admin_expense_CDJ'
+import BranchAdminRefundReplacement from './Branch_admin_refund_replacement'
 import BranchOverview from './Branch_Overview'
 import BranchCashReceiptsJournal from './Branch_cash_receipts_journal'
 import BranchDeposit from './Branch_Deposit'
@@ -76,7 +77,8 @@ const navigationGroups = [
     id: 'expense',
     label: 'Expense',
     items: [
-      { name: 'Cash Disbursement Journal', label: 'Cash Disbursement Journal', component: BranchAdminExpenseCDJ, icon: Receipt }
+      { name: 'Cash Disbursement Journal', label: 'Cash Disbursement Journal', component: BranchAdminExpenseCDJ, icon: Receipt },
+      { name: 'Refund / Replacement', label: 'Refund / Replacement', component: BranchAdminRefundReplacement, icon: ClipboardList }
     ]
   },
   {

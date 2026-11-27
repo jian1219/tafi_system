@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Download, RefreshCw, Trash2 } from 'lucide-react'
 import {
+	autoPrepareTafiAdminStockRequest,
 	completeTafiAdminStockRequestPreparation,
 	deleteTafiAdminStockRequestPreparationItem,
 	listTafiAdminStockRequestPreparationItems,
@@ -66,7 +67,9 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 	const [preparingBatchKey, setPreparingBatchKey] = useState('')
 	const [isLookingUpBarcode, setIsLookingUpBarcode] = useState(false)
 	const [isSavingPreparedItem, setIsSavingPreparedItem] = useState(false)
+	const [isAutoPreparing, setIsAutoPreparing] = useState(false)
 	const [isCompletingPreparation, setIsCompletingPreparation] = useState(false)
+	const [isDownloadingHoitf, setIsDownloadingHoitf] = useState(false)
 	const [downloadingRequestBatchKey, setDownloadingRequestBatchKey] = useState('')
 	const [removingPreparationItemId, setRemovingPreparationItemId] = useState('')
 	const [barcodeInput, setBarcodeInput] = useState('')
@@ -463,6 +466,29 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 		setPreparationItems((current) => current.filter((entry) => entry.item_id !== item.item_id))
 	}
 
+	const handleAutoPrepare = async () => {
+		if (!preparationId || activePreparationRequests.length === 0 || isAutoPreparing
+			|| isSavingPreparedItem || isCompletingPreparation || removingPreparationItemId) return
+		setIsAutoPreparing(true)
+		setErrorMessage('')
+		setNotice('')
+		const { data, error } = await autoPrepareTafiAdminStockRequest(sessionToken, preparationId)
+		if (error) {
+			setIsAutoPreparing(false)
+			setErrorMessage(error.message)
+			return
+		}
+
+		const refreshError = await loadPreparationItems(preparationId)
+		setIsAutoPreparing(false)
+		if (refreshError) return
+
+		const barcodeLines = Number(data)
+		setNotice(barcodeLines > 0
+			? `Auto-prepared the remaining requested quantities across ${barcodeLines} barcode ${barcodeLines === 1 ? 'entry' : 'entries'}. Review the form, then click Mark Delivered to deduct barcode stock.`
+			: 'All requested quantities are already prepared. Review the form, then click Mark Delivered to deduct barcode stock.')
+	}
+
 	const handleCompletePreparation = async () => {
 		if (!preparationId || !isPreparationComplete) return
 		const deliveredRequestIds = new Set(
@@ -518,6 +544,28 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 				hoitfFileName ? `Downloaded ${hoitfFileName}.` : ''
 			}`
 		)
+	}
+
+	const handleDownloadPreparedHoitf = async () => {
+		if (!preparationId || !isPreparationComplete || isDownloadingHoitf
+			|| isLoadingPreparationItems || isCompletingPreparation) return
+
+		setIsDownloadingHoitf(true)
+		setErrorMessage('')
+		setNotice('')
+		try {
+			const fileName = await downloadTafiStockRequestHoitf(
+				preparationItems,
+				activePreparationRequests[0]?.branch_name
+			)
+			setNotice(`Downloaded ${fileName}. This file is a preview; click Mark Delivered separately to deduct barcode stock.`)
+		} catch (downloadError) {
+			setErrorMessage(downloadError instanceof Error
+				? downloadError.message
+				: 'Unable to prepare the HOITF workbook.')
+		} finally {
+			setIsDownloadingHoitf(false)
+		}
 	}
 
 	const handleDownloadRequestXlsx = async (batch) => {
@@ -1015,7 +1063,22 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 								</button>
 							</div>
 
-							<h3>Requested quantities</h3>
+							<div className="accountant-inventory-list-heading">
+								<h3>Requested quantities</h3>
+								<button
+									type="button"
+									className="accountant-inventory-submit"
+									onClick={handleAutoPrepare}
+									disabled={isAutoPreparing || isLoadingPreparationItems || isSavingPreparedItem
+										|| isLookingUpBarcode || isCompletingPreparation || Boolean(removingPreparationItemId)
+										|| !activePreparationRequests.length}
+								>
+									{isAutoPreparing ? 'Auto-preparing...' : 'Auto-prepare from barcode inventory'}
+								</button>
+							</div>
+							<p className="accountant-inventory-field-note">
+								Automatically fill the remaining requested quantities using available barcode stock and its saved unit prices. This does not deduct stock until you click Mark Delivered.
+							</p>
 							<div className="accountant-inventory-table-wrap">
 								<table className="accountant-inventory-table">
 									<thead>
@@ -1057,13 +1120,13 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 										value={barcodeInput}
 										onChange={(event) => setBarcodeInput(event.target.value)}
 										placeholder="Scan barcode and press Enter"
-										disabled={isLookingUpBarcode || isSavingPreparedItem || isCompletingPreparation}
+										disabled={isLookingUpBarcode || isSavingPreparedItem || isAutoPreparing || isCompletingPreparation}
 									/>
 								</label>
 								<button
 									type="submit"
 									className="accountant-inventory-add-toggle"
-									disabled={!barcodeInput.trim() || isLookingUpBarcode}
+									disabled={!barcodeInput.trim() || isLookingUpBarcode || isAutoPreparing}
 								>
 									{isLookingUpBarcode ? 'Looking up...' : 'Find item'}
 								</button>
@@ -1104,7 +1167,7 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 										<button
 											type="submit"
 											className="accountant-inventory-submit"
-											disabled={isSavingPreparedItem}
+											disabled={isSavingPreparedItem || isAutoPreparing}
 										>
 											{isSavingPreparedItem ? 'Adding item...' : 'Add to preparation'}
 										</button>
@@ -1147,7 +1210,7 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 															type="button"
 															className="accountant-inventory-add-toggle"
 															onClick={() => handleRemovePreparedItem(item)}
-															disabled={Boolean(removingPreparationItemId) || isCompletingPreparation}
+															disabled={Boolean(removingPreparationItemId) || isAutoPreparing || isCompletingPreparation}
 															aria-label={`Remove prepared barcode ${item.barcode}`}
 														>
 															<Trash2 size={16} aria-hidden="true" />
@@ -1175,20 +1238,31 @@ export default function TafiRequestStockOrder({ sessionToken }) {
 								<p className="accountant-inventory-empty">No barcode items have been prepared yet.</p>
 							)}
 
-							{isPreparationComplete ? (
+							<div className="tafi-stock-preparation-actions">
 								<button
 									type="button"
-									className="accountant-inventory-submit"
-									onClick={handleCompletePreparation}
-									disabled={isCompletingPreparation || isLoadingPreparationItems}
+									className="accountant-inventory-add-toggle"
+									onClick={handleDownloadPreparedHoitf}
+									disabled={!isPreparationComplete || isDownloadingHoitf
+										|| isCompletingPreparation || isLoadingPreparationItems}
 								>
-									{isCompletingPreparation ? 'Marking delivered...' : 'Mark Delivered'}
+									{isDownloadingHoitf ? 'Preparing HOITF XLSX...' : 'Download HOITF XLSX'}
 								</button>
-							) : (
-								<p className="accountant-inventory-empty">
-									Complete every requested quantity to enable Mark Delivered.
-								</p>
-							)}
+								{isPreparationComplete ? (
+									<button
+										type="button"
+										className="accountant-inventory-submit"
+										onClick={handleCompletePreparation}
+										disabled={isCompletingPreparation || isLoadingPreparationItems || isDownloadingHoitf}
+									>
+										{isCompletingPreparation ? 'Marking delivered...' : 'Mark Delivered'}
+									</button>
+								) : (
+									<p className="accountant-inventory-empty">
+										Complete every requested quantity to download the HOITF XLSX or enable Mark Delivered.
+									</p>
+								)}
+							</div>
 						</div>
 					</>
 				) : (

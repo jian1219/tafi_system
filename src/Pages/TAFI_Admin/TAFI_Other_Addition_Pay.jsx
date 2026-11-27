@@ -400,13 +400,13 @@ export default function TafiOtherAdditionPay({ sessionToken }) {
 		setReloadVersion((version) => version + 1)
 	}
 
-	const editRegularHolidayPay = (entry) => {
-		if (activeType !== 'holiday_regular_pay' || isSaving) return
+	const editHolidayPay = (entry) => {
+		if (!isHolidayPayType || isSaving || deletingHolidayId) return
 		const week = payrollWeeks.find((candidate) =>
 			entry.holiday_date >= candidate.startDate && entry.holiday_date <= candidate.endDate
 		)
 		const rule = holidayRules.find((candidate) =>
-			candidate.addition_type === 'holiday_regular_pay'
+			candidate.addition_type === activeType
 				&& candidate.holiday_date === entry.holiday_date
 		)
 		if (!week || !rule) {
@@ -419,12 +419,14 @@ export default function TafiOtherAdditionPay({ sessionToken }) {
 		setHolidayDate(entry.holiday_date)
 		setHolidayDrafts((current) => ({
 			...current,
-			[`${selectedBranchId}:holiday_regular_pay:${entry.holiday_date}`]: {
+			[`${selectedBranchId}:${activeType}:${entry.holiday_date}`]: {
 				percentage: String(rule.percentage),
 				classifications: rule.eligible_classifications
 			}
 		}))
-		setMessage(`Editing Holiday Regular Pay for ${formatDate(entry.holiday_date)}. Saving will update the pay for all employees in the selected classifications.`)
+		setMessage(activeType === 'special_nonworking_holiday'
+			? `Editing Special Non-working Holiday for ${formatDate(entry.holiday_date)}. Saving updates qualifying employees marked Present or Present (Late).`
+			: `Editing Holiday Regular Pay for ${formatDate(entry.holiday_date)}. Saving updates pay for all employees in the selected classifications.`)
 	}
 
 	const deleteSpecialNonworkingHolidayPay = async (entry) => {
@@ -737,31 +739,32 @@ export default function TafiOtherAdditionPay({ sessionToken }) {
 									<td>{Number(entry.percentage).toFixed(2)}%</td>
 									<td>{formatCurrency(entry.daily_rate)}</td>
 									<td>{formatCurrency(entry.amount)}</td>
-									{activeType === 'holiday_regular_pay' ? (
+									{isHolidayPayType ? (
 										<td>
-											<button
-												type="button"
-												className="holiday-pay-edit-button"
-												aria-label={`Edit Holiday Regular Pay settings for ${formatDate(entry.holiday_date)}`}
-												disabled={isSaving || Boolean(deletingHolidayId)}
-												onClick={() => editRegularHolidayPay(entry)}
-											>
-												<Pencil size={15} aria-hidden="true" />
-												Edit
-											</button>
-										</td>
-									) : activeType === 'special_nonworking_holiday' ? (
-										<td>
-											<button
-												type="button"
-												className="holiday-pay-delete-button"
-												aria-label={`Delete ${entry.employee_name}’s Special Non-working Holiday pay`}
-												disabled={isSaving || Boolean(deletingHolidayId)}
-												onClick={() => deleteSpecialNonworkingHolidayPay(entry)}
-											>
-												<Trash2 size={15} aria-hidden="true" />
-												{deletingHolidayId === entry.id ? 'Deleting…' : 'Delete'}
-											</button>
+											<div className="holiday-pay-row-actions">
+												<button
+													type="button"
+													className="holiday-pay-edit-button"
+													aria-label={`Edit ${selectedType.label} settings for ${formatDate(entry.holiday_date)}`}
+													disabled={isSaving || Boolean(deletingHolidayId)}
+													onClick={() => editHolidayPay(entry)}
+												>
+													<Pencil size={15} aria-hidden="true" />
+													Edit
+												</button>
+												{activeType === 'special_nonworking_holiday' && (
+													<button
+														type="button"
+														className="holiday-pay-delete-button"
+														aria-label={`Delete ${entry.employee_name}’s Special Non-working Holiday pay`}
+														disabled={isSaving || Boolean(deletingHolidayId)}
+														onClick={() => deleteSpecialNonworkingHolidayPay(entry)}
+													>
+														<Trash2 size={15} aria-hidden="true" />
+														{deletingHolidayId === entry.id ? 'Deleting…' : 'Delete'}
+													</button>
+												)}
+											</div>
 										</td>
 									) : null}
 								</tr>

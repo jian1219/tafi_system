@@ -588,6 +588,246 @@ begin
 end;
 $$;
 
+create or replace function public.tafi_admin_auto_prepare_stock_request(
+  p_session_token uuid,
+  p_preparation_id uuid
+)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_preparation public.tafi_stock_request_preparations%rowtype;
+  v_request_count integer;
+  v_stock record;
+  v_barcode record;
+  v_prepared numeric;
+  v_available numeric;
+  v_remaining numeric;
+  v_barcode_reserved bigint;
+  v_barcode_available bigint;
+  v_quantity bigint;
+  v_shortages text := '';
+  v_added_lines integer := 0;
+begin
+  if not exists (
+    select 1
+    from public.tafi_admin_session as admin_session
+    where admin_session.session_token = p_session_token
+      and admin_session.expires_at > now()
+  ) then
+    raise exception 'TAFI Admin session is invalid or expired' using errcode = '28000';
+  end if;
+
+  select preparation.*
+  into v_preparation
+  from public.tafi_stock_request_preparations as preparation
+  where preparation.id = p_preparation_id
+  for update;
+  if not found or v_preparation.status <> 'preparing' then
+    raise exception 'This stock request is no longer being prepared.';
+  end if;
+
+  perform request.id
+  from public.branch_stock_requests as request
+  where request.preparation_id = p_preparation_id
+  order by request.stock_inventory_id, request.id
+  for update;
+
+  select count(*)::integer
+  into v_request_count
+  from public.branch_stock_requests as request
+  where request.preparation_id = p_preparation_id
+    and request.status = 'preparing';
+  if v_request_count = 0 then
+    raise exception 'There are no pending requests in this preparation.';
+  end if;
+
+  perform saved.barcode
+  from public.tafi_admin_stock_in_scans as saved
+  where exists (
+    select 1
+    from public.branch_stock_requests as request
+    join public.tafi_stock_inventory as stock
+      on stock.id = request.stock_inventory_id
+    where request.preparation_id = p_preparation_id
+      and request.status = 'preparing'
+      and stock.stock_no = saved.stock_no
+      and stock.item_description = saved.item_description
+      and stock.unit_of_measure = saved.unit_of_measure
+  )
+  order by saved.stock_no, saved.barcode
+  for update of saved;
+
+  if exists (
+    select 1
+    from public.tafi_stock_request_preparation_items as item
+    left join public.tafi_admin_stock_in_scans as saved
+      on saved.barcode = item.barcode
+    left join public.tafi_stock_inventory as stock
+      on stock.id = item.stock_inventory_id
+    where item.preparation_id = p_preparation_id
+      and (
+        saved.barcode is null
+        or saved.stock_no is distinct from item.stock_no
+        or stock.stock_no is distinct from item.stock_no
+        or stock.item_description is distinct from item.item_description
+        or stock.unit_of_measure is distinct from item.unit_of_measure
+        or saved.item_description is distinct from item.item_description
+        or saved.unit_of_measure is distinct from item.unit_of_measure
+        or saved.scan_count < item.quantity
+      )
+  ) then
+    raise exception 'An already prepared barcode no longer has its full quantity available. Remove or replace that line before auto-preparing.';
+  end if;
+
+  for v_stock in
+    select request.stock_inventory_id,
+           stock.stock_no,
+           stock.item_description,
+           stock.unit_of_measure,
+           sum(request.quantity_requested)::numeric as requested_quantity
+    from public.branch_stock_requests as request
+    join public.tafi_stock_inventory as stock
+      on stock.id = request.stock_inventory_id
+    where request.preparation_id = p_preparation_id
+      and request.status = 'preparing'
+    group by request.stock_inventory_id, stock.stock_no,
+             stock.item_description, stock.unit_of_measure
+    order by stock.stock_no, request.stock_inventory_id
+  loop
+    if v_stock.requested_quantity <> trunc(v_stock.requested_quantity) then
+      raise exception 'Requested quantity for stock no. % is not a whole number.', v_stock.stock_no;
+    end if;
+
+    select coalesce(sum(item.quantity), 0)::numeric
+    into v_prepared
+    from public.tafi_stock_request_preparation_items as item
+    where item.preparation_id = p_preparation_id
+      and item.stock_inventory_id = v_stock.stock_inventory_id;
+
+    if v_prepared > v_stock.requested_quantity then
+      raise exception 'Prepared quantity already exceeds the request for stock no. %.', v_stock.stock_no;
+    end if;
+
+    v_remaining := v_stock.requested_quantity - v_prepared;
+    select coalesce(sum(saved.scan_count), 0)::numeric
+    into v_available
+    from public.tafi_admin_stock_in_scans as saved
+    where saved.stock_no = v_stock.stock_no
+      and saved.item_description = v_stock.item_description
+      and saved.unit_of_measure = v_stock.unit_of_measure;
+
+    if v_available - v_prepared < v_remaining then
+      v_shortages := concat_ws(
+        '; ',
+        nullif(v_shortages, ''),
+        format(
+          '%s (need %s more, available %s)',
+          v_stock.stock_no,
+          v_remaining,
+          greatest(v_available - v_prepared, 0)
+        )
+      );
+    end if;
+  end loop;
+
+  if v_shortages <> '' then
+    raise exception 'Insufficient barcode inventory: %.', v_shortages;
+  end if;
+
+  for v_stock in
+    select request.stock_inventory_id,
+           stock.stock_no,
+           sum(request.quantity_requested)::numeric as requested_quantity
+    from public.branch_stock_requests as request
+    join public.tafi_stock_inventory as stock
+      on stock.id = request.stock_inventory_id
+    where request.preparation_id = p_preparation_id
+      and request.status = 'preparing'
+    group by request.stock_inventory_id, stock.stock_no
+    order by stock.stock_no, request.stock_inventory_id
+  loop
+    select coalesce(sum(item.quantity), 0)::numeric
+    into v_prepared
+    from public.tafi_stock_request_preparation_items as item
+    where item.preparation_id = p_preparation_id
+      and item.stock_inventory_id = v_stock.stock_inventory_id;
+    v_remaining := v_stock.requested_quantity - v_prepared;
+
+    if v_remaining = 0 then
+      continue;
+    end if;
+
+    for v_barcode in
+      select saved.barcode,
+             saved.scan_count,
+             saved.price,
+             inventory.category,
+             stock.item_description,
+             stock.unit_of_measure
+      from public.tafi_admin_stock_in_scans as saved
+      join public.tafi_stock_inventory as stock
+        on stock.id = v_stock.stock_inventory_id
+        and stock.stock_no = saved.stock_no
+        and stock.item_description = saved.item_description
+        and stock.unit_of_measure = saved.unit_of_measure
+      join public.inventory_information as inventory
+        on inventory.id = stock.inventory_id
+      where saved.scan_count > 0
+      order by saved.barcode
+      for update of saved
+    loop
+      select coalesce(sum(item.quantity), 0)::bigint
+      into v_barcode_reserved
+      from public.tafi_stock_request_preparation_items as item
+      where item.preparation_id = p_preparation_id
+        and item.barcode = v_barcode.barcode;
+
+      v_barcode_available := v_barcode.scan_count - v_barcode_reserved;
+      if v_barcode_available <= 0 then
+        continue;
+      end if;
+
+      v_quantity := least(v_remaining, v_barcode_available)::bigint;
+      insert into public.tafi_stock_request_preparation_items as item (
+        preparation_id,
+        stock_inventory_id,
+        barcode,
+        stock_no,
+        category,
+        item_description,
+        unit_of_measure,
+        quantity,
+        unit_price
+      )
+      values (
+        p_preparation_id,
+        v_stock.stock_inventory_id,
+        v_barcode.barcode,
+        v_stock.stock_no,
+        v_barcode.category,
+        v_barcode.item_description,
+        v_barcode.unit_of_measure,
+        v_quantity,
+        v_barcode.price
+      )
+      on conflict (preparation_id, barcode) do update
+      set quantity = item.quantity + excluded.quantity,
+          unit_price = coalesce(item.unit_price, excluded.unit_price),
+          updated_at = now();
+
+      v_remaining := v_remaining - v_quantity;
+      v_added_lines := v_added_lines + 1;
+      exit when v_remaining = 0;
+    end loop;
+  end loop;
+
+  return v_added_lines;
+end;
+$$;
+
 create or replace function public.tafi_admin_list_stock_request_preparation_history(
   p_session_token uuid
 )
@@ -891,6 +1131,7 @@ revoke all on function public.tafi_admin_lookup_stock_request_barcode(uuid, uuid
 revoke all on function public.tafi_admin_save_stock_request_preparation_item(uuid, uuid, text, bigint, numeric) from public;
 revoke all on function public.tafi_admin_delete_stock_request_preparation_item(uuid, uuid, uuid) from public;
 revoke all on function public.tafi_admin_list_stock_request_preparation_items(uuid, uuid) from public;
+revoke all on function public.tafi_admin_auto_prepare_stock_request(uuid, uuid) from public;
 revoke all on function public.tafi_admin_list_stock_request_preparation_history(uuid) from public;
 revoke all on function public.tafi_admin_complete_stock_request_preparation(uuid, uuid) from public;
 revoke all on function public.tafi_admin_deliver_stock_requests(uuid, uuid[]) from public;
@@ -902,6 +1143,7 @@ grant execute on function public.tafi_admin_lookup_stock_request_barcode(uuid, u
 grant execute on function public.tafi_admin_save_stock_request_preparation_item(uuid, uuid, text, bigint, numeric) to anon, authenticated;
 grant execute on function public.tafi_admin_delete_stock_request_preparation_item(uuid, uuid, uuid) to anon, authenticated;
 grant execute on function public.tafi_admin_list_stock_request_preparation_items(uuid, uuid) to anon, authenticated;
+grant execute on function public.tafi_admin_auto_prepare_stock_request(uuid, uuid) to anon, authenticated;
 grant execute on function public.tafi_admin_list_stock_request_preparation_history(uuid) to anon, authenticated;
 grant execute on function public.tafi_admin_complete_stock_request_preparation(uuid, uuid) to anon, authenticated;
 grant execute on function public.tafi_admin_deliver_stock_requests(uuid, uuid[]) to anon, authenticated;
