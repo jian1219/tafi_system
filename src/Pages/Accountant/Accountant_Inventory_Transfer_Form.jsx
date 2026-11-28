@@ -54,7 +54,9 @@ export default function AccountantInventoryTransferForm({ sessionToken }) {
 	}, [sessionToken])
 
 	const branches = useMemo(
-		() => [...new Set(preparationHistory.map((item) => item.branch_name).filter(Boolean))]
+		() => [...new Set(preparationHistory
+			.map((item) => item.branch_name)
+			.filter((branchName) => branchName && branchName !== 'TAFI - HO'))]
 			.sort((first, second) => first.localeCompare(second)),
 		[preparationHistory]
 	)

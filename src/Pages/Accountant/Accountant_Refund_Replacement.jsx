@@ -60,7 +60,7 @@ export default function AccountantRefundReplacement({ sessionToken }) {
         return
       }
 
-      const branchList = data ?? []
+      const branchList = (data ?? []).filter((branch) => branch.branch_name !== 'TAFI - HO')
       setBranches(branchList)
       setSelectedBranchId((current) => (
         branchList.some((branch) => branch.branch_id === current)

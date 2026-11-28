@@ -14,6 +14,8 @@ const discountTypes = [
   { value: 'Pag-ibig', rate: 10 },
   { value: 'Loyalty Card', rate: 10 }
 ]
+const discountTypesWithoutCustomerCounts = ["Eagle's", 'Pag-ibig', 'Loyalty Card']
+const doesNotUseCustomerCounts = (type) => discountTypesWithoutCustomerCounts.includes(type)
 
 const getManilaDateKey = () => {
   const dateParts = new Intl.DateTimeFormat('en', {
@@ -44,11 +46,13 @@ const formatDate = (dateKey) => new Date(`${dateKey}T12:00:00`).toLocaleDateStri
   year: 'numeric'
 })
 
-const formatCurrency = (amount) => Number(amount).toLocaleString('en-PH', {
-  style: 'currency',
-  currency: 'PHP',
-  minimumFractionDigits: 2
-})
+const formatCurrency = (amount) => amount === null || amount === undefined || amount === ''
+  ? ''
+  : Number(amount).toLocaleString('en-PH', {
+    style: 'currency',
+    currency: 'PHP',
+    minimumFractionDigits: 2
+  })
 
 export default function BranchAdminDiscounts({
   branchName = 'Branch',
@@ -114,6 +118,18 @@ export default function BranchAdminDiscounts({
     setMessage('')
   }
 
+  const updateDiscountType = (type) => {
+    setForm((current) => ({
+      ...current,
+      type,
+      ...(doesNotUseCustomerCounts(type)
+        ? { customerCountPerOrder: '', noPersonGrantedDiscount: '' }
+        : {})
+    }))
+    setError('')
+    setMessage('')
+  }
+
   const toggleForm = () => {
     const isOpen = formOpen
     setFormOpen(!isOpen)
@@ -129,7 +145,9 @@ export default function BranchAdminDiscounts({
   const gross = Number(form.gross)
   const customerCount = Number(form.customerCountPerOrder)
   const grantedCount = Number(form.noPersonGrantedDiscount)
-  const canCalculateBasis = Number.isFinite(gross)
+  const requiresCustomerCounts = !doesNotUseCustomerCounts(form.type)
+  const canCalculateBasis = requiresCustomerCounts
+    && Number.isFinite(gross)
     && gross >= 0
     && Number.isInteger(customerCount)
     && customerCount > 0
@@ -146,6 +164,7 @@ export default function BranchAdminDiscounts({
     const grossAmount = Number(form.gross)
     const perOrderCount = Number(form.customerCountPerOrder)
     const discountedCount = Number(form.noPersonGrantedDiscount)
+    const usesGrossRate = doesNotUseCustomerCounts(form.type)
     if (!form.date || !form.type || !Number.isFinite(grossAmount) || grossAmount < 0) {
       setError('Select a date and discount type, and enter a gross amount of zero or greater.')
       return
@@ -154,9 +173,9 @@ export default function BranchAdminDiscounts({
       setError('Gross can have up to two decimal places.')
       return
     }
-    if (!Number.isInteger(perOrderCount) || perOrderCount < 1
+    if (!usesGrossRate && (!Number.isInteger(perOrderCount) || perOrderCount < 1
       || !Number.isInteger(discountedCount) || discountedCount < 0
-      || discountedCount > perOrderCount) {
+      || discountedCount > perOrderCount)) {
       setError('Enter a customer count greater than zero and a discounted-person count from zero up to the customer count.')
       return
     }
@@ -165,8 +184,8 @@ export default function BranchAdminDiscounts({
     const discountInput = {
       ...form,
       gross: grossAmount,
-      customerCountPerOrder: perOrderCount,
-      noPersonGrantedDiscount: discountedCount
+      customerCountPerOrder: usesGrossRate ? null : perOrderCount,
+      noPersonGrantedDiscount: usesGrossRate ? null : discountedCount
     }
     const saveResult = editingDiscountId
       ? await updateSalesDiscount(sessionToken, editingDiscountId, discountInput)
@@ -203,8 +222,12 @@ export default function BranchAdminDiscounts({
       billing: discount.billing ?? '',
       consigment: discount.consigment ?? '',
       gross: String(discount.gross),
-      customerCountPerOrder: String(discount.customer_count_per_order),
-      noPersonGrantedDiscount: String(discount.no_person_granted_discount)
+      customerCountPerOrder: doesNotUseCustomerCounts(discount.type)
+        ? ''
+        : String(discount.customer_count_per_order ?? ''),
+      noPersonGrantedDiscount: doesNotUseCustomerCounts(discount.type)
+        ? ''
+        : String(discount.no_person_granted_discount ?? '')
     })
     setSelectedMonth(discount.date.slice(0, 7))
     setFormOpen(true)
@@ -287,7 +310,7 @@ export default function BranchAdminDiscounts({
             <span>Type</span>
             <select
               value={form.type}
-              onChange={(event) => updateForm('type', event.target.value)}
+              onChange={(event) => updateDiscountType(event.target.value)}
               required
             >
               {discountTypes.map(({ value, rate }) => (
@@ -345,9 +368,10 @@ export default function BranchAdminDiscounts({
               type="number"
               min="1"
               step="1"
-              value={form.customerCountPerOrder}
+              value={requiresCustomerCounts ? form.customerCountPerOrder : ''}
               onChange={(event) => updateForm('customerCountPerOrder', event.target.value)}
-              required
+              required={requiresCustomerCounts}
+              disabled={!requiresCustomerCounts}
             />
           </label>
           <label>
@@ -356,9 +380,10 @@ export default function BranchAdminDiscounts({
               type="number"
               min="0"
               step="1"
-              value={form.noPersonGrantedDiscount}
+              value={requiresCustomerCounts ? form.noPersonGrantedDiscount : ''}
               onChange={(event) => updateForm('noPersonGrantedDiscount', event.target.value)}
-              required
+              required={requiresCustomerCounts}
+              disabled={!requiresCustomerCounts}
             />
           </label>
           <div className="branch-discounts-calculations" aria-live="polite">
@@ -440,12 +465,12 @@ export default function BranchAdminDiscounts({
                   <td>{discount.billing || '—'}</td>
                   <td>{discount.consigment || '—'}</td>
                   <td>{formatCurrency(discount.gross)}</td>
-                  <td>{discount.customer_count_per_order}</td>
-                  <td>{discount.no_person_granted_discount}</td>
+                  <td>{doesNotUseCustomerCounts(discount.type) ? '' : discount.customer_count_per_order}</td>
+                  <td>{doesNotUseCustomerCounts(discount.type) ? '' : discount.no_person_granted_discount}</td>
                   <td>{formatCurrency(discount.basis)}</td>
                   <td>{formatCurrency(discount.gross_x_dr)}</td>
-                  <td>{formatCurrency(discount.basic_x_dr)}</td>
-                  <td>{formatCurrency(discount.sc_pwd_bill_12)}</td>
+                  <td>{doesNotUseCustomerCounts(discount.type) ? '' : formatCurrency(discount.basic_x_dr)}</td>
+                  <td>{doesNotUseCustomerCounts(discount.type) ? '' : formatCurrency(discount.sc_pwd_bill_12)}</td>
                   {canEditDiscounts && (
                     <td>
                       <button

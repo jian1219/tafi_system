@@ -23,8 +23,8 @@ create table if not exists public.sales_discounts (
   billing text,
   consigment text,
   gross numeric(14, 2) not null check (gross >= 0),
-  customer_count_per_order integer not null check (customer_count_per_order > 0),
-  no_person_granted_discount integer not null
+  customer_count_per_order integer check (customer_count_per_order > 0),
+  no_person_granted_discount integer
     check (no_person_granted_discount >= 0
       and no_person_granted_discount <= customer_count_per_order),
   basis numeric(14, 2) generated always as (
@@ -47,8 +47,11 @@ create table if not exists public.sales_discounts (
   ) stored,
   sc_pwd_bill_12 numeric(14, 2) generated always as (
     case
-      when "type" in ('Senior Citizen', 'PWD') then round(gross * 0.12, 2)
-      else 0
+      when "type" in ('Senior Citizen', 'PWD') then round(
+        round(((gross / customer_count_per_order) / 1.12) * no_person_granted_discount, 2) * 0.12,
+        2
+      )
+      else null
     end
   ) stored,
   created_at timestamptz not null default now()
@@ -72,10 +75,63 @@ alter table public.sales_discounts
   ) stored,
   add column if not exists sc_pwd_bill_12 numeric(14, 2) generated always as (
     case
-      when "type" in ('Senior Citizen', 'PWD') then round(gross * 0.12, 2)
-      else 0
+      when "type" in ('Senior Citizen', 'PWD') then round(
+        round(((gross / customer_count_per_order) / 1.12) * no_person_granted_discount, 2) * 0.12,
+        2
+      )
+      else null
     end
   ) stored;
+
+alter table public.sales_discounts
+  drop column if exists sc_pwd_bill_12;
+
+alter table public.sales_discounts
+  add column sc_pwd_bill_12 numeric(14, 2) generated always as (
+    case
+      when "type" in ('Senior Citizen', 'PWD') then round(
+        round(((gross / customer_count_per_order) / 1.12) * no_person_granted_discount, 2) * 0.12,
+        2
+      )
+      else null
+    end
+  ) stored;
+
+alter table public.sales_discounts
+  alter column customer_count_per_order drop not null,
+  alter column no_person_granted_discount drop not null;
+
+update public.sales_discounts
+set customer_count_per_order = null,
+    no_person_granted_discount = null
+where "type" in ('Eagle''s', 'Pag-ibig', 'Loyalty Card');
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'sales_discounts_customer_counts_by_type_check'
+      and conrelid = 'public.sales_discounts'::regclass
+  ) then
+    alter table public.sales_discounts
+      add constraint sales_discounts_customer_counts_by_type_check
+      check (
+        (
+          "type" in ('Eagle''s', 'Pag-ibig', 'Loyalty Card')
+          and customer_count_per_order is null
+          and no_person_granted_discount is null
+        )
+        or (
+          "type" not in ('Eagle''s', 'Pag-ibig', 'Loyalty Card')
+          and customer_count_per_order > 0
+          and no_person_granted_discount >= 0
+          and no_person_granted_discount <= customer_count_per_order
+        )
+      );
+  end if;
+end;
+$$;
 
 create index if not exists sales_discounts_branch_date_idx
   on public.sales_discounts (branch_id, "date" desc, created_at desc);
@@ -103,6 +159,8 @@ as $$
 declare
   v_branch_id uuid;
   v_discount_id uuid;
+  v_customer_count_per_order integer;
+  v_no_person_granted_discount integer;
 begin
   select branch_admin.branch_id into v_branch_id
   from public.branch_admin_session as admin_session
@@ -121,10 +179,17 @@ begin
   if p_gross is null or p_gross < 0 or p_gross <> round(p_gross, 2) then
     raise exception 'Enter a gross amount of zero or greater with up to two decimal places';
   end if;
-  if p_customer_count_per_order is null or p_customer_count_per_order < 1
-    or p_no_person_granted_discount is null or p_no_person_granted_discount < 0
-    or p_no_person_granted_discount > p_customer_count_per_order then
-    raise exception 'Enter a customer count greater than zero and a discounted-person count from zero up to the customer count';
+  if p_type in ('Eagle''s', 'Pag-ibig', 'Loyalty Card') then
+    v_customer_count_per_order := null;
+    v_no_person_granted_discount := null;
+  else
+    if p_customer_count_per_order is null or p_customer_count_per_order < 1
+      or p_no_person_granted_discount is null or p_no_person_granted_discount < 0
+      or p_no_person_granted_discount > p_customer_count_per_order then
+      raise exception 'Enter a customer count greater than zero and a discounted-person count from zero up to the customer count';
+    end if;
+    v_customer_count_per_order := p_customer_count_per_order;
+    v_no_person_granted_discount := p_no_person_granted_discount;
   end if;
 
   insert into public.sales_discounts (
@@ -148,8 +213,8 @@ begin
     nullif(btrim(p_billing), ''),
     nullif(btrim(p_consigment), ''),
     p_gross,
-    p_customer_count_per_order,
-    p_no_person_granted_discount
+    v_customer_count_per_order,
+    v_no_person_granted_discount
   )
   returning id into v_discount_id;
 
@@ -214,6 +279,8 @@ set search_path = ''
 as $$
 declare
   v_branch_id uuid;
+  v_customer_count_per_order integer;
+  v_no_person_granted_discount integer;
 begin
   select branch_admin.branch_id into v_branch_id
   from public.branch_admin_session as admin_session
@@ -232,10 +299,17 @@ begin
   if p_gross is null or p_gross < 0 or p_gross <> round(p_gross, 2) then
     raise exception 'Enter a gross amount of zero or greater with up to two decimal places';
   end if;
-  if p_customer_count_per_order is null or p_customer_count_per_order < 1
-    or p_no_person_granted_discount is null or p_no_person_granted_discount < 0
-    or p_no_person_granted_discount > p_customer_count_per_order then
-    raise exception 'Enter a customer count greater than zero and a discounted-person count from zero up to the customer count';
+  if p_type in ('Eagle''s', 'Pag-ibig', 'Loyalty Card') then
+    v_customer_count_per_order := null;
+    v_no_person_granted_discount := null;
+  else
+    if p_customer_count_per_order is null or p_customer_count_per_order < 1
+      or p_no_person_granted_discount is null or p_no_person_granted_discount < 0
+      or p_no_person_granted_discount > p_customer_count_per_order then
+      raise exception 'Enter a customer count greater than zero and a discounted-person count from zero up to the customer count';
+    end if;
+    v_customer_count_per_order := p_customer_count_per_order;
+    v_no_person_granted_discount := p_no_person_granted_discount;
   end if;
 
   update public.sales_discounts as discount
@@ -246,8 +320,8 @@ begin
       billing = nullif(btrim(p_billing), ''),
       consigment = nullif(btrim(p_consigment), ''),
       gross = p_gross,
-      customer_count_per_order = p_customer_count_per_order,
-      no_person_granted_discount = p_no_person_granted_discount
+      customer_count_per_order = v_customer_count_per_order,
+      no_person_granted_discount = v_no_person_granted_discount
   where discount.id = p_discount_id
     and discount.branch_id = v_branch_id;
 

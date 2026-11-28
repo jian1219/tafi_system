@@ -1111,6 +1111,22 @@ export async function listTafiAdminAttendance(sessionToken, branchId, startDate,
   }
 }
 
+export async function listTafiAdminMissingDailyInputs(sessionToken, startDate, endDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_list_missing_daily_inputs', {
+      p_session_token: sessionToken,
+      p_start_date: startDate,
+      p_end_date: endDate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load missing branch daily entries.')
+    }
+  }
+}
+
 export async function listTafiAdminAttendanceSubmissionHistory(sessionToken, offset = 0, limit = 100) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -5128,6 +5144,37 @@ export async function listBranchAttendance(sessionToken, startDate, endDate) {
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to load attendance records.')
+    }
+  }
+}
+
+export async function listBranchMissingDailyInputs(sessionToken, startDate, endDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_list_missing_daily_inputs', {
+      p_session_token: sessionToken,
+      p_start_date: startDate,
+      p_end_date: endDate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to load missing daily entries.')
+    }
+  }
+}
+
+export async function markBranchDateNoOperation(sessionToken, operationDate) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_mark_date_no_operation', {
+      p_session_token: sessionToken,
+      p_operation_date: operationDate
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to mark the branch date as closed/no operation.')
     }
   }
 }

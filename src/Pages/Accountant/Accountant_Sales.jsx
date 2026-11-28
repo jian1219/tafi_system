@@ -66,7 +66,7 @@ export default function AccountantSales({
         return
       }
 
-      const branchList = data ?? []
+      const branchList = (data ?? []).filter((branch) => branch.branch_name !== 'TAFI - HO')
       setBranches(branchList)
       onSelectedBranchChange((current) => (
         branchList.some((branch) => branch.branch_id === current)

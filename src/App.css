@@ -6282,6 +6282,108 @@ fieldset.employee-emergency-contact-box {
   text-align: center;
 }
 
+.branch-missing-daily-inputs {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 12px;
+  align-content: start;
+  padding: 18px;
+  border: 1px solid #e1e9e5;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #fff, #f7faf8);
+  box-shadow: 0 8px 22px rgba(27, 74, 54, 0.05);
+}
+
+.branch-missing-daily-inputs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.branch-missing-daily-inputs-header h2 {
+  margin: 3px 0 0;
+  color: #233d35;
+  font-size: 1.05rem;
+}
+
+.branch-missing-daily-inputs-count {
+  display: grid;
+  min-width: 32px;
+  min-height: 32px;
+  place-items: center;
+  border-radius: 999px;
+  background: #eaf5ee;
+  color: #267e69;
+  font-size: 0.85rem;
+  font-weight: 750;
+}
+
+.branch-missing-daily-inputs-description,
+.branch-missing-daily-inputs-message {
+  margin: 0;
+  color: #71847c;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.branch-missing-daily-inputs-message.is-error {
+  color: #a33a32;
+}
+
+.branch-missing-daily-inputs-list {
+  display: grid;
+  max-height: 440px;
+  gap: 8px;
+  overflow: auto;
+  margin: 0;
+  padding: 0 4px 0 0;
+  list-style: none;
+}
+
+.branch-missing-daily-input-card {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid #e5ece8;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.branch-missing-daily-input-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  color: #71847c;
+  font-size: 0.78rem;
+}
+
+.branch-missing-daily-input-copy strong {
+  color: #233d35;
+  font-size: 0.88rem;
+}
+
+.branch-missing-daily-input-close {
+  flex: 0 0 auto;
+  padding: 7px 9px;
+  border: 1px solid #cbdcd4;
+  border-radius: 9px;
+  background: #f7faf8;
+  color: #267e69;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.branch-missing-daily-input-close:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .accountant-overview-barcode-card {
   display: grid;
   min-height: 118px;

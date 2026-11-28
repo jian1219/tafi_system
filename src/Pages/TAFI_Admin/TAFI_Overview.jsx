@@ -3,6 +3,7 @@ import { BarChart3, BookOpen, ChevronRight, Megaphone } from 'lucide-react'
 import DashboardOverview from '../Dashboard_Overview'
 import TafiOverviewAnalytics from './TAFI_Overview_Analytics'
 import TafiOverviewAnnouncement from './TAFI_Overview_Announcement'
+import BranchMissingDailyInputs from '../Branch_admin/Branch_Missing_Daily_Inputs'
 
 const overviewSections = [
   { id: 'workspace-info', label: 'Workspace Info', icon: BookOpen },
@@ -37,9 +38,11 @@ export default function TafiOverview({
             roleName="TAFI Admin"
             showBarcodeWithoutPrice
             showPlaceholderCards={false}
-            noDataCardCount={3}
             stackWorkspaceCards
             showWorkspaceNoDataCard
+            workspaceNoDataContent={
+              <BranchMissingDailyInputs sessionToken={sessionToken} isTafiAdmin />
+            }
             showPendingStockRequests
             showWelcomePanel={false}
             noAvailableStockCount={noAvailableStockCount}

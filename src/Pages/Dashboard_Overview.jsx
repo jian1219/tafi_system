@@ -107,6 +107,7 @@ export default function DashboardOverview({
   noPriceBarcodeCountError,
   showPendingStockRequests = false,
   showWorkspaceNoDataCard = false,
+  workspaceNoDataContent,
   showWelcomePanel = true,
   workspaceImage,
   workspaceAudio,
@@ -275,9 +276,11 @@ export default function DashboardOverview({
           </article>
         )}
         {showWorkspaceNoDataCard && (
-          <article className="accountant-overview-no-data-card">
-            No data
-          </article>
+          workspaceNoDataContent ?? (
+            <article className="accountant-overview-no-data-card">
+              No data
+            </article>
+          )
         )}
       </div>
     </div>

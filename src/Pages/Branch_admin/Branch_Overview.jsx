@@ -3,57 +3,11 @@ import {
   BarChart3,
   BookOpen,
   ChevronRight,
-  Megaphone,
-  Package,
-  Receipt,
-  Users,
-  Wallet
+  Megaphone
 } from 'lucide-react'
 import BranchOverviewAnnouncement from './Branch_Overview_Announcement'
 import BranchOverviewAnalytics from './Branch_Overview_Analytics'
-
-const overviewCards = [
-  {
-    id: 'employees',
-    title: 'Employees and attendance',
-    category: 'Employee Management',
-    icon: Users,
-    summary: 'Manage employee records, attendance, and leave credits.',
-    accent: 'employees'
-  },
-  {
-    id: 'payroll',
-    title: 'Payroll and finance',
-    category: 'Payroll & Finance',
-    icon: Wallet,
-    summary: 'Review payroll, cash advances, additions, and deductions.',
-    accent: 'payroll'
-  },
-  {
-    id: 'sales',
-    title: 'Sales',
-    category: 'Sales',
-    icon: Receipt,
-    summary: 'Open sales journals, deposits, transactions, discounts, and summaries.',
-    accent: 'sales'
-  },
-  {
-    id: 'expenses',
-    title: 'Expenses',
-    category: 'Expense',
-    icon: Receipt,
-    summary: 'Record cash disbursements and review daily and monthly summaries.',
-    accent: 'expenses'
-  },
-  {
-    id: 'inventory',
-    title: 'Inventory and stock',
-    category: 'Inventory',
-    icon: Package,
-    summary: 'Track branch stock, confirm receipts, and follow stock requests.',
-    accent: 'inventory'
-  }
-]
+import BranchMissingDailyInputs from './Branch_Missing_Daily_Inputs'
 
 const overviewSections = [
   { id: 'workspace-info', label: 'Workspace Info', icon: BookOpen },
@@ -79,27 +33,8 @@ export default function BranchOverview({ branchAdmin }) {
                 <p className="branch-overview-heading-label">Your dashboard</p>
                 <h2 id="branch-overview-heading">Branch workspace</h2>
               </div>
-              <div className="branch-overview-heading-actions">
-                <span className="branch-overview-count">05 sections</span>
-              </div>
             </header>
-            <div className="branch-overview-cards">
-              {overviewCards.map(({ id, title, category, icon: Icon, summary, accent }, index) => (
-                <article className={`branch-overview-card branch-overview-card-${accent}`} key={id}>
-                  <span className="branch-overview-card-icon">
-                    <Icon size={22} aria-hidden="true" />
-                  </span>
-                  <div className="branch-overview-card-copy">
-                    <p>{category}</p>
-                    <h3>{title}</h3>
-                    <span>{summary}</span>
-                  </div>
-                  <span className="branch-overview-card-index" aria-hidden="true">
-                    {String(index + 1).padStart(2, '0')}
-                  </span>
-                </article>
-              ))}
-            </div>
+            <BranchMissingDailyInputs sessionToken={branchAdmin?.session_token} />
           </section>
         ) : activeSection === 'announcements' ? (
           <BranchOverviewAnnouncement />

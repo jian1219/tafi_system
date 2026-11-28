@@ -334,6 +334,8 @@ set search_path = ''
 as $$
 declare
   v_discount_id uuid;
+  v_customer_count_per_order integer;
+  v_no_person_granted_discount integer;
 begin
   perform public.tafi_admin_assert_sales_admin_branch(p_session_token, p_branch_id);
 
@@ -344,10 +346,17 @@ begin
   if p_gross is null or p_gross < 0 or p_gross <> round(p_gross, 2) then
     raise exception 'Enter a gross amount of zero or greater with up to two decimal places';
   end if;
-  if p_customer_count_per_order is null or p_customer_count_per_order < 1
-    or p_no_person_granted_discount is null or p_no_person_granted_discount < 0
-    or p_no_person_granted_discount > p_customer_count_per_order then
-    raise exception 'Enter a customer count greater than zero and a discounted-person count from zero up to the customer count';
+  if p_type in ('Eagle''s', 'Pag-ibig', 'Loyalty Card') then
+    v_customer_count_per_order := null;
+    v_no_person_granted_discount := null;
+  else
+    if p_customer_count_per_order is null or p_customer_count_per_order < 1
+      or p_no_person_granted_discount is null or p_no_person_granted_discount < 0
+      or p_no_person_granted_discount > p_customer_count_per_order then
+      raise exception 'Enter a customer count greater than zero and a discounted-person count from zero up to the customer count';
+    end if;
+    v_customer_count_per_order := p_customer_count_per_order;
+    v_no_person_granted_discount := p_no_person_granted_discount;
   end if;
 
   insert into public.sales_discounts (
@@ -371,8 +380,8 @@ begin
     nullif(btrim(p_billing), ''),
     nullif(btrim(p_consigment), ''),
     p_gross,
-    p_customer_count_per_order,
-    p_no_person_granted_discount
+    v_customer_count_per_order,
+    v_no_person_granted_discount
   )
   returning id into v_discount_id;
 
