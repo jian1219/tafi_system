@@ -4,12 +4,53 @@ begin;
 create table if not exists public.branch_inventory (
   id uuid primary key default gen_random_uuid(),
   branch_id uuid not null references public.branch(id) on delete cascade,
-  stock_inventory_id uuid not null
+  stock_inventory_id uuid
     references public.tafi_stock_inventory(id) on delete restrict,
+  local_stock_no text,
+  local_item_description text,
+  local_unit_of_measure text,
+  local_category text,
   available numeric(14, 3) not null default 0,
   created_at timestamptz not null default now(),
   unique (branch_id, stock_inventory_id)
 );
+
+alter table public.branch_inventory
+  alter column stock_inventory_id drop not null,
+  add column if not exists local_stock_no text,
+  add column if not exists local_item_description text,
+  add column if not exists local_unit_of_measure text,
+  add column if not exists local_category text;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.branch_inventory'::regclass
+      and conname = 'branch_inventory_item_source_check'
+  ) then
+    alter table public.branch_inventory
+      add constraint branch_inventory_item_source_check
+      check (
+        (stock_inventory_id is not null
+          and local_stock_no is null
+          and local_item_description is null
+          and local_unit_of_measure is null
+          and local_category is null)
+        or (stock_inventory_id is null
+          and nullif(btrim(local_stock_no), '') is not null
+          and nullif(btrim(local_item_description), '') is not null
+          and nullif(btrim(local_unit_of_measure), '') is not null
+          and nullif(btrim(local_category), '') is not null)
+      );
+  end if;
+end;
+$$;
+
+create unique index if not exists branch_inventory_local_stock_no_uidx
+  on public.branch_inventory (branch_id, lower(local_stock_no))
+  where stock_inventory_id is null;
 
 do $$
 begin
@@ -161,19 +202,20 @@ begin
   return query
   select branch_stock.id,
          stock.id,
-         stock.stock_no,
-         stock.item_description,
-         stock.unit_of_measure,
-         inventory.category,
+         coalesce(stock.stock_no, branch_stock.local_stock_no),
+         coalesce(stock.item_description, branch_stock.local_item_description),
+         coalesce(stock.unit_of_measure, branch_stock.local_unit_of_measure),
+         coalesce(inventory.category, branch_stock.local_category),
          branch_stock.available,
          branch_stock.created_at
   from public.branch_inventory as branch_stock
-  join public.tafi_stock_inventory as stock
+  left join public.tafi_stock_inventory as stock
     on stock.id = branch_stock.stock_inventory_id
-  join public.inventory_information as inventory
+  left join public.inventory_information as inventory
     on inventory.id = stock.inventory_id
   where branch_stock.branch_id = v_branch_id
-  order by inventory.category, stock.stock_no;
+  order by coalesce(inventory.category, branch_stock.local_category),
+           coalesce(stock.stock_no, branch_stock.local_stock_no);
 end;
 $$;
 
@@ -221,6 +263,82 @@ begin
 end;
 $$;
 
+create or replace function public.branch_admin_add_local_inventory_item(
+  p_session_token uuid,
+  p_stock_no text,
+  p_category text,
+  p_item_description text,
+  p_unit_of_measure text,
+  p_available numeric
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_branch_id uuid;
+  v_branch_inventory_id uuid;
+begin
+  select branch_admin.branch_id
+  into v_branch_id
+  from public.branch_admin_session as admin_session
+  join public.branch_admin as branch_admin
+    on branch_admin.id = admin_session.branch_admin_id
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now();
+
+  if not found then
+    raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
+  end if;
+  if nullif(btrim(p_stock_no), '') is null
+    or nullif(btrim(p_category), '') is null
+    or nullif(btrim(p_item_description), '') is null
+    or nullif(btrim(p_unit_of_measure), '') is null then
+    raise exception 'Stock number, category, item description, and unit of measure are required';
+  end if;
+  if length(btrim(p_stock_no)) > 64
+    or length(btrim(p_category)) > 100
+    or length(btrim(p_item_description)) > 200
+    or length(btrim(p_unit_of_measure)) > 64 then
+    raise exception 'Inventory item details exceed the allowed length';
+  end if;
+  if p_available is null or p_available < 0 or p_available <> round(p_available, 3) then
+    raise exception 'Available quantity must be zero or greater with up to three decimal places';
+  end if;
+  if exists (
+    select 1
+    from public.branch_inventory as branch_stock
+    left join public.tafi_stock_inventory as stock
+      on stock.id = branch_stock.stock_inventory_id
+    where branch_stock.branch_id = v_branch_id
+      and lower(coalesce(stock.stock_no, branch_stock.local_stock_no)) = lower(btrim(p_stock_no))
+  ) then
+    raise exception 'That stock number already exists in this branch';
+  end if;
+
+  insert into public.branch_inventory (
+    branch_id,
+    local_stock_no,
+    local_category,
+    local_item_description,
+    local_unit_of_measure,
+    available
+  )
+  values (
+    v_branch_id,
+    btrim(p_stock_no),
+    btrim(p_category),
+    btrim(p_item_description),
+    btrim(p_unit_of_measure),
+    p_available
+  )
+  returning id into v_branch_inventory_id;
+
+  return v_branch_inventory_id;
+end;
+$$;
+
 drop function if exists public.tafi_admin_list_branch_inventory(uuid);
 
 create function public.tafi_admin_list_branch_inventory(
@@ -254,19 +372,21 @@ begin
   select branch_stock.id,
          branch.name,
          stock.id,
-         stock.stock_no,
-         stock.item_description,
-         stock.unit_of_measure,
-         inventory.category,
+         coalesce(stock.stock_no, branch_stock.local_stock_no),
+         coalesce(stock.item_description, branch_stock.local_item_description),
+         coalesce(stock.unit_of_measure, branch_stock.local_unit_of_measure),
+         coalesce(inventory.category, branch_stock.local_category),
          branch_stock.available
   from public.branch_inventory as branch_stock
   join public.branch as branch
     on branch.id = branch_stock.branch_id
-  join public.tafi_stock_inventory as stock
+  left join public.tafi_stock_inventory as stock
     on stock.id = branch_stock.stock_inventory_id
-  join public.inventory_information as inventory
+  left join public.inventory_information as inventory
     on inventory.id = stock.inventory_id
-  order by branch.name, inventory.category, stock.stock_no;
+  order by branch.name,
+           coalesce(inventory.category, branch_stock.local_category),
+           coalesce(stock.stock_no, branch_stock.local_stock_no);
 end;
 $$;
 
@@ -304,20 +424,22 @@ begin
   select branch_stock.id,
          branch.name,
          stock.id,
-         stock.stock_no,
-         stock.item_description,
-         stock.unit_of_measure,
-         inventory.category,
+         coalesce(stock.stock_no, branch_stock.local_stock_no),
+         coalesce(stock.item_description, branch_stock.local_item_description),
+         coalesce(stock.unit_of_measure, branch_stock.local_unit_of_measure),
+         coalesce(inventory.category, branch_stock.local_category),
          branch_stock.available,
          branch_stock.created_at
   from public.branch_inventory as branch_stock
   join public.branch as branch
     on branch.id = branch_stock.branch_id
-  join public.tafi_stock_inventory as stock
+  left join public.tafi_stock_inventory as stock
     on stock.id = branch_stock.stock_inventory_id
-  join public.inventory_information as inventory
+  left join public.inventory_information as inventory
     on inventory.id = stock.inventory_id
-  order by branch.name, inventory.category, stock.stock_no;
+  order by branch.name,
+           coalesce(inventory.category, branch_stock.local_category),
+           coalesce(stock.stock_no, branch_stock.local_stock_no);
 end;
 $$;
 
@@ -388,10 +510,10 @@ begin
   return query
   select v_usage_date,
          branch_stock.id,
-         stock.stock_no,
-         inventory.category,
-         stock.item_description,
-         stock.unit_of_measure,
+         coalesce(stock.stock_no, branch_stock.local_stock_no),
+         coalesce(inventory.category, branch_stock.local_category),
+         coalesce(stock.item_description, branch_stock.local_item_description),
+         coalesce(stock.unit_of_measure, branch_stock.local_unit_of_measure),
          coalesce(today_log.beginning_stock, previous_log.ending_stock, branch_stock.available),
          coalesce(today_log.usage_quantity, 0),
          coalesce(
@@ -401,9 +523,9 @@ begin
            branch_stock.available
          )
   from public.branch_inventory as branch_stock
-  join public.tafi_stock_inventory as stock
+  left join public.tafi_stock_inventory as stock
     on stock.id = branch_stock.stock_inventory_id
-  join public.inventory_information as inventory
+  left join public.inventory_information as inventory
     on inventory.id = stock.inventory_id
   left join lateral (
     select daily_log.ending_stock
@@ -417,7 +539,8 @@ begin
     on today_log.branch_inventory_id = branch_stock.id
     and today_log.usage_date = v_usage_date
   where branch_stock.branch_id = v_branch_id
-  order by inventory.category, stock.stock_no;
+  order by coalesce(inventory.category, branch_stock.local_category),
+           coalesce(stock.stock_no, branch_stock.local_stock_no);
 end;
 $$;
 
@@ -497,23 +620,24 @@ begin
   return query
   select daily_log.usage_date,
          branch_stock.id,
-         stock.stock_no,
-         inventory.category,
-         stock.item_description,
-         stock.unit_of_measure,
+         coalesce(stock.stock_no, branch_stock.local_stock_no),
+         coalesce(inventory.category, branch_stock.local_category),
+         coalesce(stock.item_description, branch_stock.local_item_description),
+         coalesce(stock.unit_of_measure, branch_stock.local_unit_of_measure),
          daily_log.beginning_stock,
          daily_log.usage_quantity,
          daily_log.ending_stock
   from public.branch_inventory_daily_log as daily_log
   join public.branch_inventory as branch_stock
     on branch_stock.id = daily_log.branch_inventory_id
-  join public.tafi_stock_inventory as stock
+  left join public.tafi_stock_inventory as stock
     on stock.id = branch_stock.stock_inventory_id
-  join public.inventory_information as inventory
+  left join public.inventory_information as inventory
     on inventory.id = stock.inventory_id
   where branch_stock.branch_id = v_branch_id
     and daily_log.usage_date = p_usage_date
-  order by inventory.category, stock.stock_no;
+  order by coalesce(inventory.category, branch_stock.local_category),
+           coalesce(stock.stock_no, branch_stock.local_stock_no);
 end;
 $$;
 
@@ -559,16 +683,16 @@ begin
   return query
   select p_month_start,
          branch_stock.id,
-         stock.stock_no,
-         inventory.category,
-         stock.item_description,
-         stock.unit_of_measure,
+         coalesce(stock.stock_no, branch_stock.local_stock_no),
+         coalesce(inventory.category, branch_stock.local_category),
+         coalesce(stock.item_description, branch_stock.local_item_description),
+         coalesce(stock.unit_of_measure, branch_stock.local_unit_of_measure),
          coalesce(sum(daily_log.usage_quantity), 0)::numeric,
          count(daily_log.id)::bigint
   from public.branch_inventory as branch_stock
-  join public.tafi_stock_inventory as stock
+  left join public.tafi_stock_inventory as stock
     on stock.id = branch_stock.stock_inventory_id
-  join public.inventory_information as inventory
+  left join public.inventory_information as inventory
     on inventory.id = stock.inventory_id
   left join public.branch_inventory_daily_log as daily_log
     on daily_log.branch_inventory_id = branch_stock.id
@@ -576,11 +700,12 @@ begin
     and daily_log.usage_date < (p_month_start + interval '1 month')::date
   where branch_stock.branch_id = v_branch_id
   group by branch_stock.id,
-           stock.stock_no,
-           inventory.category,
-           stock.item_description,
-           stock.unit_of_measure
-  order by inventory.category, stock.stock_no;
+           coalesce(stock.stock_no, branch_stock.local_stock_no),
+           coalesce(inventory.category, branch_stock.local_category),
+           coalesce(stock.item_description, branch_stock.local_item_description),
+           coalesce(stock.unit_of_measure, branch_stock.local_unit_of_measure)
+  order by coalesce(inventory.category, branch_stock.local_category),
+           coalesce(stock.stock_no, branch_stock.local_stock_no);
 end;
 $$;
 
@@ -630,10 +755,10 @@ begin
          branch.id,
          branch.name,
          branch_stock.id,
-         stock.stock_no,
-         inventory.category,
-         stock.item_description,
-         stock.unit_of_measure,
+         coalesce(stock.stock_no, branch_stock.local_stock_no),
+         coalesce(inventory.category, branch_stock.local_category),
+         coalesce(stock.item_description, branch_stock.local_item_description),
+         coalesce(stock.unit_of_measure, branch_stock.local_unit_of_measure),
          daily_log.beginning_stock,
          daily_log.usage_quantity,
          daily_log.ending_stock
@@ -642,13 +767,14 @@ begin
     on branch_stock.id = daily_log.branch_inventory_id
   join public.branch as branch
     on branch.id = branch_stock.branch_id
-  join public.tafi_stock_inventory as stock
+  left join public.tafi_stock_inventory as stock
     on stock.id = branch_stock.stock_inventory_id
-  join public.inventory_information as inventory
+  left join public.inventory_information as inventory
     on inventory.id = stock.inventory_id
   where branch_stock.branch_id = p_branch_id
     and daily_log.usage_date = p_usage_date
-  order by inventory.category, stock.stock_no;
+  order by coalesce(inventory.category, branch_stock.local_category),
+           coalesce(stock.stock_no, branch_stock.local_stock_no);
 end;
 $$;
 
@@ -699,18 +825,18 @@ begin
          branch.id,
          branch.name,
          branch_stock.id,
-         stock.stock_no,
-         inventory.category,
-         stock.item_description,
-         stock.unit_of_measure,
+         coalesce(stock.stock_no, branch_stock.local_stock_no),
+         coalesce(inventory.category, branch_stock.local_category),
+         coalesce(stock.item_description, branch_stock.local_item_description),
+         coalesce(stock.unit_of_measure, branch_stock.local_unit_of_measure),
          coalesce(sum(daily_log.usage_quantity), 0)::numeric,
          count(daily_log.id)::bigint
   from public.branch_inventory as branch_stock
   join public.branch as branch
     on branch.id = branch_stock.branch_id
-  join public.tafi_stock_inventory as stock
+  left join public.tafi_stock_inventory as stock
     on stock.id = branch_stock.stock_inventory_id
-  join public.inventory_information as inventory
+  left join public.inventory_information as inventory
     on inventory.id = stock.inventory_id
   left join public.branch_inventory_daily_log as daily_log
     on daily_log.branch_inventory_id = branch_stock.id
@@ -720,11 +846,12 @@ begin
   group by branch.id,
            branch.name,
            branch_stock.id,
-           stock.stock_no,
-           inventory.category,
-           stock.item_description,
-           stock.unit_of_measure
-  order by inventory.category, stock.stock_no;
+           coalesce(stock.stock_no, branch_stock.local_stock_no),
+           coalesce(inventory.category, branch_stock.local_category),
+           coalesce(stock.item_description, branch_stock.local_item_description),
+           coalesce(stock.unit_of_measure, branch_stock.local_unit_of_measure)
+  order by coalesce(inventory.category, branch_stock.local_category),
+           coalesce(stock.stock_no, branch_stock.local_stock_no);
 end;
 $$;
 
@@ -774,10 +901,10 @@ begin
          branch.id,
          branch.name,
          branch_stock.id,
-         stock.stock_no,
-         inventory.category,
-         stock.item_description,
-         stock.unit_of_measure,
+         coalesce(stock.stock_no, branch_stock.local_stock_no),
+         coalesce(inventory.category, branch_stock.local_category),
+         coalesce(stock.item_description, branch_stock.local_item_description),
+         coalesce(stock.unit_of_measure, branch_stock.local_unit_of_measure),
          daily_log.beginning_stock,
          daily_log.usage_quantity,
          daily_log.ending_stock
@@ -786,13 +913,14 @@ begin
     on branch_stock.id = daily_log.branch_inventory_id
   join public.branch as branch
     on branch.id = branch_stock.branch_id
-  join public.tafi_stock_inventory as stock
+  left join public.tafi_stock_inventory as stock
     on stock.id = branch_stock.stock_inventory_id
-  join public.inventory_information as inventory
+  left join public.inventory_information as inventory
     on inventory.id = stock.inventory_id
   where branch_stock.branch_id = p_branch_id
     and daily_log.usage_date = p_usage_date
-  order by inventory.category, stock.stock_no;
+  order by coalesce(inventory.category, branch_stock.local_category),
+           coalesce(stock.stock_no, branch_stock.local_stock_no);
 end;
 $$;
 
@@ -843,18 +971,18 @@ begin
          branch.id,
          branch.name,
          branch_stock.id,
-         stock.stock_no,
-         inventory.category,
-         stock.item_description,
-         stock.unit_of_measure,
+         coalesce(stock.stock_no, branch_stock.local_stock_no),
+         coalesce(inventory.category, branch_stock.local_category),
+         coalesce(stock.item_description, branch_stock.local_item_description),
+         coalesce(stock.unit_of_measure, branch_stock.local_unit_of_measure),
          coalesce(sum(daily_log.usage_quantity), 0)::numeric,
          count(daily_log.id)::bigint
   from public.branch_inventory as branch_stock
   join public.branch as branch
     on branch.id = branch_stock.branch_id
-  join public.tafi_stock_inventory as stock
+  left join public.tafi_stock_inventory as stock
     on stock.id = branch_stock.stock_inventory_id
-  join public.inventory_information as inventory
+  left join public.inventory_information as inventory
     on inventory.id = stock.inventory_id
   left join public.branch_inventory_daily_log as daily_log
     on daily_log.branch_inventory_id = branch_stock.id
@@ -864,11 +992,12 @@ begin
   group by branch.id,
            branch.name,
            branch_stock.id,
-           stock.stock_no,
-           inventory.category,
-           stock.item_description,
-           stock.unit_of_measure
-  order by inventory.category, stock.stock_no;
+           coalesce(stock.stock_no, branch_stock.local_stock_no),
+           coalesce(inventory.category, branch_stock.local_category),
+           coalesce(stock.item_description, branch_stock.local_item_description),
+           coalesce(stock.unit_of_measure, branch_stock.local_unit_of_measure)
+  order by coalesce(inventory.category, branch_stock.local_category),
+           coalesce(stock.stock_no, branch_stock.local_stock_no);
 end;
 $$;
 
@@ -997,6 +1126,7 @@ $$;
 revoke all on function public.branch_admin_list_tafi_stock_items(uuid) from public;
 revoke all on function public.branch_admin_list_inventory(uuid) from public;
 revoke all on function public.branch_admin_add_inventory_item(uuid, uuid, numeric) from public;
+revoke all on function public.branch_admin_add_local_inventory_item(uuid, text, text, text, text, numeric) from public;
 revoke all on function public.tafi_admin_list_branch_inventory(uuid) from public;
 revoke all on function public.accountant_list_branch_stock_inventory(uuid) from public;
 revoke all on function public.branch_admin_list_inventory_daily_log(uuid) from public;
@@ -1013,6 +1143,7 @@ revoke all on function public.tafi_admin_list_branch_inventory_monthly_usage(uui
 grant execute on function public.branch_admin_list_tafi_stock_items(uuid) to anon, authenticated;
 grant execute on function public.branch_admin_list_inventory(uuid) to anon, authenticated;
 grant execute on function public.branch_admin_add_inventory_item(uuid, uuid, numeric) to anon, authenticated;
+grant execute on function public.branch_admin_add_local_inventory_item(uuid, text, text, text, text, numeric) to anon, authenticated;
 grant execute on function public.tafi_admin_list_branch_inventory(uuid) to anon, authenticated;
 grant execute on function public.accountant_list_branch_stock_inventory(uuid) to anon, authenticated;
 grant execute on function public.branch_admin_list_inventory_daily_log(uuid) to anon, authenticated;

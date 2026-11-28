@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Trash2 } from 'lucide-react'
+import { Plus, Trash2, X } from 'lucide-react'
 import {
 	addBranchInventoryRefItem,
+	addBranchLocalInventoryItem,
 	deleteBranchInventoryRefItem,
 	deleteBranchInventoryItem,
 	listBranchInventory,
@@ -15,6 +16,13 @@ import {
 } from '../../lib/supabase'
 
 const refHistoryPageSize = 50
+const createEmptyMainInventoryItem = () => ({
+	stockNo: '',
+	category: '',
+	itemDescription: '',
+	unitOfMeasure: '',
+	available: '0'
+})
 
 const getManilaDateKey = () => {
 	const dateParts = new Intl.DateTimeFormat('en', {
@@ -65,6 +73,9 @@ export default function BranchInventory({ branchName = 'Branch', branchAdmin }) 
 	const [loadError, setLoadError] = useState('')
 	const [mainInventoryActionError, setMainInventoryActionError] = useState('')
 	const [mainInventoryActionMessage, setMainInventoryActionMessage] = useState('')
+	const [mainInventoryItemForm, setMainInventoryItemForm] = useState(createEmptyMainInventoryItem)
+	const [isAddingMainInventoryItem, setIsAddingMainInventoryItem] = useState(false)
+	const [isMainInventoryItemFormOpen, setIsMainInventoryItemFormOpen] = useState(false)
 	const [deletingInventoryId, setDeletingInventoryId] = useState('')
 	const [retryCount, setRetryCount] = useState(0)
 	const [refRetryCount, setRefRetryCount] = useState(0)
@@ -327,6 +338,47 @@ export default function BranchInventory({ branchName = 'Branch', branchAdmin }) 
 		setMainInventoryActionMessage(`${item.item_description} deleted from Main Inventory.`)
 	}
 
+	const addMainInventoryItem = async (event) => {
+		event.preventDefault()
+		if (!sessionToken) {
+			setMainInventoryActionError('Branch Admin session is unavailable. Please sign in again.')
+			return
+		}
+
+		const rawAvailable = mainInventoryItemForm.available.trim()
+		const item = {
+			stockNo: mainInventoryItemForm.stockNo.trim(),
+			category: mainInventoryItemForm.category.trim(),
+			itemDescription: mainInventoryItemForm.itemDescription.trim(),
+			unitOfMeasure: mainInventoryItemForm.unitOfMeasure.trim(),
+			available: Number(rawAvailable)
+		}
+		if (!item.stockNo || !item.category || !item.itemDescription || !item.unitOfMeasure
+			|| !rawAvailable || !Number.isFinite(item.available) || item.available < 0) {
+			setMainInventoryActionError('Enter a stock number, category, item description, unit of measure, and available quantity of zero or greater.')
+			return
+		}
+		if (Math.abs(item.available * 1000 - Math.round(item.available * 1000)) > 0.000001) {
+			setMainInventoryActionError('Available quantity can have up to three decimal places.')
+			return
+		}
+
+		setIsAddingMainInventoryItem(true)
+		setMainInventoryActionError('')
+		setMainInventoryActionMessage('')
+		const { error } = await addBranchLocalInventoryItem(sessionToken, item)
+		setIsAddingMainInventoryItem(false)
+		if (error) {
+			setMainInventoryActionError(error.message)
+			return
+		}
+
+		setMainInventoryItemForm(createEmptyMainInventoryItem())
+		setIsMainInventoryItemFormOpen(false)
+		setMainInventoryActionMessage(`${item.itemDescription} added to this branch's Main Inventory.`)
+		setRetryCount((count) => count + 1)
+	}
+
 	const addRefInventoryItem = async (event) => {
 		event.preventDefault()
 		if (!sessionToken) {
@@ -518,8 +570,111 @@ export default function BranchInventory({ branchName = 'Branch', branchAdmin }) 
 						</p>
 					)}
 					<p className="accountant-inventory-empty">
-						Main Inventory items can only be deleted when Available is 0. Deleting also removes their daily usage history; Ref Inventory is unaffected.
+						You can add branch-only items here; they will not appear in other branches or Ref Inventory. Main Inventory items can only be deleted when Available is 0.
 					</p>
+					<div className="branch-main-inventory-add-toggle">
+						<button
+							type="button"
+							className="accountant-inventory-add-toggle"
+							aria-expanded={isMainInventoryItemFormOpen}
+							aria-controls="branch-main-inventory-add-form"
+							disabled={isAddingMainInventoryItem}
+							onClick={() => {
+								setIsMainInventoryItemFormOpen((current) => !current)
+								setMainInventoryActionError('')
+								setMainInventoryActionMessage('')
+							}}
+						>
+							{isMainInventoryItemFormOpen
+								? <X size={16} aria-hidden="true" />
+								: <Plus size={16} aria-hidden="true" />}
+							{isMainInventoryItemFormOpen ? 'Close form' : 'Add Item'}
+						</button>
+					</div>
+					{isMainInventoryItemFormOpen && (
+						<form
+							id="branch-main-inventory-add-form"
+							className="tafi-stock-inventory-filters accountant-inventory-ref-form branch-main-inventory-add-form"
+							onSubmit={addMainInventoryItem}
+						>
+							<label>
+								<span>Stock no.</span>
+								<input
+									type="text"
+									maxLength="64"
+									value={mainInventoryItemForm.stockNo}
+									onChange={(event) => setMainInventoryItemForm((current) => ({
+										...current,
+										stockNo: event.target.value
+									}))}
+									required
+								/>
+							</label>
+							<label>
+								<span>Category</span>
+								<input
+									type="text"
+									maxLength="100"
+									value={mainInventoryItemForm.category}
+									onChange={(event) => setMainInventoryItemForm((current) => ({
+										...current,
+										category: event.target.value
+									}))}
+									required
+								/>
+							</label>
+							<label>
+								<span>Item description</span>
+								<input
+									type="text"
+									maxLength="200"
+									value={mainInventoryItemForm.itemDescription}
+									onChange={(event) => setMainInventoryItemForm((current) => ({
+										...current,
+										itemDescription: event.target.value
+									}))}
+									required
+								/>
+							</label>
+							<label>
+								<span>Unit of measure</span>
+								<input
+									type="text"
+									maxLength="64"
+									value={mainInventoryItemForm.unitOfMeasure}
+									onChange={(event) => setMainInventoryItemForm((current) => ({
+										...current,
+										unitOfMeasure: event.target.value
+									}))}
+									required
+								/>
+							</label>
+							<label>
+								<span>Initial available</span>
+								<input
+									type="number"
+									min="0"
+									step="0.001"
+									inputMode="decimal"
+									value={mainInventoryItemForm.available}
+									onChange={(event) => setMainInventoryItemForm((current) => ({
+										...current,
+										available: event.target.value
+									}))}
+									required
+								/>
+							</label>
+							<div className="branch-main-inventory-add-actions">
+								<button
+									type="submit"
+									className="accountant-inventory-submit"
+									disabled={isAddingMainInventoryItem || isLoading}
+								>
+									{isAddingMainInventoryItem ? 'Adding item…' : 'Add Item'}
+								</button>
+							</div>
+						</form>
+					)}
 					{isLoading ? (
 						<p className="accountant-inventory-empty" role="status">Loading branch inventory...</p>
 					) : inventoryItems.length ? (
@@ -611,7 +766,7 @@ export default function BranchInventory({ branchName = 'Branch', branchAdmin }) 
 							)}
 						</>
 					) : (
-						<p className="accountant-inventory-empty">No shared inventory items are available yet.</p>
+						<p className="accountant-inventory-empty">No items have been added to this branch's Main Inventory yet.</p>
 					)}
 				</div>
 			) : (

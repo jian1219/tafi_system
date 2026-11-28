@@ -7533,6 +7533,21 @@ fieldset.employee-emergency-contact-box {
   padding: 10px 16px;
 }
 
+.branch-main-inventory-add-toggle {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.accountant-inventory-ref-form.branch-main-inventory-add-form {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.branch-main-inventory-add-actions {
+  display: flex;
+  align-items: flex-end;
+}
+
 .branch-ref-history-date-summary-row {
   display: grid;
   grid-template-columns: minmax(200px, 240px) minmax(0, 1fr) minmax(0, 1fr);
@@ -8452,6 +8467,10 @@ fieldset.employee-emergency-contact-box {
   }
 
   .tafi-stock-inventory-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .accountant-inventory-ref-form.branch-main-inventory-add-form {
     grid-template-columns: 1fr;
   }
 

@@ -3313,6 +3313,25 @@ export async function addBranchInventoryItem(sessionToken, stockInventoryId, ava
   }
 }
 
+export async function addBranchLocalInventoryItem(sessionToken, item) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_add_local_inventory_item', {
+      p_session_token: sessionToken,
+      p_stock_no: item.stockNo,
+      p_category: item.category,
+      p_item_description: item.itemDescription,
+      p_unit_of_measure: item.unitOfMeasure,
+      p_available: item.available
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to add the branch-only inventory item.')
+    }
+  }
+}
+
 export async function deleteBranchInventoryItem(sessionToken, branchInventoryId) {
   try {
     const supabaseClient = await getSupabaseClient()
