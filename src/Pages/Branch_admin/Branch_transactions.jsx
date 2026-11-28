@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Pencil, Plus, Trash2, X } from 'lucide-react'
 import {
   createBranchFoodPandaTransaction,
   createBranchGcashTransaction,
   deleteBranchFoodPandaTransaction,
   deleteBranchGcashTransaction,
   listBranchFoodPandaTransactions,
-  listBranchGcashTransactions
+  listBranchGcashTransactions,
+  updateBranchFoodPandaTransaction,
+  updateBranchGcashTransaction
 } from '../../lib/supabase'
 
 const branchTransactionsApi = {
@@ -15,7 +17,9 @@ const branchTransactionsApi = {
   deleteBranchFoodPandaTransaction,
   deleteBranchGcashTransaction,
   listBranchFoodPandaTransactions,
-  listBranchGcashTransactions
+  listBranchGcashTransactions,
+  updateBranchFoodPandaTransaction,
+  updateBranchGcashTransaction
 }
 
 const getManilaDateKey = () => {
@@ -114,6 +118,7 @@ export default function BranchTransactions({
     gcash: createEmptyGcash(),
     foodPanda: createEmptyFoodPanda()
   })
+  const [editingTransactionIds, setEditingTransactionIds] = useState({ gcash: '', foodPanda: '' })
   const [selectedMonth, setSelectedMonth] = useState(() => getManilaDateKey().slice(0, 7))
   const [formOpen, setFormOpen] = useState({ gcash: false, foodPanda: false })
   const [status, setStatus] = useState('loading')
@@ -121,6 +126,8 @@ export default function BranchTransactions({
   const [message, setMessage] = useState('')
   const [savingSection, setSavingSection] = useState('')
   const [deletingTransactionId, setDeletingTransactionId] = useState('')
+  const canEditGcashTransactions = typeof api.updateBranchGcashTransaction === 'function'
+  const canEditFoodPandaTransactions = typeof api.updateBranchFoodPandaTransaction === 'function'
 
   const visibleGcashTransactions = useMemo(
     () => transactions.gcash.filter((transaction) => transaction.date?.slice(0, 7) === selectedMonth),
@@ -183,7 +190,48 @@ export default function BranchTransactions({
         ...current,
         [section]: section === 'gcash' ? createEmptyGcash() : createEmptyFoodPanda()
       }))
+      setEditingTransactionIds((current) => ({ ...current, [section]: '' }))
     }
+  }
+
+  const cancelEdit = (section) => {
+    setEditingTransactionIds((current) => ({ ...current, [section]: '' }))
+    setForms((current) => ({
+      ...current,
+      [section]: section === 'gcash' ? createEmptyGcash() : createEmptyFoodPanda()
+    }))
+    setFormOpen((current) => ({ ...current, [section]: false }))
+    setError('')
+    setMessage('')
+  }
+
+  const handleEdit = (section, transaction) => {
+    setEditingTransactionIds((current) => ({ ...current, [section]: transaction.id }))
+    setForms((current) => ({
+      ...current,
+      [section]: section === 'gcash'
+        ? {
+            date: transaction.date,
+            gcashTime: transaction.gcash_time ?? '',
+            referenceNo: transaction.reference_no ?? '',
+            salesInvoice: transaction.sales_invoice ?? '',
+            amount: String(transaction.amount),
+            reference: transaction.reference ?? ''
+          }
+        : {
+            date: transaction.date,
+            foodPanda: transaction.food_panda ?? '',
+            referenceNo: transaction.reference_no ?? '',
+            salesInvoiceOrderSlipNo: transaction.sales_invoice_order_slip_no ?? '',
+            invoice: transaction.invoice ?? '',
+            amount: String(transaction.amount),
+            reference: transaction.reference ?? ''
+          }
+    }))
+    setSelectedMonth(transaction.date.slice(0, 7))
+    setFormOpen((current) => ({ ...current, [section]: true }))
+    setError('')
+    setMessage(`Editing ${section === 'gcash' ? 'GCash' : 'Food Panda'} transaction for ${formatDate(transaction.date)}.`)
   }
 
   const handleSubmit = async (event, section) => {
@@ -207,9 +255,15 @@ export default function BranchTransactions({
     }
 
     setSavingSection(section)
+    const editingTransactionId = editingTransactionIds[section]
+    const transactionInput = { ...form, amount }
     const saveResult = section === 'gcash'
-      ? await api.createBranchGcashTransaction(sessionToken, { ...form, amount })
-      : await api.createBranchFoodPandaTransaction(sessionToken, { ...form, amount })
+      ? editingTransactionId
+        ? await api.updateBranchGcashTransaction(sessionToken, editingTransactionId, transactionInput)
+        : await api.createBranchGcashTransaction(sessionToken, transactionInput)
+      : editingTransactionId
+        ? await api.updateBranchFoodPandaTransaction(sessionToken, editingTransactionId, transactionInput)
+        : await api.createBranchFoodPandaTransaction(sessionToken, transactionInput)
     if (saveResult.error) {
       setError(saveResult.error.message)
       setSavingSection('')
@@ -221,20 +275,21 @@ export default function BranchTransactions({
       [section]: section === 'gcash' ? createEmptyGcash() : createEmptyFoodPanda()
     }))
     setFormOpen((current) => ({ ...current, [section]: false }))
+    setEditingTransactionIds((current) => ({ ...current, [section]: '' }))
 
     const listResult = section === 'gcash'
       ? await api.listBranchGcashTransactions(sessionToken)
       : await api.listBranchFoodPandaTransactions(sessionToken)
     setSavingSection('')
     if (listResult.error) {
-      setError(`Transaction saved, but the list could not refresh: ${listResult.error.message}`)
+      setError(`Transaction ${editingTransactionId ? 'updated' : 'saved'}, but the list could not refresh: ${listResult.error.message}`)
       setStatus('error')
       return
     }
 
     setTransactions((current) => ({ ...current, [section]: listResult.data ?? [] }))
     setStatus('ready')
-    setMessage(`${section === 'gcash' ? 'GCash' : 'Food Panda'} transaction saved.`)
+    setMessage(`${section === 'gcash' ? 'GCash' : 'Food Panda'} transaction ${editingTransactionId ? 'updated' : 'saved'}.`)
   }
 
   const handleDelete = async (section, transaction) => {
@@ -374,8 +429,15 @@ export default function BranchTransactions({
               ))}
               <div className="branch-transaction-actions">
                 <button type="submit" disabled={savingSection !== '' || Boolean(deletingTransactionId) || status !== 'ready'}>
-                  {savingSection === 'gcash' ? 'Saving…' : 'Save GCash Transaction'}
+                  {savingSection === 'gcash'
+                    ? (editingTransactionIds.gcash ? 'Updating…' : 'Saving…')
+                    : editingTransactionIds.gcash ? 'Update GCash Transaction' : 'Save GCash Transaction'}
                 </button>
+                {editingTransactionIds.gcash && (
+                  <button type="button" className="deposit-cancel-button" onClick={() => cancelEdit('gcash')} disabled={savingSection !== ''}>
+                    Cancel
+                  </button>
+                )}
               </div>
             </form>
           </>
@@ -417,13 +479,27 @@ export default function BranchTransactions({
                   ))}
                   {canManageTransactions && canDeleteTransactions && (
                     <td>
+                      {canEditGcashTransactions && (
+                        <button
+                          type="button"
+                          className="crj-edit-button"
+                          onClick={() => handleEdit('gcash', transaction)}
+                          disabled={savingSection !== '' || Boolean(deletingTransactionId)}
+                          aria-label={`Edit GCash transaction dated ${formatDate(transaction.date)}`}
+                          title="Edit transaction"
+                        >
+                          <Pencil size={14} aria-hidden="true" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="branch-transaction-delete"
                         onClick={() => handleDelete('gcash', transaction)}
                         disabled={savingSection !== '' || Boolean(deletingTransactionId)}
+                        aria-label={`${deletingTransactionId === transaction.id ? 'Deleting' : 'Delete'} GCash transaction dated ${formatDate(transaction.date)}`}
+                        title={deletingTransactionId === transaction.id ? 'Deleting transaction' : 'Delete transaction'}
                       >
-                        {deletingTransactionId === transaction.id ? 'Deleting…' : 'Delete'}
+                        <Trash2 size={14} aria-hidden="true" />
                       </button>
                     </td>
                   )}
@@ -487,8 +563,15 @@ export default function BranchTransactions({
               ))}
               <div className="branch-transaction-actions">
                 <button type="submit" disabled={savingSection !== '' || Boolean(deletingTransactionId) || status !== 'ready'}>
-                  {savingSection === 'foodPanda' ? 'Saving…' : 'Save Food Panda Transaction'}
+                  {savingSection === 'foodPanda'
+                    ? (editingTransactionIds.foodPanda ? 'Updating…' : 'Saving…')
+                    : editingTransactionIds.foodPanda ? 'Update Food Panda Transaction' : 'Save Food Panda Transaction'}
                 </button>
+                {editingTransactionIds.foodPanda && (
+                  <button type="button" className="deposit-cancel-button" onClick={() => cancelEdit('foodPanda')} disabled={savingSection !== ''}>
+                    Cancel
+                  </button>
+                )}
               </div>
             </form>
           </>
@@ -530,13 +613,27 @@ export default function BranchTransactions({
                   ))}
                   {canManageTransactions && canDeleteTransactions && (
                     <td>
+                      {canEditFoodPandaTransactions && (
+                        <button
+                          type="button"
+                          className="crj-edit-button"
+                          onClick={() => handleEdit('foodPanda', transaction)}
+                          disabled={savingSection !== '' || Boolean(deletingTransactionId)}
+                          aria-label={`Edit Food Panda transaction dated ${formatDate(transaction.date)}`}
+                          title="Edit transaction"
+                        >
+                          <Pencil size={14} aria-hidden="true" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="branch-transaction-delete"
                         onClick={() => handleDelete('foodPanda', transaction)}
                         disabled={savingSection !== '' || Boolean(deletingTransactionId)}
+                        aria-label={`${deletingTransactionId === transaction.id ? 'Deleting' : 'Delete'} Food Panda transaction dated ${formatDate(transaction.date)}`}
+                        title={deletingTransactionId === transaction.id ? 'Deleting transaction' : 'Delete transaction'}
                       >
-                        {deletingTransactionId === transaction.id ? 'Deleting…' : 'Delete'}
+                        <Trash2 size={14} aria-hidden="true" />
                       </button>
                     </td>
                   )}

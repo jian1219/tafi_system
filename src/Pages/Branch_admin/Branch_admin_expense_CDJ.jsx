@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Pencil, Plus, Trash2, X } from 'lucide-react'
 import {
   createBranchCDJEntry,
   deleteBranchCDJEntry,
@@ -569,18 +569,20 @@ export default function BranchAdminExpenseCDJ({ branchName = 'Branch', branchAdm
                           type="button"
                           disabled={isSaving || Boolean(deletingEntryId)}
                           aria-label={`Edit cash disbursement entry dated ${formatDate(entry.date)}`}
+                          title="Edit journal entry"
                           onClick={() => handleEditEntry(entry)}
                         >
-                          Edit
+                          <Pencil size={14} aria-hidden="true" />
                         </button>
                         <button
                           className="branch-cdj-row-delete"
                           type="button"
                           disabled={isSaving || Boolean(deletingEntryId)}
-                          aria-label={`Delete cash disbursement entry dated ${formatDate(entry.date)}`}
+                          aria-label={`${deletingEntryId === entry.id ? 'Deleting' : 'Delete'} cash disbursement entry dated ${formatDate(entry.date)}`}
+                          title={deletingEntryId === entry.id ? 'Deleting journal entry' : 'Delete journal entry'}
                           onClick={() => handleDeleteEntry(entry)}
                         >
-                          {deletingEntryId === entry.id ? 'Deleting…' : 'Delete'}
+                          <Trash2 size={14} aria-hidden="true" />
                         </button>
                       </td>
                     </tr>

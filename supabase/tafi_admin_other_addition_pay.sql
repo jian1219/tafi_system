@@ -706,6 +706,84 @@ begin
 end;
 $$;
 
+create or replace function public.tafi_admin_delete_holiday_pay(
+  p_session_token uuid,
+  p_holiday_pay_id uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_admin_id uuid;
+  v_holiday public.branch_employee_holiday_pay%rowtype;
+  v_amount numeric;
+begin
+  select admin_session.tafi_admin_id into v_admin_id
+  from public.tafi_admin_session as admin_session
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now();
+  if not found then
+    raise exception 'Invalid or expired TAFI Admin session' using errcode = '28000';
+  end if;
+  if p_holiday_pay_id is null then
+    raise exception 'A holiday pay entry is required';
+  end if;
+
+  select holiday.* into v_holiday
+  from public.branch_employee_holiday_pay as holiday
+  where holiday.id = p_holiday_pay_id
+    and holiday.addition_type in ('holiday_regular_pay', 'special_nonworking_holiday')
+  for update;
+  if not found then
+    raise exception 'Holiday pay entry not found';
+  end if;
+
+  perform 1
+  from public.branch_employee_payroll_addition as addition
+  where addition.branch_id = v_holiday.branch_id
+    and addition.employee_code = v_holiday.employee_code
+    and addition.period_start = v_holiday.period_start
+    and addition.addition_type = v_holiday.addition_type
+  for update;
+
+  delete from public.branch_employee_holiday_pay as holiday
+  where holiday.id = v_holiday.id;
+
+  select coalesce(base.amount, 0) + coalesce(sum(holiday.amount), 0)
+  into v_amount
+  from public.branch_employee_holiday_pay_base as base
+  left join public.branch_employee_holiday_pay as holiday
+    on holiday.branch_id = v_holiday.branch_id
+    and holiday.employee_code = v_holiday.employee_code
+    and holiday.period_start = v_holiday.period_start
+    and holiday.addition_type = v_holiday.addition_type
+  where base.branch_id = v_holiday.branch_id
+    and base.employee_code = v_holiday.employee_code
+    and base.period_start = v_holiday.period_start
+    and base.addition_type = v_holiday.addition_type
+  group by base.amount;
+
+  insert into public.branch_employee_payroll_addition (
+    branch_id, employee_code, period_start, period_end, addition_type,
+    amount, created_by_branch_admin_id, created_by_tafi_admin_id
+  )
+  values (
+    v_holiday.branch_id, v_holiday.employee_code, v_holiday.period_start,
+    v_holiday.period_end, v_holiday.addition_type, coalesce(v_amount, 0), null, v_admin_id
+  )
+  on conflict (branch_id, employee_code, period_start, addition_type) do update
+  set period_end = excluded.period_end,
+    amount = excluded.amount,
+    created_by_branch_admin_id = null,
+    created_by_tafi_admin_id = excluded.created_by_tafi_admin_id,
+    updated_at = now();
+
+  return true;
+end;
+$$;
+
 revoke all on function public.tafi_admin_list_other_additions(uuid, uuid, date, date, integer, integer) from public;
 revoke all on function public.tafi_admin_save_other_addition(uuid, uuid, text, date, date, text, numeric) from public;
 revoke all on function public.tafi_admin_list_other_overtime_hours(uuid, uuid, date, date) from public;
@@ -714,6 +792,7 @@ revoke all on function public.tafi_admin_list_other_holiday_pay(uuid, uuid, date
 revoke all on function public.tafi_admin_list_other_holiday_pay_rules(uuid, uuid, date, date) from public;
 revoke all on function public.tafi_admin_save_other_holiday_pay(uuid, uuid, date, date, date, text, numeric, text[]) from public;
 revoke all on function public.tafi_admin_delete_special_nonworking_holiday_pay(uuid, uuid) from public;
+revoke all on function public.tafi_admin_delete_holiday_pay(uuid, uuid) from public;
 grant execute on function public.tafi_admin_list_other_additions(uuid, uuid, date, date, integer, integer) to anon, authenticated;
 grant execute on function public.tafi_admin_save_other_addition(uuid, uuid, text, date, date, text, numeric) to anon, authenticated;
 grant execute on function public.tafi_admin_list_other_overtime_hours(uuid, uuid, date, date) to anon, authenticated;
@@ -722,6 +801,7 @@ grant execute on function public.tafi_admin_list_other_holiday_pay(uuid, uuid, d
 grant execute on function public.tafi_admin_list_other_holiday_pay_rules(uuid, uuid, date, date) to anon, authenticated;
 grant execute on function public.tafi_admin_save_other_holiday_pay(uuid, uuid, date, date, date, text, numeric, text[]) to anon, authenticated;
 grant execute on function public.tafi_admin_delete_special_nonworking_holiday_pay(uuid, uuid) to anon, authenticated;
+grant execute on function public.tafi_admin_delete_holiday_pay(uuid, uuid) to anon, authenticated;
 
 notify pgrst, 'reload schema';
 

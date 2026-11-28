@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import {
-	deleteTafiAdminSpecialNonworkingHolidayPay,
+	deleteTafiAdminHolidayPay,
 	listTafiAdminBranches,
 	listTafiAdminEmployees,
 	listTafiAdminHolidayPay,
@@ -429,22 +429,24 @@ export default function TafiOtherAdditionPay({ sessionToken }) {
 			: `Editing Holiday Regular Pay for ${formatDate(entry.holiday_date)}. Saving updates pay for all employees in the selected classifications.`)
 	}
 
-	const deleteSpecialNonworkingHolidayPay = async (entry) => {
-		if (activeType !== 'special_nonworking_holiday' || isSaving || deletingHolidayId) return
+	const deleteHolidayPay = async (entry) => {
+		if (!isHolidayPayType || isSaving || deletingHolidayId) return
+		const holidayPayType = additionTypes.find((type) => type.key === entry.addition_type)
+		if (!holidayPayType) return
 		if (!window.confirm(
-			`Delete ${entry.employee_name}’s Special Non-working Holiday pay of ${formatCurrency(Number(entry.amount))} for ${formatDate(entry.holiday_date)}? This cannot be undone.`
+			`Delete ${entry.employee_name}’s ${holidayPayType.label} of ${formatCurrency(Number(entry.amount))} for ${formatDate(entry.holiday_date)}? This cannot be undone.`
 		)) return
 
 		setError('')
 		setMessage('')
 		setDeletingHolidayId(entry.id)
-		const { error: deleteError } = await deleteTafiAdminSpecialNonworkingHolidayPay(sessionToken, entry.id)
+		const { error: deleteError } = await deleteTafiAdminHolidayPay(sessionToken, entry.id)
 		setDeletingHolidayId('')
 		if (deleteError) {
 			setError(deleteError.message)
 			return
 		}
-		setMessage(`${entry.employee_name}’s Special Non-working Holiday pay was deleted.`)
+		setMessage(`${entry.employee_name}’s ${holidayPayType.label} was deleted.`)
 		setReloadVersion((version) => version + 1)
 	}
 
@@ -728,7 +730,7 @@ export default function TafiOtherAdditionPay({ sessionToken }) {
 					<table className="other-deduction-table">
 						<thead>
 							<tr>
-								<th>Employee</th><th>Holiday date</th><th>Percentage</th><th>Daily rate</th><th>Added pay</th><th>Action</th>
+								<th>Employee</th><th>Holiday date</th><th>Percentage</th><th>Daily rate</th><th>Added pay</th><th>Actions</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -750,20 +752,17 @@ export default function TafiOtherAdditionPay({ sessionToken }) {
 													onClick={() => editHolidayPay(entry)}
 												>
 													<Pencil size={15} aria-hidden="true" />
-													Edit
 												</button>
-												{activeType === 'special_nonworking_holiday' && (
-													<button
-														type="button"
-														className="holiday-pay-delete-button"
-														aria-label={`Delete ${entry.employee_name}’s Special Non-working Holiday pay`}
-														disabled={isSaving || Boolean(deletingHolidayId)}
-														onClick={() => deleteSpecialNonworkingHolidayPay(entry)}
-													>
-														<Trash2 size={15} aria-hidden="true" />
-														{deletingHolidayId === entry.id ? 'Deleting…' : 'Delete'}
-													</button>
-												)}
+												<button
+													type="button"
+													className="holiday-pay-delete-button"
+													aria-label={`${deletingHolidayId === entry.id ? 'Deleting' : 'Delete'} ${entry.employee_name}’s ${selectedType.label}`}
+													title={deletingHolidayId === entry.id ? 'Deleting holiday pay' : 'Delete holiday pay'}
+													disabled={isSaving || Boolean(deletingHolidayId)}
+													onClick={() => deleteHolidayPay(entry)}
+												>
+													<Trash2 size={15} aria-hidden="true" />
+												</button>
 											</div>
 										</td>
 									) : null}

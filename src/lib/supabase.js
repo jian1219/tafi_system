@@ -1373,6 +1373,21 @@ export async function deleteTafiAdminSpecialNonworkingHolidayPay(sessionToken, h
   }
 }
 
+export async function deleteTafiAdminHolidayPay(sessionToken, holidayPayId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('tafi_admin_delete_holiday_pay', {
+      p_session_token: sessionToken,
+      p_holiday_pay_id: holidayPayId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to delete holiday pay.')
+    }
+  }
+}
+
 export async function listTafiAdminUndertimeDeductions(sessionToken, branchId, startDate, endDate) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -4165,6 +4180,45 @@ export async function createBranchSalesDiscount(sessionToken, discount) {
   }
 }
 
+export async function updateBranchSalesDiscount(sessionToken, discountId, discount) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_update_sales_discount', {
+      p_session_token: sessionToken,
+      p_discount_id: discountId,
+      p_date: discount.date,
+      p_type: discount.type,
+      p_name: discount.name.trim() || null,
+      p_sales_invoice: discount.salesInvoice.trim() || null,
+      p_billing: discount.billing.trim() || null,
+      p_consigment: discount.consigment.trim() || null,
+      p_gross: discount.gross,
+      p_customer_count_per_order: discount.customerCountPerOrder,
+      p_no_person_granted_discount: discount.noPersonGrantedDiscount
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the sales discount.')
+    }
+  }
+}
+
+export async function deleteBranchSalesDiscount(sessionToken, discountId) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_delete_sales_discount', {
+      p_session_token: sessionToken,
+      p_discount_id: discountId
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to delete the sales discount.')
+    }
+  }
+}
+
 export async function listBranchSalesDiscounts(sessionToken) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -4245,6 +4299,27 @@ export async function createBranchGcashTransaction(sessionToken, transaction) {
   }
 }
 
+export async function updateBranchGcashTransaction(sessionToken, transactionId, transaction) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_update_gcash_transaction', {
+      p_session_token: sessionToken,
+      p_transaction_id: transactionId,
+      p_date: transaction.date,
+      p_gcash_time: transaction.gcashTime.trim() || null,
+      p_reference_no: transaction.referenceNo.trim() || null,
+      p_sales_invoice: transaction.salesInvoice.trim() || null,
+      p_amount: transaction.amount,
+      p_reference: transaction.reference.trim() || null
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the GCash transaction.')
+    }
+  }
+}
+
 export async function deleteBranchGcashTransaction(sessionToken, transactionId) {
   try {
     const supabaseClient = await getSupabaseClient()
@@ -4307,6 +4382,28 @@ export async function createBranchFoodPandaTransaction(sessionToken, transaction
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to save the Food Panda transaction.')
+    }
+  }
+}
+
+export async function updateBranchFoodPandaTransaction(sessionToken, transactionId, transaction) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_update_food_panda_transaction', {
+      p_session_token: sessionToken,
+      p_transaction_id: transactionId,
+      p_date: transaction.date,
+      p_food_panda: transaction.foodPanda.trim() || null,
+      p_reference_no: transaction.referenceNo.trim() || null,
+      p_sales_invoice_order_slip_no: transaction.salesInvoiceOrderSlipNo.trim() || null,
+      p_invoice: transaction.invoice.trim() || null,
+      p_amount: transaction.amount,
+      p_reference: transaction.reference.trim() || null
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to update the Food Panda transaction.')
     }
   }
 }
@@ -4927,6 +5024,23 @@ export async function saveBranchOvertimeHours(sessionToken, overtime) {
     return {
       data: null,
       error: error instanceof Error ? error : new Error('Unable to save daily overtime hours.')
+    }
+  }
+}
+
+export async function deleteBranchOvertimeHours(sessionToken, overtime) {
+  try {
+    const supabaseClient = await getSupabaseClient()
+    return await supabaseClient.rpc('branch_admin_delete_overtime_hours', {
+      p_session_token: sessionToken,
+      p_employee_code: overtime.employeeCode,
+      p_period_start: overtime.periodStart,
+      p_period_end: overtime.periodEnd
+    })
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error : new Error('Unable to delete daily overtime hours.')
     }
   }
 }

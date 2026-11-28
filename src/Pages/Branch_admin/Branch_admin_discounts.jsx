@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, X } from 'lucide-react'
-import { createBranchSalesDiscount, listBranchSalesDiscounts } from '../../lib/supabase'
+import { Pencil, Plus, Trash2, X } from 'lucide-react'
+import {
+  createBranchSalesDiscount,
+  deleteBranchSalesDiscount,
+  listBranchSalesDiscounts,
+  updateBranchSalesDiscount
+} from '../../lib/supabase'
 
 const discountTypes = [
   { value: 'Senior Citizen', rate: 20 },
@@ -54,14 +59,21 @@ export default function BranchAdminDiscounts({
   const sessionToken = branchAdmin?.session_token
   const createSalesDiscount = api?.createBranchSalesDiscount ?? createBranchSalesDiscount
   const listSalesDiscounts = api?.listBranchSalesDiscounts ?? listBranchSalesDiscounts
+  const updateSalesDiscount = api?.updateBranchSalesDiscount
+    ?? (api ? null : updateBranchSalesDiscount)
+  const removeSalesDiscount = api?.deleteBranchSalesDiscount
+    ?? (api ? null : deleteBranchSalesDiscount)
+  const canEditDiscounts = canManageDiscounts && Boolean(updateSalesDiscount && removeSalesDiscount)
   const [form, setForm] = useState(createEmptyDiscount)
   const [formOpen, setFormOpen] = useState(false)
+  const [editingDiscountId, setEditingDiscountId] = useState('')
   const [discounts, setDiscounts] = useState([])
   const [selectedMonth, setSelectedMonth] = useState(() => getManilaDateKey().slice(0, 7))
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
+  const [deletingDiscountId, setDeletingDiscountId] = useState('')
   const visibleDiscounts = useMemo(
     () => discounts.filter((discount) => discount.date?.slice(0, 7) === selectedMonth),
     [discounts, selectedMonth]
@@ -107,7 +119,10 @@ export default function BranchAdminDiscounts({
     setFormOpen(!isOpen)
     setError('')
     setMessage('')
-    if (isOpen) setForm(createEmptyDiscount())
+    if (isOpen) {
+      setEditingDiscountId('')
+      setForm(createEmptyDiscount())
+    }
   }
 
   const typeRate = discountTypes.find(({ value }) => value === form.type)?.rate ?? 0
@@ -147,12 +162,15 @@ export default function BranchAdminDiscounts({
     }
 
     setSaving(true)
-    const saveResult = await createSalesDiscount(sessionToken, {
+    const discountInput = {
       ...form,
       gross: grossAmount,
       customerCountPerOrder: perOrderCount,
       noPersonGrantedDiscount: discountedCount
-    })
+    }
+    const saveResult = editingDiscountId
+      ? await updateSalesDiscount(sessionToken, editingDiscountId, discountInput)
+      : await createSalesDiscount(sessionToken, discountInput)
     if (saveResult.error) {
       setError(saveResult.error.message)
       setSaving(false)
@@ -161,17 +179,64 @@ export default function BranchAdminDiscounts({
 
     setForm(createEmptyDiscount())
     setFormOpen(false)
+    setEditingDiscountId('')
     const listResult = await listSalesDiscounts(sessionToken)
     setSaving(false)
     if (listResult.error) {
-      setError(`Discount saved, but the list could not refresh: ${listResult.error.message}`)
+      setError(`Discount ${editingDiscountId ? 'updated' : 'saved'}, but the list could not refresh: ${listResult.error.message}`)
       setStatus('error')
       return
     }
 
     setDiscounts(listResult.data ?? [])
     setStatus('ready')
-    setMessage('Sales discount saved.')
+    setMessage(`Sales discount ${editingDiscountId ? 'updated' : 'saved'}.`)
+  }
+
+  const handleEdit = (discount) => {
+    setEditingDiscountId(discount.id)
+    setForm({
+      date: discount.date,
+      type: discount.type,
+      name: discount.name ?? '',
+      salesInvoice: discount.sales_invoice ?? '',
+      billing: discount.billing ?? '',
+      consigment: discount.consigment ?? '',
+      gross: String(discount.gross),
+      customerCountPerOrder: String(discount.customer_count_per_order),
+      noPersonGrantedDiscount: String(discount.no_person_granted_discount)
+    })
+    setSelectedMonth(discount.date.slice(0, 7))
+    setFormOpen(true)
+    setError('')
+    setMessage(`Editing ${discount.type} discount for ${formatDate(discount.date)}.`)
+  }
+
+  const handleDelete = async (discount) => {
+    const description = `${discount.type} discount for ${formatDate(discount.date)}`
+    if (!window.confirm(`Delete this ${description}? This action cannot be undone.`)) return
+
+    setError('')
+    setMessage('')
+    setDeletingDiscountId(discount.id)
+    const result = await removeSalesDiscount(sessionToken, discount.id)
+    if (result.error) {
+      setError(result.error.message)
+      setDeletingDiscountId('')
+      return
+    }
+
+    const listResult = await listSalesDiscounts(sessionToken)
+    setDeletingDiscountId('')
+    if (listResult.error) {
+      setError(`Discount deleted, but the list could not refresh: ${listResult.error.message}`)
+      setStatus('error')
+      return
+    }
+
+    setDiscounts(listResult.data ?? [])
+    setStatus('ready')
+    setMessage('Sales discount deleted.')
   }
 
   return (
@@ -302,8 +367,24 @@ export default function BranchAdminDiscounts({
           </div>
           <div className="branch-transaction-actions">
             <button type="submit" disabled={saving || status !== 'ready'}>
-              {saving ? 'Saving…' : 'Save Discount'}
+              {saving ? (editingDiscountId ? 'Updating…' : 'Saving…') : editingDiscountId ? 'Update Discount' : 'Save Discount'}
             </button>
+            {editingDiscountId && (
+              <button
+                type="button"
+                className="deposit-cancel-button"
+                onClick={() => {
+                  setEditingDiscountId('')
+                  setForm(createEmptyDiscount())
+                  setFormOpen(false)
+                  setError('')
+                  setMessage('')
+                }}
+                disabled={saving}
+              >
+                Cancel
+              </button>
+            )}
           </div>
         </form>
         </div>
@@ -345,6 +426,7 @@ export default function BranchAdminDiscounts({
                 <th scope="col">Gross x DR</th>
                 <th scope="col">Basic x DR</th>
                 <th scope="col">SC/PWD Bill 12%</th>
+                {canEditDiscounts && <th scope="col">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -364,11 +446,35 @@ export default function BranchAdminDiscounts({
                   <td>{formatCurrency(discount.gross_x_dr)}</td>
                   <td>{formatCurrency(discount.basic_x_dr)}</td>
                   <td>{formatCurrency(discount.sc_pwd_bill_12)}</td>
+                  {canEditDiscounts && (
+                    <td>
+                      <button
+                        type="button"
+                        className="crj-edit-button"
+                        onClick={() => handleEdit(discount)}
+                        disabled={saving || Boolean(deletingDiscountId)}
+                        aria-label={`Edit ${discount.type} discount for ${formatDate(discount.date)}`}
+                        title="Edit discount"
+                      >
+                        <Pencil size={14} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className="branch-transaction-delete"
+                        onClick={() => handleDelete(discount)}
+                        disabled={saving || Boolean(deletingDiscountId)}
+                        aria-label={`${deletingDiscountId === discount.id ? 'Deleting' : 'Delete'} ${discount.type} discount for ${formatDate(discount.date)}`}
+                        title={deletingDiscountId === discount.id ? 'Deleting discount' : 'Delete discount'}
+                      >
+                        <Trash2 size={14} aria-hidden="true" />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
               {status === 'ready' && visibleDiscounts.length === 0 && (
                 <tr>
-                  <td className="employee-empty-state" colSpan={14}>No sales discounts for the selected month.</td>
+                  <td className="employee-empty-state" colSpan={14 + Number(canEditDiscounts)}>No sales discounts for the selected month.</td>
                 </tr>
               )}
             </tbody>

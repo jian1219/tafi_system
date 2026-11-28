@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
 import {
   createBranchCashReceiptsJournalEntry,
   deleteBranchCashReceiptsJournalEntry,
@@ -764,8 +765,10 @@ export default function BranchCashReceiptsJournal({
                         className="crj-edit-button"
                         onClick={() => handleEdit(entry)}
                         disabled={isSaving || Boolean(deletingEntryId)}
+                        aria-label={`Edit Cash Receipts Journal entry SI No. ${entry.si_no}`}
+                        title="Edit journal entry"
                       >
-                        Edit
+                        <Pencil size={14} aria-hidden="true" />
                       </button>
                       {canDeleteEntries && (
                         <button
@@ -773,8 +776,10 @@ export default function BranchCashReceiptsJournal({
                           className="crj-delete-button"
                           onClick={() => handleDelete(entry)}
                           disabled={isSaving || Boolean(deletingEntryId)}
+                          aria-label={`${deletingEntryId === entry.id ? 'Deleting' : 'Delete'} Cash Receipts Journal entry SI No. ${entry.si_no}`}
+                          title={deletingEntryId === entry.id ? 'Deleting journal entry' : 'Delete journal entry'}
                         >
-                          {deletingEntryId === entry.id ? 'Deleting…' : 'Delete'}
+                          <Trash2 size={14} aria-hidden="true" />
                         </button>
                       )}
                     </td>

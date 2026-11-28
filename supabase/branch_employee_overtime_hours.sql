@@ -172,12 +172,103 @@ begin
 end;
 $$;
 
+create or replace function public.branch_admin_delete_overtime_hours(
+  p_session_token uuid,
+  p_employee_code text,
+  p_period_start date,
+  p_period_end date
+)
+returns numeric
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_admin_id uuid;
+  v_branch_id uuid;
+  v_daily_rate numeric;
+  v_overtime_pay numeric;
+  v_deleted_count integer;
+begin
+  select ba.id, ba.branch_id into v_admin_id, v_branch_id
+  from public.branch_admin_session as admin_session
+  join public.branch_admin as ba on ba.id = admin_session.branch_admin_id
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now();
+
+  if not found then
+    raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
+  end if;
+  if nullif(trim(p_employee_code), '') is null
+    or p_period_start is null or p_period_end is null
+    or p_period_end < p_period_start or p_period_end > p_period_start + 6 then
+    raise exception 'Choose an employee and valid payroll week';
+  end if;
+
+  select employee.daily_rate into v_daily_rate
+  from public.employee as employee
+  where employee.branch_id = v_branch_id
+    and employee.employee_code = trim(p_employee_code)
+  for update;
+
+  if not found then
+    raise exception 'Employee was not found in this branch';
+  end if;
+
+  perform 1
+  from public.branch_employee_payroll_addition as addition
+  where addition.branch_id = v_branch_id
+    and addition.employee_code = trim(p_employee_code)
+    and addition.period_start = p_period_start
+    and addition.addition_type = 'overtime_pay'
+  for update;
+
+  delete from public.branch_employee_overtime_hours as overtime
+  where overtime.branch_id = v_branch_id
+    and overtime.employee_code = trim(p_employee_code)
+    and overtime.overtime_date between p_period_start and p_period_end;
+  get diagnostics v_deleted_count = row_count;
+
+  if v_deleted_count = 0 then
+    raise exception 'No overtime hours were found for this employee and payroll week';
+  end if;
+
+  select round(v_daily_rate / 8 * coalesce(sum(overtime.hours), 0), 2)
+  into v_overtime_pay
+  from public.branch_employee_overtime_hours as overtime
+  where overtime.branch_id = v_branch_id
+    and overtime.employee_code = trim(p_employee_code)
+    and overtime.overtime_date between p_period_start and p_period_end;
+
+  insert into public.branch_employee_payroll_addition (
+    branch_id, employee_code, period_start, period_end, addition_type,
+    amount, created_by_branch_admin_id
+  )
+  values (
+    v_branch_id, trim(p_employee_code), p_period_start, p_period_end,
+    'overtime_pay', v_overtime_pay, v_admin_id
+  )
+  on conflict (branch_id, employee_code, period_start, addition_type) do update
+  set period_end = excluded.period_end,
+    amount = excluded.amount,
+    created_by_branch_admin_id = excluded.created_by_branch_admin_id,
+    created_by_tafi_admin_id = null,
+    updated_at = now();
+
+  return v_overtime_pay;
+end;
+$$;
+
 revoke all on function public.branch_admin_list_overtime_hours(uuid, date, date) from public;
 revoke all on function public.branch_admin_save_overtime_hours(uuid, text, date, date, jsonb) from public;
+revoke all on function public.branch_admin_delete_overtime_hours(uuid, text, date, date) from public;
 grant execute on function public.branch_admin_list_overtime_hours(uuid, date, date) to anon, authenticated;
 grant execute on function public.branch_admin_save_overtime_hours(uuid, text, date, date, jsonb) to anon, authenticated;
+grant execute on function public.branch_admin_delete_overtime_hours(uuid, text, date, date) to anon, authenticated;
 
 comment on table public.branch_employee_overtime_hours is
   'Daily overtime hours by employee. Weekly overtime pay is daily rate divided by eight multiplied by total hours.';
+
+notify pgrst, 'reload schema';
 
 commit;

@@ -5419,19 +5419,39 @@ fieldset.employee-emergency-contact-box {
   margin: 2px 0;
 }
 
-.overtime-history-edit-button {
+.overtime-history-row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.overtime-history-edit-button,
+.overtime-history-delete-button {
+  display: inline-flex;
+  min-width: 34px;
   min-height: 34px;
-  padding: 6px 12px;
-  border: 1px solid #bfdbfe;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
   border-radius: 7px;
-  background: #eff6ff;
-  color: #1d4ed8;
   font: inherit;
   font-weight: 700;
   cursor: pointer;
 }
 
-.overtime-history-edit-button:disabled {
+.overtime-history-edit-button {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.overtime-history-delete-button {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.overtime-history-edit-button:disabled,
+.overtime-history-delete-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

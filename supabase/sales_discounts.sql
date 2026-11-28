@@ -194,15 +194,128 @@ begin
 end;
 $$;
 
+create or replace function public.branch_admin_update_sales_discount(
+  p_session_token uuid,
+  p_discount_id uuid,
+  p_date date,
+  p_type text,
+  p_name text,
+  p_sales_invoice text,
+  p_billing text,
+  p_consigment text,
+  p_gross numeric,
+  p_customer_count_per_order integer,
+  p_no_person_granted_discount integer
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_branch_id uuid;
+begin
+  select branch_admin.branch_id into v_branch_id
+  from public.branch_admin_session as admin_session
+  join public.branch_admin as branch_admin
+    on branch_admin.id = admin_session.branch_admin_id
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now();
+
+  if not found then
+    raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
+  end if;
+  if p_discount_id is null or p_date is null or p_type is null
+    or p_type not in ('Senior Citizen', 'PWD', 'Eagle''s', 'Pag-ibig', 'Loyalty Card') then
+    raise exception 'Select a valid sales discount and discount type';
+  end if;
+  if p_gross is null or p_gross < 0 or p_gross <> round(p_gross, 2) then
+    raise exception 'Enter a gross amount of zero or greater with up to two decimal places';
+  end if;
+  if p_customer_count_per_order is null or p_customer_count_per_order < 1
+    or p_no_person_granted_discount is null or p_no_person_granted_discount < 0
+    or p_no_person_granted_discount > p_customer_count_per_order then
+    raise exception 'Enter a customer count greater than zero and a discounted-person count from zero up to the customer count';
+  end if;
+
+  update public.sales_discounts as discount
+  set "date" = p_date,
+      "type" = p_type,
+      name = nullif(btrim(p_name), ''),
+      sales_invoice = nullif(btrim(p_sales_invoice), ''),
+      billing = nullif(btrim(p_billing), ''),
+      consigment = nullif(btrim(p_consigment), ''),
+      gross = p_gross,
+      customer_count_per_order = p_customer_count_per_order,
+      no_person_granted_discount = p_no_person_granted_discount
+  where discount.id = p_discount_id
+    and discount.branch_id = v_branch_id;
+
+  if not found then
+    raise exception 'Sales discount was not found for this branch.';
+  end if;
+
+  return true;
+end;
+$$;
+
+create or replace function public.branch_admin_delete_sales_discount(
+  p_session_token uuid,
+  p_discount_id uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_branch_id uuid;
+begin
+  select branch_admin.branch_id into v_branch_id
+  from public.branch_admin_session as admin_session
+  join public.branch_admin as branch_admin
+    on branch_admin.id = admin_session.branch_admin_id
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now();
+
+  if not found then
+    raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
+  end if;
+  if p_discount_id is null then
+    raise exception 'A sales discount is required.';
+  end if;
+
+  delete from public.sales_discounts as discount
+  where discount.id = p_discount_id
+    and discount.branch_id = v_branch_id;
+
+  if not found then
+    raise exception 'Sales discount was not found for this branch.';
+  end if;
+
+  return true;
+end;
+$$;
+
 revoke all on function public.branch_admin_create_sales_discount(
   uuid, date, text, text, text, text, text, numeric, integer, integer
 ) from public, anon, authenticated;
 revoke all on function public.branch_admin_list_sales_discounts(uuid, integer, integer)
   from public, anon, authenticated;
+revoke all on function public.branch_admin_update_sales_discount(
+  uuid, uuid, date, text, text, text, text, text, numeric, integer, integer
+) from public, anon, authenticated;
+revoke all on function public.branch_admin_delete_sales_discount(uuid, uuid)
+  from public, anon, authenticated;
 grant execute on function public.branch_admin_create_sales_discount(
   uuid, date, text, text, text, text, text, numeric, integer, integer
 ) to anon, authenticated;
 grant execute on function public.branch_admin_list_sales_discounts(uuid, integer, integer)
+  to anon, authenticated;
+grant execute on function public.branch_admin_update_sales_discount(
+  uuid, uuid, date, text, text, text, text, text, numeric, integer, integer
+) to anon, authenticated;
+grant execute on function public.branch_admin_delete_sales_discount(uuid, uuid)
   to anon, authenticated;
 
 notify pgrst, 'reload schema';

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
 import {
+  deleteBranchOvertimeHours,
   listBranchOvertimeHours,
   saveBranchOvertimeHours
 } from '../../lib/supabase'
@@ -236,6 +238,60 @@ export default function BranchOtherAdditionPay({ branchName = 'Bansasi Branch', 
     setIsSaving(false)
   }
 
+  const deleteOvertime = async (group) => {
+    if (!sessionToken || isSaving) return
+    const periodLabel = `${formatWeekdayDate(group.week.startDate)} to ${formatWeekdayDate(group.week.endDate)}`
+    if (!window.confirm(
+      `Delete all ${group.totalHours.toFixed(2)} overtime hours for ${group.employeeName} during ${periodLabel}? This will update the selected week’s payroll and cannot be undone.`
+    )) return
+
+    setError('')
+    setMessage('')
+    setIsSaving(true)
+    const { error: deleteError } = await deleteBranchOvertimeHours(sessionToken, {
+      employeeCode: group.employeeCode,
+      periodStart: group.week.startDate,
+      periodEnd: group.week.endDate
+    })
+    if (deleteError) {
+      setError(deleteError.message)
+      setIsSaving(false)
+      return
+    }
+
+    const result = await fetchData(selectedMonth)
+    if (result.error) {
+      setSavedOvertimeHours((current) => current.filter((entry) => !(
+        entry.employee_code === group.employeeCode
+        && entry.overtime_date >= group.week.startDate
+        && entry.overtime_date <= group.week.endDate
+      )))
+      setOvertimeHours((current) => {
+        const next = { ...current }
+        group.entries.forEach((entry) => {
+          delete next[getOvertimeKey(group.employeeCode, entry.overtime_date)]
+        })
+        return next
+      })
+      setEditingOvertimeKey((current) => current === group.key ? '' : current)
+      setError(`Overtime hours deleted, but the history could not refresh: ${result.error.message}`)
+      setStatus('error')
+      setIsSaving(false)
+      return
+    }
+
+    setEmployees(result.employees)
+    setSavedOvertimeHours(result.overtimeHours)
+    setOvertimeHours(Object.fromEntries(result.overtimeHours.map((entry) => [
+      getOvertimeKey(entry.employee_code, entry.overtime_date),
+      String(entry.hours)
+    ])))
+    setEditingOvertimeKey((current) => current === group.key ? '' : current)
+    setStatus('ready')
+    setMessage(`Overtime hours for ${group.employeeName} during ${periodLabel} were deleted.`)
+    setIsSaving(false)
+  }
+
   return (
     <section className="branch-other-deduction-page">
       <header className="branch-other-deduction-header">
@@ -368,7 +424,7 @@ export default function BranchOtherAdditionPay({ branchName = 'Bansasi Branch', 
       <div className="other-deduction-table-wrap" role="region" aria-label="Overtime hours history" tabIndex="0">
           <table className="other-deduction-table">
             <thead>
-              <tr><th>Employee</th><th>Payroll period</th><th>Daily overtime hours</th><th>Total hours</th><th>Action</th></tr>
+              <tr><th>Employee</th><th>Payroll period</th><th>Daily overtime hours</th><th>Total hours</th><th>Actions</th></tr>
             </thead>
             <tbody>
               {overtimeHistoryGroups.map((group) => (
@@ -384,14 +440,28 @@ export default function BranchOtherAdditionPay({ branchName = 'Bansasi Branch', 
                   </td>
                   <td>{group.totalHours.toFixed(2)} hours</td>
                   <td>
-                    <button
-                      type="button"
-                      className="overtime-history-edit-button"
-                      onClick={() => startEditingOvertime(group)}
-                      disabled={isSaving || status !== 'ready'}
-                    >
-                      Edit
-                    </button>
+                    <div className="overtime-history-row-actions">
+                      <button
+                        type="button"
+                        className="overtime-history-edit-button"
+                        onClick={() => startEditingOvertime(group)}
+                        disabled={isSaving || status !== 'ready'}
+                        aria-label={`Edit overtime hours for ${group.employeeName}`}
+                        title="Edit overtime hours"
+                      >
+                        <Pencil size={14} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className="overtime-history-delete-button"
+                        onClick={() => deleteOvertime(group)}
+                        disabled={isSaving || status !== 'ready'}
+                        aria-label={`Delete overtime hours for ${group.employeeName} during ${formatWeekdayDate(group.week.startDate)} to ${formatWeekdayDate(group.week.endDate)}`}
+                        title="Delete overtime hours"
+                      >
+                        <Trash2 size={14} aria-hidden="true" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -206,6 +206,114 @@ begin
 end;
 $$;
 
+create or replace function public.branch_admin_update_gcash_transaction(
+  p_session_token uuid,
+  p_transaction_id uuid,
+  p_date date,
+  p_gcash_time text,
+  p_reference_no text,
+  p_sales_invoice text,
+  p_amount numeric,
+  p_reference text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_branch_id uuid;
+begin
+  select branch_admin.branch_id into v_branch_id
+  from public.branch_admin_session as admin_session
+  join public.branch_admin as branch_admin
+    on branch_admin.id = admin_session.branch_admin_id
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now();
+
+  if not found then
+    raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
+  end if;
+  if p_transaction_id is null or p_date is null then
+    raise exception 'Select a GCash transaction and enter a transaction date';
+  end if;
+  if p_amount is null or p_amount < 0 or p_amount <> round(p_amount, 2) then
+    raise exception 'Enter an amount of zero or greater with up to two decimal places';
+  end if;
+
+  update public.gcash_transaction as transaction_entry
+  set "date" = p_date,
+      gcash_time = nullif(btrim(p_gcash_time), ''),
+      reference_no = nullif(btrim(p_reference_no), ''),
+      sales_invoice = nullif(btrim(p_sales_invoice), ''),
+      amount = p_amount,
+      reference = nullif(btrim(p_reference), '')
+  where transaction_entry.id = p_transaction_id
+    and transaction_entry.branch_id = v_branch_id;
+
+  if not found then
+    raise exception 'GCash transaction was not found in your branch';
+  end if;
+
+  return true;
+end;
+$$;
+
+create or replace function public.branch_admin_update_food_panda_transaction(
+  p_session_token uuid,
+  p_transaction_id uuid,
+  p_date date,
+  p_food_panda text,
+  p_reference_no text,
+  p_sales_invoice_order_slip_no text,
+  p_invoice text,
+  p_amount numeric,
+  p_reference text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_branch_id uuid;
+begin
+  select branch_admin.branch_id into v_branch_id
+  from public.branch_admin_session as admin_session
+  join public.branch_admin as branch_admin
+    on branch_admin.id = admin_session.branch_admin_id
+  where admin_session.session_token = p_session_token
+    and admin_session.expires_at > now();
+
+  if not found then
+    raise exception 'Branch Admin session is invalid or expired' using errcode = '28000';
+  end if;
+  if p_transaction_id is null or p_date is null then
+    raise exception 'Select a Food Panda transaction and enter a transaction date';
+  end if;
+  if p_amount is null or p_amount < 0 or p_amount <> round(p_amount, 2) then
+    raise exception 'Enter an amount of zero or greater with up to two decimal places';
+  end if;
+
+  update public.food_panda_transaction as transaction_entry
+  set "date" = p_date,
+      food_panda = nullif(btrim(p_food_panda), ''),
+      reference_no = nullif(btrim(p_reference_no), ''),
+      sales_invoice_order_slip_no = nullif(btrim(p_sales_invoice_order_slip_no), ''),
+      invoice = nullif(btrim(p_invoice), ''),
+      amount = p_amount,
+      reference = nullif(btrim(p_reference), '')
+  where transaction_entry.id = p_transaction_id
+    and transaction_entry.branch_id = v_branch_id;
+
+  if not found then
+    raise exception 'Food Panda transaction was not found in your branch';
+  end if;
+
+  return true;
+end;
+$$;
+
 create or replace function public.branch_admin_delete_gcash_transaction(
   p_session_token uuid,
   p_transaction_id uuid
@@ -292,6 +400,12 @@ revoke all on function public.branch_admin_create_food_panda_transaction(
 ) from public, anon, authenticated;
 revoke all on function public.branch_admin_list_food_panda_transactions(uuid, integer, integer)
   from public, anon, authenticated;
+revoke all on function public.branch_admin_update_gcash_transaction(
+  uuid, uuid, date, text, text, text, numeric, text
+) from public, anon, authenticated;
+revoke all on function public.branch_admin_update_food_panda_transaction(
+  uuid, uuid, date, text, text, text, text, numeric, text
+) from public, anon, authenticated;
 revoke all on function public.branch_admin_delete_gcash_transaction(uuid, uuid)
   from public, anon, authenticated;
 revoke all on function public.branch_admin_delete_food_panda_transaction(uuid, uuid)
@@ -306,6 +420,12 @@ grant execute on function public.branch_admin_create_food_panda_transaction(
 ) to anon, authenticated;
 grant execute on function public.branch_admin_list_food_panda_transactions(uuid, integer, integer)
   to anon, authenticated;
+grant execute on function public.branch_admin_update_gcash_transaction(
+  uuid, uuid, date, text, text, text, numeric, text
+) to anon, authenticated;
+grant execute on function public.branch_admin_update_food_panda_transaction(
+  uuid, uuid, date, text, text, text, text, numeric, text
+) to anon, authenticated;
 grant execute on function public.branch_admin_delete_gcash_transaction(uuid, uuid)
   to anon, authenticated;
 grant execute on function public.branch_admin_delete_food_panda_transaction(uuid, uuid)

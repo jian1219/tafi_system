@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Pencil } from 'lucide-react'
 import {
   createBranchDeposit,
   listBranchCashReceiptsJournalEntries,
@@ -399,8 +400,10 @@ export default function BranchDeposit({
                         className="crj-edit-button"
                         onClick={() => handleEdit(deposit)}
                         disabled={isSaving}
+                        aria-label={`Edit deposit for ${formatDate(deposit.date_deposit)}`}
+                        title="Edit deposit"
                       >
-                        Edit
+                        <Pencil size={14} aria-hidden="true" />
                       </button>
                     </td>
                   )}
